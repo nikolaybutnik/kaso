@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Post-Task Test Runner",
+  "description": "After each spec task completes, run the full test suite to verify the codebase is still green and nothing was broken by the changes.",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "npm test"
+  }
+}
