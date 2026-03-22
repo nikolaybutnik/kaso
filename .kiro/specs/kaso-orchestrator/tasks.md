@@ -52,20 +52,20 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 13: Backend config round-trip**
     - **Validates: Requirements 7.1, 7.3**
 
-- [ ] 2. Credential manager and log redactor
-  - [ ] 2.1 Implement credential manager in `src/infrastructure/credential-manager.ts`
+- [x] 2. Credential manager and log redactor
+  - [x] 2.1 Implement credential manager in `src/infrastructure/credential-manager.ts`
     - Load API keys from environment variables with `keytar` OS keychain fallback
     - Implement `getApiKey`, `listRequiredKeys`, `validateAllPresent`, `redact` methods
     - Throw descriptive error naming the missing key when not found
     - Never read from git-tracked files
     - _Requirements: 20.1, 20.4_
 
-  - [ ] 2.2 Implement log redactor in `src/infrastructure/log-redactor.ts`
+  - [x] 2.2 Implement log redactor in `src/infrastructure/log-redactor.ts`
     - Redact all known secret values from arbitrary text
     - Accept a set of secret strings and replace all occurrences with `[REDACTED]`
     - _Requirements: 20.2_
 
-  - [ ]* 2.3 Write property tests for credential security
+  - [x]* 2.3 Write property tests for credential security
     - **Property 36: Secret redaction in logs**
     - **Property 37: Credentials loaded only from secure sources**
     - **Validates: Requirements 20.1, 20.2**
