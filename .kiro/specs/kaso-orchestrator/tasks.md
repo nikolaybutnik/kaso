@@ -6,16 +6,17 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
 
 ## Tasks
 
-- [ ] 0. Verify prerequisites
-  - [ ] 0.1 Create prerequisite check script
+- [x] 0. Verify prerequisites
+  - [x] 0.1 Create prerequisite check script
     - Verify Node.js 18+ installed (`node --version`)
     - Verify Git 2.40+ installed (`git --version`)
     - Verify Kimi Code CLI installed and authenticated
     - Create `scripts/check-prerequisites.ts` that runs all checks and reports pass/fail with actionable error messages
     - Exit with non-zero code if any prerequisite is missing
 
-- [ ] 1. Project scaffolding and core types
-  - [ ] 1.1 Initialize project structure and tooling
+<!-- NOTE: the conditions were satified and the script has been deleted. -->
+- [x] 1. Project scaffolding and core types
+  - [x] 1.1 Initialize project structure and tooling
     - Create `package.json` with TypeScript, Vitest, `@fast-check/vitest`, `simple-git`, `better-sqlite3`, `keytar` dependencies
     - Add dev dependencies: `playwright` (for Task 22 — UI validation)
     - Add dependencies: `chokidar` (for Task 23 — file watching), `zod` (for Task 1.3 — config schema validation), `commander` (for Task 26 — CLI)
@@ -25,7 +26,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Create `.gitignore` entries for `.env`, credential stores, `node_modules`, `dist`
     - _Requirements: 20.3_
 
-  - [ ] 1.2 Define core type definitions in `src/core/types.ts`
+  - [x] 1.2 Define core type definitions in `src/core/types.ts`
     - Implement `PhaseName`, `RunStatus`, `EventType` union types
     - Implement `ExecutionEvent`, `PhaseTransition`, `PhaseResult`, `PhaseResultRecord` interfaces
     - Implement `ExecutionRunStatus`, `ExecutionRunRecord` interfaces
@@ -35,19 +36,19 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Implement `BackendProtocol`, `BackendRequest`, `BackendResponse`, `BackendProgressEvent` types
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 6.1, 11.4_
 
-  - [ ] 1.3 Define configuration types and schema in `src/config/schema.ts`
+  - [x] 1.3 Define configuration types and schema in `src/config/schema.ts`
     - Implement `KASOConfig`, `ExecutorBackendConfig`, `PluginConfig`, `CustomPhaseConfig` interfaces
     - Implement `ContextCappingStrategy`, `ReviewCouncilConfig`, `UIBaselineConfig` interfaces
     - Implement `WebhookConfig`, `MCPServerConfig`, `MCPToolDefinition` interfaces
     - Implement JSON schema validation function for config files using `zod`
     - _Requirements: 7.1, 7.3, 24.1, 25.1, 29.1_
 
-  - [ ] 1.4 Implement config loader in `src/config/loader.ts`
+  - [x] 1.4 Implement config loader in `src/config/loader.ts`
     - Load and validate KASO config from JSON file with sensible defaults
     - Merge defaults for `maxPhaseRetries` (2), `defaultPhaseTimeout` (300), `maxConcurrentAgents` ('auto')
     - _Requirements: 7.1, 7.2_
 
-  - [ ]* 1.5 Write property test for backend config round-trip
+  - [x]* 1.5 Write property test for backend config round-trip
     - **Property 13: Backend config round-trip**
     - **Validates: Requirements 7.1, 7.3**
 

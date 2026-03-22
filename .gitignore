@@ -1,0 +1,64 @@
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# TypeScript declaration files (if not publishing)
+# *.d.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output
+
+# Temporary files
+tmp/
+temp/
+
+# OS keychain credential stores (specific to keytar implementation)
+# These are typically stored in secure system locations, not in the project
+
+# Playwright test results
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Local configuration overrides
+kaso.config.local.json
