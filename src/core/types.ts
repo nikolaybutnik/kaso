@@ -3,8 +3,8 @@
  * Contains all type definitions for phases, agents, execution state, and configuration
  */
 
-import type { KASOConfig } from '../config/schema.js';
-import type { ExecutorBackendConfig } from '../config/schema.js';
+import type { KASOConfig } from '../config/schema.js'
+import type { ExecutorBackendConfig } from '../config/schema.js'
 
 // ============================================================================
 // Phase and System Enums/Types
@@ -13,7 +13,7 @@ import type { ExecutorBackendConfig } from '../config/schema.js';
 /**
  * Phases in the 8-phase execution pipeline
  */
-export type PhaseName = 
+export type PhaseName =
   | 'intake'
   | 'validation'
   | 'architecture-analysis'
@@ -22,17 +22,23 @@ export type PhaseName =
   | 'test-verification'
   | 'ui-validation'
   | 'review-delivery'
-  | `custom-${string}`;
+  | `custom-${string}`
 
 /**
  * Possible states of an execution run
  */
-export type RunStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+export type RunStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
 
 /**
  * Event types for the event bus system
  */
-export type EventType = 
+export type EventType =
   | 'phase:started'
   | 'phase:completed'
   | 'phase:failed'
@@ -47,12 +53,12 @@ export type EventType =
   | 'agent:progress'
   | 'agent:error'
   | 'worktree:created'
-  | 'worktree:deleted';
+  | 'worktree:deleted'
 
 /**
  * Backend protocols supported by executor backends
  */
-export type BackendProtocol = 'cli-stdout' | 'cli-json' | 'acp' | 'mcp';
+export type BackendProtocol = 'cli-stdout' | 'cli-json' | 'acp' | 'mcp'
 
 // ============================================================================
 // Execution State and History
@@ -62,67 +68,67 @@ export type BackendProtocol = 'cli-stdout' | 'cli-json' | 'acp' | 'mcp';
  * Execution event for the event system
  */
 export interface ExecutionEvent {
-  type: EventType;
-  runId: string;
-  timestamp: string;
-  phase?: PhaseName;
-  agent?: string;
-  data?: Record<string, unknown>;
+  type: EventType
+  runId: string
+  timestamp: string
+  phase?: PhaseName
+  agent?: string
+  data?: Record<string, unknown>
 }
 
 /**
  * Phase transition record
  */
 export interface PhaseTransition {
-  from?: PhaseName;
-  to: PhaseName;
-  timestamp: string;
-  trigger: 'success' | 'failure' | 'retry' | 'manual';
+  from?: PhaseName
+  to: PhaseName
+  timestamp: string
+  trigger: 'success' | 'failure' | 'retry' | 'manual'
 }
 
 /**
  * Result of a single phase execution
  */
 export interface PhaseResult {
-  phase: PhaseName;
-  status: 'success' | 'failure' | 'cancelled' | 'timeout';
-  output?: PhaseOutput;
-  error?: AgentError;
-  startedAt: string;
-  completedAt?: string;
-  duration?: number;
+  phase: PhaseName
+  status: 'success' | 'failure' | 'cancelled' | 'timeout'
+  output?: PhaseOutput
+  error?: AgentError
+  startedAt: string
+  completedAt?: string
+  duration?: number
 }
 
 /**
  * Persisted phase result record
  */
 export interface PhaseResultRecord extends PhaseResult {
-  runId: string;
-  sequence: number;
+  runId: string
+  sequence: number
 }
 
 /**
  * Status of an execution run
  */
 export interface ExecutionRunStatus {
-  runId: string;
-  specPath: string;
-  status: RunStatus;
-  currentPhase?: PhaseName;
-  phases: PhaseName[];
-  startedAt: string;
-  pausedAt?: string;
-  completedAt?: string;
-  worktreePath?: string;
-  cost: number;
+  runId: string
+  specPath: string
+  status: RunStatus
+  currentPhase?: PhaseName
+  phases: PhaseName[]
+  startedAt: string
+  pausedAt?: string
+  completedAt?: string
+  worktreePath?: string
+  cost: number
 }
 
 /**
  * Persisted execution run record
  */
 export interface ExecutionRunRecord extends ExecutionRunStatus {
-  phaseResults: PhaseResultRecord[];
-  logs: LogEntry[];
+  phaseResults: PhaseResultRecord[]
+  logs: LogEntry[]
 }
 
 // ============================================================================
@@ -133,78 +139,78 @@ export interface ExecutionRunRecord extends ExecutionRunStatus {
  * Parsed markdown content
  */
 export interface MarkdownSection {
-  level: number;
-  title: string;
-  content: string;
-  codeBlocks: CodeBlock[];
-  children: MarkdownSection[];
+  level: number
+  title: string
+  content: string
+  codeBlocks: CodeBlock[]
+  children: MarkdownSection[]
 }
 
 /**
  * Code block in markdown
  */
 export interface CodeBlock {
-  language?: string;
-  content: string;
-  lineStart: number;
+  language?: string
+  content: string
+  lineStart: number
 }
 
 /**
  * Task item from task.md
  */
 export interface TaskItem {
-  id: string;
-  title: string;
-  status: 'complete' | 'incomplete';
-  children: TaskItem[];
-  line: number;
+  id: string
+  title: string
+  status: 'complete' | 'incomplete'
+  children: TaskItem[]
+  line: number
 }
 
 /**
  * Parsed markdown document
  */
 export interface ParsedMarkdown {
-  rawContent: string;
-  sections: MarkdownSection[];
-  codeBlocks: CodeBlock[];
-  metadata: Record<string, string>;
+  rawContent: string
+  sections: MarkdownSection[]
+  codeBlocks: CodeBlock[]
+  metadata: Record<string, string>
 }
 
 /**
  * Parsed spec from Kiro files
  */
 export interface ParsedSpec {
-  design?: ParsedMarkdown;
-  techSpec?: ParsedMarkdown;
-  taskList?: TaskItem[];
-  missingFiles: string[];
-  featureName: string;
-  specPath: string;
+  design?: ParsedMarkdown
+  techSpec?: ParsedMarkdown
+  taskList?: TaskItem[]
+  missingFiles: string[]
+  featureName: string
+  specPath: string
 }
 
 /**
  * Steering files loaded from .kiro/rules/ and .kiro/hooks/
  */
 export interface SteeringFiles {
-  codingPractices?: string;
-  personality?: string;
-  commitConventions?: string;
-  hooks: Record<string, string>;
+  codingPractices?: string
+  personality?: string
+  commitConventions?: string
+  hooks: Record<string, string>
 }
 
 /**
  * Main agent context passed to all agents
  */
 export interface AgentContext {
-  runId: string;
-  spec: ParsedSpec;
-  steering: SteeringFiles;
-  architecture?: ArchitectureContext;
-  phaseOutputs: Partial<Record<PhaseName, PhaseOutput>>;
-  config: KASOConfig;
-  worktreePath?: string;
-  backends: Record<string, ExecutorBackendConfig>;
-  removedFiles?: string[]; // Files removed during context capping
+  runId: string
+  spec: ParsedSpec
+  steering: SteeringFiles
+  architecture?: ArchitectureContext
+  phaseOutputs: Partial<Record<PhaseName, PhaseOutput>>
+  config: KASOConfig
+  worktreePath?: string
+  backends: Record<string, ExecutorBackendConfig>
+  removedFiles?: string[] // Files removed during context capping
 }
 
 // ============================================================================
@@ -215,40 +221,40 @@ export interface AgentContext {
  * Error from agent execution
  */
 export interface AgentError {
-  message: string;
-  code?: string;
-  stack?: string;
-  retryable: boolean;
-  data?: Record<string, unknown>;
+  message: string
+  code?: string
+  stack?: string
+  retryable: boolean
+  data?: Record<string, unknown>
 }
 
 /**
  * Log entry from execution
  */
 export interface LogEntry {
-  timestamp: string;
-  level: 'debug' | 'info' | 'warn' | 'error';
-  source: string;
-  message: string;
-  data?: Record<string, unknown>;
+  timestamp: string
+  level: 'debug' | 'info' | 'warn' | 'error'
+  source: string
+  message: string
+  data?: Record<string, unknown>
 }
 
 /**
  * Generic phase output
  */
 export interface PhaseOutput {
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 /**
  * Result from agent execution
  */
 export interface AgentResult {
-  success: boolean;
-  output?: PhaseOutput;
-  error?: AgentError;
-  duration?: number;
-  tokensUsed?: number;
+  success: boolean
+  output?: PhaseOutput
+  error?: AgentError
+  duration?: number
+  tokensUsed?: number
 }
 
 // ============================================================================
@@ -259,28 +265,28 @@ export interface AgentResult {
  * Output from Intake phase (Phase 1)
  */
 export interface AssembledContext extends PhaseOutput {
-  featureName: string;
-  designDoc?: ParsedMarkdown;
-  techSpec?: ParsedMarkdown;
-  taskList?: TaskItem[];
-  architectureDocs: Record<string, ParsedMarkdown>;
-  dependencies: Record<string, string>;
-  removedFiles: string[];
+  featureName: string
+  designDoc?: ParsedMarkdown
+  techSpec?: ParsedMarkdown
+  taskList?: TaskItem[]
+  architectureDocs: Record<string, ParsedMarkdown>
+  dependencies: Record<string, string>
+  removedFiles: string[]
 }
 
 /**
  * Output from Validation phase (Phase 2)
  */
 export interface ValidationReport extends PhaseOutput {
-  approved: boolean;
+  approved: boolean
   issues: {
-    type: 'api-contract' | 'db-schema' | 'error-handling' | 'contradiction';
-    severity: 'error' | 'warning';
-    description: string;
-    suggestion?: string;
-    location?: string;
-  }[];
-  suggestedFixes: string[];
+    type: 'api-contract' | 'db-schema' | 'error-handling' | 'contradiction'
+    severity: 'error' | 'warning'
+    description: string
+    suggestion?: string
+    location?: string
+  }[]
+  suggestedFixes: string[]
 }
 
 /**
@@ -288,102 +294,102 @@ export interface ValidationReport extends PhaseOutput {
  */
 export interface ArchitectureContext extends PhaseOutput {
   patterns: Array<{
-    name: string;
-    description: string;
-    applicableFiles: string[];
-    constraints: string[];
-  }>;
+    name: string
+    description: string
+    applicableFiles: string[]
+    constraints: string[]
+  }>
   moduleBoundaries: Array<{
-    module: string;
-    boundaries: string[];
-    violations: string[];
-  }>;
-  adrs: Record<string, ParsedMarkdown>;
-  adrsFound: number;
+    module: string
+    boundaries: string[]
+    violations: string[]
+  }>
+  adrs: Record<string, ParsedMarkdown>
+  adrsFound: number
 }
 
 /**
  * Output from Implementation phase (Phase 4)
  */
 export interface ImplementationResult extends PhaseOutput {
-  modifiedFiles: string[];
-  addedTests: string[];
-  duration: number;
-  backend: string;
-  selfCorrectionAttempts: number;
+  modifiedFiles: string[]
+  addedTests: string[]
+  duration: number
+  backend: string
+  selfCorrectionAttempts: number
 }
 
 /**
  * Output from Architecture Review phase (Phase 5)
  */
 export interface ArchitectureReview extends PhaseOutput {
-  approved: boolean;
+  approved: boolean
   violations: Array<{
-    file: string;
-    pattern: string;
-    issue: string;
-    suggestion: string;
-  }>;
-  modifiedFiles: string[];
+    file: string
+    pattern: string
+    issue: string
+    suggestion: string
+  }>
+  modifiedFiles: string[]
 }
 
 /**
  * Output from Test & Verification phase (Phase 6)
  */
 export interface TestReport extends PhaseOutput {
-  passed: boolean;
-  coverage: number;
+  passed: boolean
+  coverage: number
   testFailures: Array<{
-    test: string;
-    error: string;
-    stack?: string;
-  }>;
-  testsRun: number;
-  duration: number;
+    test: string
+    error: string
+    stack?: string
+  }>
+  testsRun: number
+  duration: number
 }
 
 /**
  * Output from UI/UX Validation phase (Phase 7)
  */
 export interface UIReview extends PhaseOutput {
-  approved: boolean;
+  approved: boolean
   screenshots: Array<{
-    route: string;
-    path: string;
-    baseline?: string;
-    diff?: string;
-  }>;
+    route: string
+    path: string
+    baseline?: string
+    diff?: string
+  }>
   uiIssues: Array<{
-    type: 'visual' | 'responsive' | 'accessibility' | 'consistency';
-    description: string;
-    component?: string;
-  }>;
-  skipped?: boolean;
+    type: 'visual' | 'responsive' | 'accessibility' | 'consistency'
+    description: string
+    component?: string
+  }>
+  skipped?: boolean
 }
 
 /**
  * Output from Review Council (Phase 8)
  */
 export interface ReviewCouncilResult extends PhaseOutput {
-  consensus: 'passed' | 'passed-with-warnings' | 'rejected';
+  consensus: 'passed' | 'passed-with-warnings' | 'rejected'
   votes: Array<{
-    perspective: 'security' | 'performance' | 'maintainability';
-    approved: boolean;
-    feedback: string;
-    severity: 'high' | 'medium' | 'low';
-  }>;
-  rounds: number;
-  cost: number;
+    perspective: 'security' | 'performance' | 'maintainability'
+    approved: boolean
+    feedback: string
+    severity: 'high' | 'medium' | 'low'
+  }>
+  rounds: number
+  cost: number
 }
 
 /**
  * Output from Delivery phase (Phase 8)
  */
 export interface DeliveryResult extends PhaseOutput {
-  branch: string;
-  commits: string[];
-  prUrl?: string;
-  summary: string;
+  branch: string
+  commits: string[]
+  prUrl?: string
+  summary: string
 }
 
 // ============================================================================
@@ -394,30 +400,30 @@ export interface DeliveryResult extends PhaseOutput {
  * Base request to executor backend
  */
 export interface BackendRequest {
-  id: string;
-  context: AgentContext;
-  phase: PhaseName;
-  streamProgress: boolean;
+  id: string
+  context: AgentContext
+  phase: PhaseName
+  streamProgress: boolean
 }
 
 /**
  * Response from executor backend
  */
 export interface BackendResponse {
-  id: string;
-  success: boolean;
-  output?: PhaseOutput;
-  error?: string;
-  tokensUsed?: number;
-  duration?: number;
+  id: string
+  success: boolean
+  output?: PhaseOutput
+  error?: string
+  tokensUsed?: number
+  duration?: number
 }
 
 /**
  * Progress event from backend
  */
 export interface BackendProgressEvent {
-  type: string;
-  timestamp: string;
-  message: string;
-  data?: Record<string, unknown>;
+  type: string
+  timestamp: string
+  message: string
+  data?: Record<string, unknown>
 }

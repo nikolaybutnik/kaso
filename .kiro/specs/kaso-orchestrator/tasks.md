@@ -70,20 +70,20 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 37: Credentials loaded only from secure sources**
     - **Validates: Requirements 20.1, 20.2**
 
-- [ ] 3. Execution store and checkpoint manager
-  - [ ] 3.1 Implement execution store in `src/infrastructure/execution-store.ts`
+- [x] 3. Execution store and checkpoint manager
+  - [x] 3.1 Implement execution store in `src/infrastructure/execution-store.ts`
     - Use `better-sqlite3` for SQLite storage (with JSONL fallback based on config)
     - Implement `saveRun`, `getRun`, `listRuns`, `appendPhaseResult`, `getInterruptedRuns`, `updateRunStatus`, `checkpoint` methods
     - Create schema with runs table and phase_results table
     - _Requirements: 17.5, 27.1_
 
-  - [ ] 3.2 Implement checkpoint manager in `src/infrastructure/checkpoint-manager.ts`
+  - [x] 3.2 Implement checkpoint manager in `src/infrastructure/checkpoint-manager.ts`
     - Write-ahead persistence: save checkpoint before phase transitions
     - Implement `saveCheckpoint`, `getLatestCheckpoint`, `clearCheckpoints` methods
     - Store checkpoints as JSON in SQLite with runId index
     - _Requirements: 27.1, 27.3_
 
-  - [ ]* 3.3 Write property tests for execution store and checkpoints
+  - [x]* 3.3 Write property tests for execution store and checkpoints
     - **Property 39: Execution history round-trip**
     - **Property 51: Execution state survives process restart**
     - **Validates: Requirements 17.5, 27.1, 27.2, 27.3**

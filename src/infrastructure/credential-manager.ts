@@ -4,15 +4,15 @@
  * Never reads from git-tracked files
  */
 
-import keytar from 'keytar';
-import { redactSecrets } from './log-redactor.js';
+import keytar from 'keytar'
+import { redactSecrets } from './log-redactor.js'
 
 /**
  * Credential manager options
  */
 export interface CredentialManagerOptions {
-  serviceName?: string;
-  requiredKeys?: string[];
+  serviceName?: string
+  requiredKeys?: string[]
 }
 
 /**
@@ -20,18 +20,18 @@ export interface CredentialManagerOptions {
  * Manages API keys and secrets with secure loading and redaction
  */
 export class CredentialManager {
-  private readonly serviceName: string;
-  private readonly requiredKeys: string[];
-  private readonly loadedSecrets: Map<string, string> = new Map();
-  private readonly secretsSet: Set<string> = new Set();
+  private readonly serviceName: string
+  private readonly requiredKeys: string[]
+  private readonly loadedSecrets: Map<string, string> = new Map()
+  private readonly secretsSet: Set<string> = new Set()
 
   /**
    * Create a new credential manager
    * @param options - Configuration options
    */
   constructor(options: CredentialManagerOptions = {}) {
-    this.serviceName = options.serviceName || 'kaso';
-    this.requiredKeys = options.requiredKeys || [];
+    this.serviceName = options.serviceName || 'kaso'
+    this.requiredKeys = options.requiredKeys || []
   }
 
   /**
@@ -44,36 +44,36 @@ export class CredentialManager {
   async getApiKey(keyName: string): Promise<string> {
     // Check cache first
     if (this.loadedSecrets.has(keyName)) {
-      return this.loadedSecrets.get(keyName)!;
+      return this.loadedSecrets.get(keyName)!
     }
 
     // Try environment variable first
-    const envValue = process.env[keyName];
+    const envValue = process.env[keyName]
     if (envValue) {
-      this.loadedSecrets.set(keyName, envValue);
-      this.secretsSet.add(envValue);
-      return envValue;
+      this.loadedSecrets.set(keyName, envValue)
+      this.secretsSet.add(envValue)
+      return envValue
     }
 
     // Fall back to OS keychain
     try {
-      const keychainValue = await keytar.getPassword(this.serviceName, keyName);
+      const keychainValue = await keytar.getPassword(this.serviceName, keyName)
       if (keychainValue) {
-        this.loadedSecrets.set(keyName, keychainValue);
-        this.secretsSet.add(keychainValue);
-        return keychainValue;
+        this.loadedSecrets.set(keyName, keychainValue)
+        this.secretsSet.add(keychainValue)
+        return keychainValue
       }
     } catch (error) {
       // Keychain access failed, continue to throw error below
       throw new Error(
-        `Failed to access OS keychain for key "${keyName}": ${error instanceof Error ? error.message : String(error)}`
-      );
+        `Failed to access OS keychain for key "${keyName}": ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
 
     // Key not found anywhere
     throw new Error(
-      `API key "${keyName}" not found. Please set the ${keyName} environment variable or add it to your OS keychain using: keytar setPassword "${this.serviceName}" "${keyName}" <your-key>`
-    );
+      `API key "${keyName}" not found. Please set the ${keyName} environment variable or add it to your OS keychain using: keytar setPassword "${this.serviceName}" "${keyName}" <your-key>`,
+    )
   }
 
   /**
@@ -82,14 +82,14 @@ export class CredentialManager {
    * @returns Map of key names to values
    */
   async getApiKeys(keyNames: string[]): Promise<Map<string, string>> {
-    const results = new Map<string, string>();
-    
+    const results = new Map<string, string>()
+
     for (const keyName of keyNames) {
-      const value = await this.getApiKey(keyName);
-      results.set(keyName, value);
+      const value = await this.getApiKey(keyName)
+      results.set(keyName, value)
     }
-    
-    return results;
+
+    return results
   }
 
   /**
@@ -97,7 +97,7 @@ export class CredentialManager {
    * @returns Array of required key names
    */
   listRequiredKeys(): string[] {
-    return [...this.requiredKeys];
+    return [...this.requiredKeys]
   }
 
   /**
@@ -105,8 +105,8 @@ export class CredentialManager {
    * @param keys - Array of required key names
    */
   setRequiredKeys(keys: string[]): void {
-    this.requiredKeys.length = 0;
-    this.requiredKeys.push(...keys);
+    this.requiredKeys.length = 0
+    this.requiredKeys.push(...keys)
   }
 
   /**
@@ -115,24 +115,24 @@ export class CredentialManager {
    * @throws Error listing all missing keys if any are missing
    */
   async validateAllPresent(): Promise<boolean> {
-    const missingKeys: string[] = [];
-    
+    const missingKeys: string[] = []
+
     for (const keyName of this.requiredKeys) {
       try {
-        await this.getApiKey(keyName);
+        await this.getApiKey(keyName)
       } catch (error) {
-        missingKeys.push(keyName);
+        missingKeys.push(keyName)
       }
     }
-    
+
     if (missingKeys.length > 0) {
       throw new Error(
         `Missing required API keys: ${missingKeys.join(', ')}. ` +
-        `Please set these as environment variables or in your OS keychain.`
-      );
+          `Please set these as environment variables or in your OS keychain.`,
+      )
     }
-    
-    return true;
+
+    return true
   }
 
   /**
@@ -142,10 +142,10 @@ export class CredentialManager {
    */
   redact(text: string): string {
     if (!text || this.secretsSet.size === 0) {
-      return text;
+      return text
     }
 
-    return redactSecrets(text, this.secretsSet);
+    return redactSecrets(text, this.secretsSet)
   }
 
   /**
@@ -153,7 +153,7 @@ export class CredentialManager {
    * @returns Set of all secret values
    */
   getAllSecrets(): Set<string> {
-    return new Set(this.secretsSet);
+    return new Set(this.secretsSet)
   }
 
   /**
@@ -161,8 +161,8 @@ export class CredentialManager {
    * Useful for testing or when rotating credentials
    */
   clearCache(): void {
-    this.loadedSecrets.clear();
-    this.secretsSet.clear();
+    this.loadedSecrets.clear()
+    this.secretsSet.clear()
   }
 
   /**
@@ -171,7 +171,7 @@ export class CredentialManager {
    * @returns True if the key is loaded
    */
   hasKey(keyName: string): boolean {
-    return this.loadedSecrets.has(keyName);
+    return this.loadedSecrets.has(keyName)
   }
 
   /**
@@ -179,12 +179,12 @@ export class CredentialManager {
    * @param keyName - Name of the key to delete
    */
   deleteKey(keyName: string): void {
-    const value = this.loadedSecrets.get(keyName);
+    const value = this.loadedSecrets.get(keyName)
     if (value) {
-      this.loadedSecrets.delete(keyName);
-      this.secretsSet.delete(value);
+      this.loadedSecrets.delete(keyName)
+      this.secretsSet.delete(value)
     }
   }
 }
 
-export default CredentialManager;
+export default CredentialManager

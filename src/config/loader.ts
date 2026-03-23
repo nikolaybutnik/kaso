@@ -3,17 +3,17 @@
  * Loads and validates config from JSON file with sensible defaults
  */
 
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
-import { validateConfig, getDefaultConfig, isValidConfig } from './schema.js';
-import type { KASOConfig } from './schema.js';
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+import { validateConfig, getDefaultConfig, isValidConfig } from './schema.js'
+import type { KASOConfig } from './schema.js'
 
 /**
  * Configuration loader options
  */
 export interface ConfigLoaderOptions {
-  configPath?: string;
-  useDefaults?: boolean;
+  configPath?: string
+  useDefaults?: boolean
 }
 
 /**
@@ -24,23 +24,21 @@ export interface ConfigLoaderOptions {
 export function loadConfig(options: ConfigLoaderOptions = {}): KASOConfig {
   const {
     configPath = resolve(process.cwd(), 'kaso.config.json'),
-    useDefaults = true
-  } = options;
+    useDefaults = true,
+  } = options
 
   try {
     // Read and parse the config file
-    const configContent = readFileSync(configPath, 'utf-8');
-    const configData = JSON.parse(configContent);
-    
+    const configContent = readFileSync(configPath, 'utf-8')
+    const configData = JSON.parse(configContent)
+
     // If using defaults, merge with default config
-    const config = useDefaults 
-      ? mergeWithDefaults(configData)
-      : configData;
-    
+    const config = useDefaults ? mergeWithDefaults(configData) : configData
+
     // Validate the config
-    return validateConfig(config);
+    return validateConfig(config)
   } catch (error) {
-    handleConfigLoadError(error, configPath, useDefaults);
+    handleConfigLoadError(error, configPath, useDefaults)
   }
 }
 
@@ -51,10 +49,12 @@ export function loadConfig(options: ConfigLoaderOptions = {}): KASOConfig {
  */
 export function loadConfigSafe(options: ConfigLoaderOptions = {}): KASOConfig {
   try {
-    return loadConfig(options);
+    return loadConfig(options)
   } catch (error) {
-    console.warn(`Failed to load config, using defaults: ${(error as Error).message}`);
-    return getDefaultConfig();
+    console.warn(
+      `Failed to load config, using defaults: ${(error as Error).message}`,
+    )
+    return getDefaultConfig()
   }
 }
 
@@ -64,14 +64,14 @@ export function loadConfigSafe(options: ConfigLoaderOptions = {}): KASOConfig {
  * @returns Merged config with defaults
  */
 function mergeWithDefaults(configData: unknown): unknown {
-  const defaults = getDefaultConfig();
-  
+  const defaults = getDefaultConfig()
+
   if (typeof configData !== 'object' || configData === null) {
-    return defaults;
+    return defaults
   }
-  
+
   // Deep merge implementation
-  return deepMerge({}, defaults, configData as Record<string, unknown>);
+  return deepMerge({}, defaults, configData as Record<string, unknown>)
 }
 
 /**
@@ -80,31 +80,38 @@ function mergeWithDefaults(configData: unknown): unknown {
  * @param sources - Source objects to merge
  * @returns Merged object
  */
-function deepMerge(target: Record<string, unknown>, ...sources: (Record<string, unknown> | undefined)[]): Record<string, unknown> {
+function deepMerge(
+  target: Record<string, unknown>,
+  ...sources: (Record<string, unknown> | undefined)[]
+): Record<string, unknown> {
   for (const source of sources) {
-    if (source === null || source === undefined) continue;
-    
+    if (source === null || source === undefined) continue
+
     for (const [key, value] of Object.entries(source)) {
-      if (value === null || value === undefined) continue;
-      
+      if (value === null || value === undefined) continue
+
       if (Array.isArray(value)) {
         // For arrays, replace rather than concatenate
         // This ensures user config overrides defaults, not appends to them
-        target[key] = [...value];
+        target[key] = [...value]
       } else if (typeof value === 'object' && !Array.isArray(value)) {
-        const targetObj = target[key];
+        const targetObj = target[key]
         if (typeof targetObj === 'object' && targetObj !== null) {
-          target[key] = deepMerge({}, targetObj as Record<string, unknown>, value as Record<string, unknown>);
+          target[key] = deepMerge(
+            {},
+            targetObj as Record<string, unknown>,
+            value as Record<string, unknown>,
+          )
         } else {
-          target[key] = deepMerge({}, value as Record<string, unknown>);
+          target[key] = deepMerge({}, value as Record<string, unknown>)
         }
       } else {
-        target[key] = value;
+        target[key] = value
       }
     }
   }
-  
-  return target;
+
+  return target
 }
 
 /**
@@ -113,7 +120,7 @@ function deepMerge(target: Record<string, unknown>, ...sources: (Record<string, 
  * @returns Validated config
  */
 export function loadConfigFromFile(configPath: string): KASOConfig {
-  return loadConfig({ configPath });
+  return loadConfig({ configPath })
 }
 
 /**
@@ -121,13 +128,15 @@ export function loadConfigFromFile(configPath: string): KASOConfig {
  * @param configPath - Path to config file
  * @returns True if valid, false otherwise
  */
-export function checkConfigFile(configPath: string = resolve(process.cwd(), 'kaso.config.json')): boolean {
+export function checkConfigFile(
+  configPath: string = resolve(process.cwd(), 'kaso.config.json'),
+): boolean {
   try {
-    const configContent = readFileSync(configPath, 'utf-8');
-    const configData = JSON.parse(configContent);
-    return isValidConfig(configData);
+    const configContent = readFileSync(configPath, 'utf-8')
+    const configData = JSON.parse(configContent)
+    return isValidConfig(configData)
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -136,7 +145,7 @@ export function checkConfigFile(configPath: string = resolve(process.cwd(), 'kas
  * @returns Resolved path to config file
  */
 export function getConfigPath(): string {
-  return resolve(process.cwd(), 'kaso.config.json');
+  return resolve(process.cwd(), 'kaso.config.json')
 }
 
 /**
@@ -148,32 +157,32 @@ export function getConfigPath(): string {
 function handleConfigLoadError(
   error: unknown,
   configPath: string,
-  useDefaults: boolean
+  useDefaults: boolean,
 ): never {
   if (error instanceof SyntaxError) {
     throw new Error(
-      `Invalid JSON in config file ${configPath}: ${error.message}`
-    );
+      `Invalid JSON in config file ${configPath}: ${error.message}`,
+    )
   }
-  
+
   if (error instanceof Error && error.message.includes('ENOENT')) {
     if (useDefaults) {
       // File doesn't exist but we're using defaults, return defaults
-      console.warn(`Config file not found at ${configPath}, using defaults`);
-      throw error;
+      console.warn(`Config file not found at ${configPath}, using defaults`)
+      throw error
     }
     throw new Error(
-      `Config file not found at ${configPath}. Create a kaso.config.json file or enable useDefaults.`
-    );
+      `Config file not found at ${configPath}. Create a kaso.config.json file or enable useDefaults.`,
+    )
   }
-  
+
   if (error instanceof Error && error.message.includes('validation')) {
     throw new Error(
-      `Config validation failed for ${configPath}: ${error.message}`
-    );
+      `Config validation failed for ${configPath}: ${error.message}`,
+    )
   }
-  
+
   throw new Error(
-    `Failed to load config from ${configPath}: ${error instanceof Error ? error.message : String(error)}`
-  );
+    `Failed to load config from ${configPath}: ${error instanceof Error ? error.message : String(error)}`,
+  )
 }
