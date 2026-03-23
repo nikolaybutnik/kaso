@@ -54,6 +54,10 @@ export type EventType =
   | 'agent:error'
   | 'worktree:created'
   | 'worktree:deleted'
+  | 'concurrency:acquired'
+  | 'concurrency:released'
+  | 'concurrency:queued'
+  | 'concurrency:dequeued'
 
 /**
  * Backend protocols supported by executor backends

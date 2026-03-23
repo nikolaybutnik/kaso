@@ -101,23 +101,23 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 42: Worktree branch name derived from spec feature name**
     - **Validates: Requirements 11.6, 19.1, 19.2, 19.4**
 
-- [ ] 5. Checkpoint — Foundation complete
+- [x] 5. Checkpoint — Foundation complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Event bus and concurrency manager
-  - [ ] 6.1 Implement event bus in `src/core/event-bus.ts`
+- [x] 6. Event bus and concurrency manager
+  - [x] 6.1 Implement event bus in `src/core/event-bus.ts`
     - Typed pub/sub with `emit`, `on`, `onAny` methods
     - Return unsubscribe functions from listeners
     - Support all `EventType` variants from core types
     - _Requirements: 6.5, 17.1_
 
-  - [ ] 6.2 Implement concurrency manager in `src/core/concurrency-manager.ts`
+  - [x] 6.2 Implement concurrency manager in `src/core/concurrency-manager.ts`
     - Slot-based concurrency limiting with `acquire`/`release`
     - Default max slots to CPU cores minus one
     - Queue requests when all slots occupied
     - _Requirements: 21.1, 21.2, 21.3_
 
-  - [ ]* 6.3 Write property test for concurrency limits
+  - [x]* 6.3 Write property test for concurrency limits
     - **Property 38: Concurrency limit enforced**
     - **Validates: Requirements 21.1, 21.3**
 
