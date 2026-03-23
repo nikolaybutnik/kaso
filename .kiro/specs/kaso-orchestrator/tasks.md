@@ -202,14 +202,14 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - 10 unit tests validating parsing, capping, and error handling
     - **Validates: Requirements 1.1, 1.2, 1.3, 1.4, 4.1, 4.2, 8.1, 8.4, 8.5**
 
-- [ ] 11. Spec validator agent (Phase 2 — Validation)
-  - [ ] 11.1 Implement spec validator in `src/agents/spec-validator.ts`
+- [x] 11. Spec validator agent (Phase 2 — Validation)
+  - [x] 11.1 Implement spec validator in `src/agents/spec-validator.ts`
     - Check for undefined API contracts, missing DB schemas, missing error handling
     - Check for contradictions with architecture patterns in context
     - Produce `ValidationReport` with approved boolean, issues array, suggested fixes
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-  - [ ]* 11.2 Write property test for validation output schema
+  - [x]* 11.2 Write property test for validation output schema
     - **Property 17: Validation output conforms to ValidationReport schema**
     - **Validates: Requirements 9.5**
 
