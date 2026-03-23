@@ -427,3 +427,12 @@ export interface BackendProgressEvent {
   message: string
   data?: Record<string, unknown>
 }
+
+/**
+ * Information about a git worktree created for a run
+ */
+export interface WorktreeInfo {
+  readonly path: string
+  readonly branch: string
+  readonly runId: string
+}

@@ -88,14 +88,14 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 51: Execution state survives process restart**
     - **Validates: Requirements 17.5, 27.1, 27.2, 27.3**
 
-- [ ] 4. Worktree manager
-  - [ ] 4.1 Implement worktree manager in `src/infrastructure/worktree-manager.ts`
+- [x] 4. Worktree manager
+  - [x] 4.1 Implement worktree manager in `src/infrastructure/worktree-manager.ts`
     - Use `simple-git` for all git operations
     - Implement `create`, `getPath`, `push`, `cleanup`, `retain`, `exists`, `isConsistent` methods
     - Branch naming: `kaso/[feature-name]-[YYYYMMDDTHHmmss]`
     - _Requirements: 19.1, 19.2, 19.3, 19.4_
 
-  - [ ]* 4.2 Write property tests for worktree isolation
+  - [x]* 4.2 Write property tests for worktree isolation
     - **Property 21: All file modifications confined to worktree**
     - **Property 35: Worktree preserved on halt or cancel**
     - **Property 42: Worktree branch name derived from spec feature name**

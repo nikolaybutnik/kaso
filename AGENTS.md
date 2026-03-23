@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**KASO** (Kiro-Enabled Agent Swarm Orchestrator) is a locally-run, modular orchestration system that reads Kiro-generated specification documents and coordinates specialized AI agents through an 8-phase development lifecycle. This system aims to eliminate human intervention during AI-assisted engineering execution by automating the entire pipeline from spec intake to PR delivery.
+**KASO** (Kiro-Enabled Agent Swarm Orchestrator) is a TypeScript-based, locally-run modular orchestration system that reads Kiro-generated specification documents and coordinates specialized AI agents through an 8-phase development lifecycle. The system automates the entire pipeline from spec intake to PR delivery with minimal human intervention.
 
 ### Key Design Goals
 - Deterministic, sequential 8-phase pipeline with clear phase boundaries
@@ -15,31 +15,57 @@
 - Full CLI interface for controlling and inspecting all orchestration operations
 
 ### Current Status
-This project is currently in the **specification and design phase**. The repository contains comprehensive specification documents but no actual source code implementation yet. The project structure follows Kiro's spec-driven development workflow.
+The project has completed Phase 1 (Infrastructure & Configuration) and is actively implementing Phase 2 (Core Orchestration). Core infrastructure components including configuration management, credential handling, execution persistence, and checkpoint management are fully implemented and tested.
 
 ## Technology Stack
 
-- **Language**: TypeScript (Node.js 18+)
-- **Testing**: Vitest with @fast-check/vitest for property-based testing
-- **Database**: SQLite (via better-sqlite3) or JSONL for execution store
+- **Language**: TypeScript 5.3+ (Node.js 18+)
+- **Module System**: ESNext with path mapping via `@/` aliases
+- **Testing**: Vitest 1.1+ with @fast-check/vitest for property-based testing
+- **Database**: SQLite (via better-sqlite3) with JSONL fallback
 - **Git Operations**: simple-git
 - **Credentials**: keytar for OS keychain integration
 - **File Watching**: chokidar
 - **UI Testing**: Playwright
 - **CLI**: Commander.js
-- **Configuration**: Zod for schema validation
+- **Configuration**: Zod for runtime schema validation
+- **Build**: TypeScript compiler (tsc)
 
 ## Project Structure
 
 ```
+src/
+├── agents/          # Agent implementations (Phase 2+)
+├── backends/        # Executor backend adapters (Phase 2+)
+├── cli/             # CLI interface (Phase 2+)
+├── config/          # Configuration loading & validation ✅
+│   ├── loader.ts    # Config file I/O with deep merge
+│   └── schema.ts    # Zod schemas with 260+ lines of type definitions
+├── core/            # Core type definitions ✅
+│   └── types.ts     # 429 lines - all execution & domain types
+├── infrastructure/  # Core services ✅
+│   ├── checkpoint-manager.ts  # Write-ahead persistence
+│   ├── credential-manager.ts  # Secure secret handling
+│   ├── execution-store.ts     # SQLite/JSONL persistence
+│   └── log-redactor.ts        # Secret redaction
+├── plugins/         # Plugin system (Phase 3)
+└── streaming/       # Event streaming (Phase 2+)
+
+tests/
+├── config/          # Config loader tests
+└── infrastructure/  # Infrastructure component tests
+    └── *property*   # Property-based tests for security
+
 .kiro/
-├── specs/kaso-orchestrator/     # Main feature spec (requirements, design, tasks)
-├── steering/                    # Kiro steering files
-│   ├── coding_practices.md     # Coding standards and conventions
-│   ├── personality.md          # AI agent personality guidelines
-│   └── commit-conventions.md   # Git commit format standards
+├── specs/kaso-orchestrator/     # Main feature spec
+│   ├── requirements.md         # Detailed requirements
+│   ├── design.md               # Architecture & design decisions
+│   └── tasks.md                # 31 implementation tasks
+├── steering/                    # Project conventions
+│   ├── coding_practices.md     # Code style & standards
+│   ├── personality.md          # AI agent tone guidelines
+│   └── commit-conventions.md   # Git commit standards
 └── hooks/                      # Automation hooks
-    ├── auto-commit-post-task.kiro.hook
     ├── enforce-code-standards.kiro.hook
     ├── run-tests-post-task.kiro.hook
     └── update-docs-post-task.kiro.hook
@@ -52,6 +78,7 @@ The system uses a hub-and-spoke architecture where:
 - **Central Orchestrator**: Coordinates all agent execution through the 8-phase pipeline
 - **Specialized Agents**: Stateless, single-responsibility workers that implement the Agent Interface Contract
 - **Pluggable Executor Backends**: Swappable AI coding tools (Kimi Code, Claude Code, Codex CLI, local models)
+- **Infrastructure Layer**: Persistence, security, and checkpointing services
 
 ### 8-Phase Execution Pipeline
 1. **Intake** - Parse Kiro spec files and assemble execution context
@@ -68,10 +95,13 @@ The system uses a hub-and-spoke architecture where:
 - **AgentContext**: Structured data object passed between phases containing spec data, architecture context, and execution state
 - **Worktree Isolation**: All file modifications occur in isolated git worktrees (never in the main working directory)
 - **Event Streaming**: Real-time progress events via WebSocket/SSE with persisted execution history
+- **ExecutionStore**: Dual-mode persistence (SQLite primary, JSONL fallback) for runs and phase results
+- **CredentialManager**: Secure API key loading from environment variables or OS keychain
+- **CheckpointManager**: Write-ahead persistence before phase transitions for crash recovery
 
 ## Development Conventions
 
-### Code Style (from steering files)
+### Code Style (from `.kiro/steering/coding_practices.md`)
 - **Self-documenting code first** - comments only when "why" isn't obvious
 - **Meaningful names** - no single-letter variables outside tight loops
 - **Strict TypeScript** - `any` is banned with no exceptions
@@ -79,8 +109,10 @@ The system uses a hub-and-spoke architecture where:
 - **Pure functions** where possible, composition over inheritance
 - **No magic strings/numbers** - use constants
 - **DRY principle** - extract shared logic, never copy-paste
+- **Type annotations everywhere** - no implicit any, no untyped boundaries
+- **Handle errors explicitly** - no silent catches, no swallowed exceptions
 
-### Commit Conventions
+### Commit Conventions (from `.kiro/steering/commit-conventions.md`)
 Format: `type(scope): short description`
 
 **Types:**
@@ -101,7 +133,7 @@ Format: `type(scope): short description`
 - No period at end of subject
 - Body wraps at 80 characters, explains "what" and "why" (not "how")
 
-### AI Agent Personality (for Kiro interactions)
+### AI Agent Personality (from `.kiro/steering/personality.md`)
 - **Tone**: Loose cannon energy - swearing, roasting, dark humor, inappropriate jokes all fair game
 - **Communication**: Talk like a dev buddy, not a corporate chatbot
 - **Style**: Be real, be blunt, be funny - sarcasm is a love language
@@ -119,75 +151,25 @@ Format: `type(scope): short description`
 2. **Test Runner**: Executes `npm test` to verify codebase health
 3. **Documentation Update**: Automatically updates relevant docs (ARCHITECTURE.md, README.md, API docs) to reflect changes
 
-## Key Requirements
-
-### Security
-- **Credential Management**: API keys loaded from environment variables or OS keychain only
-- **No File Storage**: Secrets never read from git-tracked files
-- **Secret Redaction**: API keys redacted from all log output
-- **Git Isolation**: All changes in worktrees, main directory never modified
-
-### Resource Management
-- **Concurrency**: Limit concurrent agents based on CPU cores (default: cores - 1)
-- **Cost Tracking**: Calculate estimated cost per execution run, enforce configurable budgets
-- **Context Capping**: Trim context to fit executor backend limits with relevance ranking
-
-### Error Handling
-- **Rollback**: Support rollback for agents that implement `supportsRollback()`
-- **Retry Logic**: Up to 2 additional attempts with modified strategies (reduced context, alternative backend)
-- **Escalation**: Halt after 3 consecutive failures with detailed reports
-- **Immediate Escalation**: Security concerns or architectural deadlocks trigger immediate developer notification
-
-### Monitoring & Observability
-- **Real-time Events**: WebSocket/SSE streaming of execution progress
-- **Execution History**: Persisted in SQLite/JSONL with full phase details
-- **Phase Tracking**: Current phase, elapsed time, token usage, and cost per phase
-- **Crash Recovery**: Automatic resumption from last completed phase on restart
-
-## Testing Strategy
-
-### Property-Based Testing
-Uses fast-check for generating test cases that validate universal correctness properties:
-- Spec parsing produces structured context
-- No concurrent runs for the same spec
-- Phase transitions maintain sequential order
-- Cost calculations are accurate
-- Execution state survives process restarts
-
-### Test Requirements
-- Unit tests for all agents and infrastructure components
-- Integration tests covering end-to-end pipeline execution
-- Mock backend for testing without actual AI calls
-- Worktree isolation verification
-- SSE event streaming validation
-
 ## Build and Development Commands
-
-*Note: Project is currently in design phase - commands are planned but not yet implemented*
 
 ### Prerequisites
 - Node.js 18+
 - Git 2.40+
 - Kimi Code CLI (or configured alternative)
 
-### Planned CLI Commands
-- `kaso start <spec-path>` - Initiate new execution run
-- `kaso status [run-id]` - Display run state and metrics
-- `kaso pause <run-id>` - Pause execution
-- `kaso resume <run-id>` - Resume paused run
-- `kaso cancel <run-id>` - Cancel execution
-- `kaso cost [run-id]` - Display cost breakdown
-- `kaso history [--limit N]` - List past runs
-- `kaso logs <run-id> [--phase <name>]` - View execution logs
-- `kaso watch` - Start file-watcher mode
-- `kaso doctor` - Verify installation and configuration
-
-### Testing
+### Build Commands
 ```bash
+# Compile TypeScript
+npm run build
+
 # Run all tests
 npm test
 
-# Run property tests
+# Run tests in watch mode
+npm run test:watch
+
+# Run property-based tests
 npm run test:property
 
 # Run integration tests
@@ -197,21 +179,80 @@ npm run test:integration
 npm run test:coverage
 ```
 
+### Testing Strategy
+- **Unit Tests**: All infrastructure components have comprehensive unit tests
+- **Property-Based Tests**: Uses fast-check for universal correctness properties (credential security, phase transitions, cost calculations)
+- **Integration Tests**: End-to-end pipeline execution tests (planned via `test:integration` script)
+- **Coverage**: Vitest coverage with v8 provider, targets `src/**/*.ts`
+
 ## Configuration
 
 ### Main Config File: `kaso.config.json`
-- Executor backend definitions and selection strategy
-- Concurrency limits and phase timeouts
-- Webhook URLs and authentication headers
-- MCP server connections
-- Plugin packages and custom phases
-- Cost budgets and context capping strategy
-- UI baseline configuration for visual regression testing
+The configuration file uses Zod schemas for runtime validation with sensible defaults:
+
+```json
+{
+  "executorBackends": [
+    {
+      "name": "kimi-code",
+      "command": "kimi",
+      "args": [],
+      "protocol": "cli-json",
+      "maxContextWindow": 128000,
+      "costPer1000Tokens": 0.01,
+      "enabled": true
+    }
+  ],
+  "defaultBackend": "kimi-code",
+  "maxConcurrentAgents": "auto",
+  "maxPhaseRetries": 2,
+  "defaultPhaseTimeout": 300,
+  "contextCapping": {
+    "enabled": true,
+    "charsPerToken": 4,
+    "relevanceRanking": ["design.md", "tech-spec.md", "task.md", "ARCHITECTURE.md"]
+  },
+  "uiBaseline": {
+    "baselineDir": ".kiro/ui-baselines",
+    "captureOnPass": true,
+    "diffThreshold": 0.1,
+    "viewport": { "width": 1280, "height": 720 }
+  },
+  "executionStore": {
+    "type": "sqlite",
+    "path": ".kaso/execution-store.db"
+  }
+}
+```
 
 ### Required Environment Variables
-- API keys for configured AI backends
+- API keys for configured AI backends (e.g., `KIMI_API_KEY`, `ANTHROPIC_API_KEY`)
 - Git credentials (if using remote operations)
 - Webhook secrets (for signed webhook payloads)
+
+## Security Considerations
+
+1. **Worktree Isolation**: Ensures main working directory is never modified during execution
+2. **Credential Security**: No secrets in code or tracked files; environment variables or OS keychain only
+3. **Log Redaction**: All API keys automatically redacted from log output via `CredentialManager`
+4. **Webhook Security**: HMAC-SHA256 payload signing for webhooks
+5. **Review Council**: Multi-perspective security review for all changes (Phase 8)
+6. **Audit Trail**: Complete execution logs and phase history persisted in SQLite
+
+## Resource Management
+
+- **Concurrency**: Limit concurrent agents based on CPU cores (default: cores - 1)
+- **Cost Tracking**: Per-run cost calculation with configurable budgets
+- **Context Capping**: Automatic context trimming with relevance ranking
+- **Phase Timeouts**: Configurable timeouts per phase with retry logic
+
+## Error Handling
+
+- **Rollback**: Support for agents implementing `supportsRollback()`
+- **Retry Logic**: Up to 2 additional attempts with modified strategies
+- **Escalation**: Halt after 3 consecutive failures with detailed reports
+- **Immediate Escalation**: Security concerns trigger immediate developer notification
+- **Crash Recovery**: Automatic resumption from last completed phase on restart
 
 ## Extensibility
 
@@ -229,28 +270,63 @@ Supports multiple AI backend connection methods:
 - `acp` - Agent Communication Protocol
 - `mcp` - Model Context Protocol (for tool integration)
 
-## Security Considerations
+## Monitoring & Observability
 
-1. **Worktree Isolation**: Ensures main working directory is never modified
-2. **Credential Security**: No secrets in code or tracked files
-3. **Webhook Security**: HMAC-SHA256 payload signing
-4. **Review Council**: Multi-perspective security review for all changes
-5. **Audit Trail**: Complete execution logs and phase history in Kiro specs
+- **Real-time Events**: WebSocket/SSE streaming of execution progress
+- **Execution History**: Persisted in SQLite with full phase details
+- **Phase Tracking**: Current phase, elapsed time, token usage, and cost per phase
+- **Event Types**: 15+ event types covering all execution states
+- **Metrics**: Cost, duration, token usage, retry counts, success rates
 
-## Next Steps for Implementation
+## Implementation Status
 
-This project is currently in the design/specification phase. The next steps would be:
+### ✅ Completed (Phase 1)
+- Core type definitions (429 lines in `src/core/types.ts`)
+- Configuration schema & validation (261 lines, Zod-based)
+- Config loader with deep merge and defaults
+- Execution store (SQLite/JSONL dual mode)
+- Credential manager with OS keychain support
+- Checkpoint manager for crash recovery
+- Log redaction for secrets
+- Comprehensive unit tests for all infrastructure
+- Property-based security tests
 
-1. Initialize project structure with TypeScript configuration
-2. Implement core type definitions and configuration loading
-3. Build credential management and execution store
-4. Create worktree manager and agent interface
-5. Implement state machine and orchestrator
-6. Build agents for each phase (SpecReader, Validator, ArchitectureGuardian, etc.)
-7. Add executor backend adapters
-8. Implement file watcher and webhook dispatcher
-9. Build CLI interface
-10. Add plugin system and MCP integration
-11. Write comprehensive tests and documentation
+### 🚧 In Progress (Phase 2)
+- Agent interface and base implementations
+- Orchestrator state machine
+- Executor backend adapters
+- CLI interface
+- Event streaming system
 
-See `.kiro/specs/kaso-orchestrator/tasks.md` for detailed implementation plan organized into 31 incremental tasks across multiple checkpoints.
+### 📋 Planned (Phases 3-8)
+- Plugin system
+- Custom agents
+- UI testing integration
+- Review council implementation
+- Webhook dispatcher
+- File watcher mode
+
+See `.kiro/specs/kaso-orchestrator/tasks.md` for the complete 31-task implementation plan organized into multiple checkpoints.
+
+## Key Files for AI Agents
+
+**When working on this codebase, always refer to:**
+- `.kiro/steering/coding_practices.md` - Code style and quality standards
+- `.kiro/steering/personality.md` - Communication tone guidelines
+- `.kiro/steering/commit-conventions.md` - Git commit message format
+- `src/core/types.ts` - All domain types and interfaces (429 lines)
+- `src/config/schema.ts` - Configuration schemas and validation
+- `src/infrastructure/` - Core services (all implemented and tested)
+
+**Useful commands:**
+```bash
+# After any changes
+npm run build && npm test
+
+# Check test coverage
+npm run test:coverage
+
+# Run specific test suites
+npm run test:property  # Security property tests
+npm run test:integration # Integration tests
+```
