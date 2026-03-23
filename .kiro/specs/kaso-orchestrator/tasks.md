@@ -213,11 +213,11 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 17: Validation output conforms to ValidationReport schema**
     - **Validates: Requirements 9.5**
 
-- [ ] 12. Checkpoint — Core pipeline agents ready
+- [x] 12. Checkpoint — Core pipeline agents ready
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 13. Orchestrator — the central hub
-  - [ ] 13.1 Implement basic orchestrator in `src/core/orchestrator.ts`
+  - [x] 13.1 Implement basic orchestrator in `src/core/orchestrator.ts`
     - Wire state machine, event bus, agent registry, execution store, checkpoint manager, worktree manager, cost tracker, concurrency manager
     - Implement `startRun`: create worktree → run 8-phase pipeline sequentially → checkpoint between phases
     - Implement basic `getRunStatus`: return current phase, elapsed time, cost, phase results
@@ -226,7 +226,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Stream real-time progress events via event bus
     - _Requirements: 2.2, 2.3, 6.1, 6.2, 6.4, 6.5, 17.2, 17.3, 17.4, 27.1_
 
-  - [ ] 13.2 Implement advanced orchestrator features in `src/core/orchestrator.ts`
+  - [x] 13.2 Implement advanced orchestrator features in `src/core/orchestrator.ts`
     - Implement `pauseRun`: complete current phase, halt before next transition
     - Implement `resumeRun`: continue from next pending phase
     - Implement `cancelRun`: terminate active agent, preserve worktree, mark cancelled
@@ -236,6 +236,22 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Enforce cost budget — halt if exceeded, emit `run:budget_exceeded`
     - Append timestamped log entries and update spec status on phase transitions
     - _Requirements: 2.1, 2.4, 2.5, 3.1, 3.2, 3.3, 6.3, 16.7, 16.8, 18.1, 18.2, 18.3, 26.5, 26.6, 27.2, 27.4, 27.5_
+
+  - [ ] 13.4 Implement spec status writer in `src/infrastructure/spec-writer.ts`
+    - Write timestamped execution log entries to the Spec directory (e.g. `.kiro/specs/[feature-name]/execution-log.md`)
+    - Update a Spec status field to reflect the current Phase name (e.g. `.kiro/specs/[feature-name]/status.json`)
+    - Write all status updates and logs in a format compatible with Kiro's spec structure
+    - Integrate into orchestrator: call on phase transitions and run completion/failure
+    - Handle missing spec directories gracefully (log warning, don't crash)
+    - _Requirements: 2.4, 3.1, 3.2, 3.3_
+
+  - [ ] 13.5 Add `AbortSignal` support to `AgentContext` and orchestrator cancel path
+    - Add optional `abortSignal: AbortSignal` field to `AgentContext` in `src/core/types.ts`
+    - Create an `AbortController` per phase execution in the orchestrator
+    - Pass `abortSignal` to agents via `AgentContext` so agents can check for cancellation
+    - On `cancelRun`, abort the controller for the active phase to terminate the running agent
+    - Agents that respect the signal can exit early; agents that don't will complete naturally (graceful degradation)
+    - _Requirements: 18.3_
 
   - [ ]* 13.3 Write property tests for orchestrator behavior
     - **Property 4: No concurrent runs for the same spec**
@@ -247,7 +263,9 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 49: Phase timeout enforced**
     - **Property 50: Spec update mid-execution is queued**
     - **Property 54: Cost budget halts execution when exceeded**
-    - **Validates: Requirements 2.3, 2.4, 2.5, 3.1, 3.2, 6.4, 16.7, 16.8, 18.1, 18.2, 18.3, 26.5, 26.6**
+    - **Property 62: Spec directory receives timestamped log entries on phase transitions**
+    - **Property 63: Cancel with AbortSignal terminates active agent**
+    - **Validates: Requirements 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 6.4, 16.7, 16.8, 18.1, 18.2, 18.3, 26.5, 26.6**
 
 - [ ] 14. Error handling and recovery
   - [ ] 14.1 Implement error handling logic in orchestrator
