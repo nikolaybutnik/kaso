@@ -12,6 +12,7 @@ import { WorktreeManager } from '@/infrastructure/worktree-manager'
 import { CostTracker } from '@/infrastructure/cost-tracker'
 import { ConcurrencyManager } from './concurrency-manager'
 import { BackendRegistry } from '@/backends/backend-registry'
+import { SpecWriter } from '@/infrastructure/spec-writer'
 import type { KASOConfig } from '@/config/schema'
 import type {
   PhaseName,
@@ -129,6 +130,7 @@ export class Orchestrator {
   private readonly costTracker: CostTracker
   private readonly concurrencyManager: ConcurrencyManager
   private readonly backendRegistry: BackendRegistry
+  private readonly specWriter: SpecWriter
   private readonly config: KASOConfig
   private readonly runningRuns = new Map<string, RunningRunInfo>()
   private readonly queuedSpecUpdates = new Map<string, string>()
@@ -143,6 +145,7 @@ export class Orchestrator {
     costTracker: CostTracker,
     concurrencyManager: ConcurrencyManager,
     backendRegistry: BackendRegistry,
+    specWriter: SpecWriter,
     config: KASOConfig,
   ) {
     this.eventBus = eventBus
@@ -153,6 +156,7 @@ export class Orchestrator {
     this.costTracker = costTracker
     this.concurrencyManager = concurrencyManager
     this.backendRegistry = backendRegistry
+    this.specWriter = specWriter
     this.config = config
 
     // _stateMachine param kept for API compat — each run creates its own instance
@@ -171,6 +175,7 @@ export class Orchestrator {
       this.costTracker,
       this.concurrencyManager,
       this.backendRegistry,
+      this.specWriter,
       this.config,
     ]
 
@@ -239,6 +244,16 @@ export class Orchestrator {
     }
 
     runInfo.stateMachine.start()
+
+    // Write execution log entry and update spec status
+    const specDir = this.getSpecDirectoryPath(options.specPath)
+    if (specDir) {
+      await this.specWriter.writeRunStarted(
+        specDir,
+        runId,
+        runInfo.worktreePath ?? 'unknown',
+      )
+    }
 
     try {
       await this.executePipeline(runInfo)
@@ -352,6 +367,19 @@ export class Orchestrator {
     this.executionStore.updateRunStatus(runId, 'cancelled')
     runInfo.stateMachine.cancel()
 
+    // Write cancelled status to spec directory
+    const specDir = this.getSpecDirectoryPath(runInfo.specPath)
+    if (specDir) {
+      const cost = this.costTracker.getRunCost(runInfo.runId)
+      this.specWriter
+        .writeRunCompleted(specDir, runInfo.runId, 'cancelled', cost?.totalCost)
+        .catch((error: unknown) => {
+          this.emitEvent('run:failed', runInfo, {
+            error: `Failed to write spec status on cancel: ${errorMessage(error)}`,
+          })
+        })
+    }
+
     // Retain worktree for manual inspection (Req 19.4)
     this.retainWorktree(runInfo)
 
@@ -453,11 +481,38 @@ export class Orchestrator {
           'orchestrator',
           `Cost budget exceeded — halting pipeline. Worktree preserved at: ${runInfo.worktreePath ?? 'unknown'}`,
         )
+
+        // Write budget exceeded status to spec directory (Req 2.4)
+        const budgetSpecDir = this.getSpecDirectoryPath(runInfo.specPath)
+        if (budgetSpecDir) {
+          const cost = this.costTracker.getRunCost(runInfo.runId)
+          await this.specWriter.writeRunCompleted(
+            budgetSpecDir,
+            runInfo.runId,
+            'failed',
+            cost?.totalCost,
+            'Cost budget exceeded',
+          )
+        }
+
         return
       }
 
       runInfo.currentPhase = phase
       runInfo.lastUpdateTime = Date.now()
+
+      // Write phase started log
+      const specDir = this.getSpecDirectoryPath(runInfo.specPath)
+      if (specDir) {
+        await this.specWriter.appendExecutionLog(specDir, {
+          timestamp: nowISO(),
+          level: 'info',
+          source: 'orchestrator',
+          message: `Phase ${phase} started`,
+          phase,
+          runId: runInfo.runId,
+        })
+      }
 
       const phaseResult = await this.executePhase(runInfo, phase)
 
@@ -480,6 +535,18 @@ export class Orchestrator {
         'orchestrator',
         `Phase '${phase}' ${phaseResult.status} (${phaseResult.duration ?? 0}ms)`,
       )
+
+      // Write spec status update for phase completion
+      if (specDir) {
+        await this.specWriter.writePhaseTransition(
+          specDir,
+          runInfo.runId,
+          phase,
+          phaseResult.status === 'success' ? 'completed' : 'failed',
+          phaseResult.duration,
+          phaseResult.error ? phaseResult.error.message : undefined,
+        )
+      }
 
       // Write-ahead checkpoint (Req 27.1, 27.3)
       this.checkpointRun(runInfo)
@@ -506,6 +573,16 @@ export class Orchestrator {
           'orchestrator',
           'Pipeline completed successfully',
         )
+        // Write final status update
+        if (specDir) {
+          const cost = this.costTracker.getRunCost(runInfo.runId)
+          await this.specWriter.writeRunCompleted(
+            specDir,
+            runInfo.runId,
+            'completed',
+            cost?.totalCost,
+          )
+        }
         return
       }
 
@@ -843,6 +920,25 @@ export class Orchestrator {
     runInfo: RunningRunInfo,
     message: string,
   ): { runId: string; status: string } {
+    // Write run failed log and status
+    const specDir = this.getSpecDirectoryPath(runInfo.specPath)
+    if (specDir) {
+      const cost = this.costTracker.getRunCost(runInfo.runId)
+      this.specWriter
+        .writeRunCompleted(
+          specDir,
+          runInfo.runId,
+          'failed',
+          cost?.totalCost,
+          message,
+        )
+        .catch((error: unknown) => {
+          this.emitEvent('run:failed', runInfo, {
+            error: `Failed to write spec status on failure: ${errorMessage(error)}`,
+          })
+        })
+    }
+
     runInfo.status = 'failed'
     this.executionStore.updateRunStatus(runInfo.runId, 'failed')
     // Preserve worktree on failure (Req 16.6, 19.4)
@@ -923,6 +1019,17 @@ export class Orchestrator {
       return undefined
     }
     return PIPELINE_PHASES[idx + 1]
+  }
+
+  /**
+   * Get the spec directory path (.kiro/specs/[feature-name]) for a given spec path
+   */
+  private getSpecDirectoryPath(specPath: string): string | null {
+    const specName = specPath.split('/').pop()
+    if (!specName) {
+      return null
+    }
+    return `.kiro/specs/${specName}`
   }
 
   private extractPhaseOutputs(
