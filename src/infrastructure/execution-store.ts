@@ -12,7 +12,7 @@ import type {
   PhaseResult,
   RunStatus,
   PhaseName,
-} from '../core/types.js'
+} from '../core/types'
 
 /**
  * Execution store configuration

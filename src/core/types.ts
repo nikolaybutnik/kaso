@@ -3,8 +3,8 @@
  * Contains all type definitions for phases, agents, execution state, and configuration
  */
 
-import type { KASOConfig } from '../config/schema.js'
-import type { ExecutorBackendConfig } from '../config/schema.js'
+import type { KASOConfig } from '../config/schema'
+import type { ExecutorBackendConfig } from '../config/schema'
 
 // ============================================================================
 // Phase and System Enums/Types

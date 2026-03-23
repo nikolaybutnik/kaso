@@ -5,8 +5,8 @@
 
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { validateConfig, getDefaultConfig, isValidConfig } from './schema.js'
-import type { KASOConfig } from './schema.js'
+import { validateConfig, getDefaultConfig, isValidConfig } from './schema'
+import type { KASOConfig } from './schema'
 
 /**
  * Configuration loader options

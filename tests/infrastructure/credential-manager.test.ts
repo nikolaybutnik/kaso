@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
-import { CredentialManager } from '../../src/infrastructure/credential-manager.js'
+import { CredentialManager } from '../../src/infrastructure/credential-manager'
 import keytar from 'keytar'
 
 // Spy on keytar methods

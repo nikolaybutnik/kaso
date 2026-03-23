@@ -5,7 +5,7 @@
  */
 
 import keytar from 'keytar'
-import { redactSecrets } from './log-redactor.js'
+import { redactSecrets } from './log-redactor'
 
 /**
  * Credential manager options

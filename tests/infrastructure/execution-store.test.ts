@@ -5,14 +5,14 @@
  */
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { ExecutionStore } from '../../src/infrastructure/execution-store.js'
+import { ExecutionStore } from '../../src/infrastructure/execution-store'
 import { unlinkSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import type {
   ExecutionRunRecord,
   PhaseResultRecord,
-} from '../../src/core/types.js'
+} from '../../src/core/types'
 
 describe('ExecutionStore', () => {
   let store: ExecutionStore

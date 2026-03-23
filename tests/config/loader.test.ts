@@ -4,12 +4,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { loadConfig, loadConfigSafe } from '../../src/config/loader.js'
+import { loadConfig, loadConfigSafe } from '../../src/config/loader'
 import {
   validateConfig,
   getDefaultConfig,
   ExecutorBackendConfigSchema,
-} from '../../src/config/schema.js'
+} from '../../src/config/schema'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { tmpdir } from 'os'

@@ -4,12 +4,12 @@
  */
 
 import type Database from 'better-sqlite3'
-import type { ExecutionStore } from './execution-store.js'
+import type { ExecutionStore } from './execution-store'
 import type {
   ExecutionRunRecord,
   PhaseName,
   PhaseResultRecord,
-} from '../core/types.js'
+} from '../core/types'
 
 /**
  * Checkpoint record stored in SQLite

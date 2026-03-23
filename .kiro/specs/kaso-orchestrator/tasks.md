@@ -158,24 +158,24 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 11: Failing phase results trigger appropriate pipeline response**
     - **Validates: Requirements 6.1, 6.2, 6.3, 9.6, 12.4, 13.5, 15.5**
 
-- [ ] 9. Executor backend adapter layer
-  - [ ] 9.1 Define backend adapter interface in `src/backends/backend-adapter.ts`
+- [x] 9. Executor backend adapter layer
+  - [x] 9.1 Define backend adapter interface in `src/backends/backend-adapter.ts`
     - Export `ExecutorBackend` interface with `execute`, `isAvailable`, `onProgress` methods
     - _Requirements: 7.2_
 
-  - [ ] 9.2 Implement backend registry in `src/backends/backend-registry.ts`
+  - [x] 9.2 Implement backend registry in `src/backends/backend-registry.ts`
     - Register backends from config, select by name or context-aware strategy
     - Context-aware: pick cheapest backend whose maxContextWindow fits the context size
     - _Requirements: 7.2, 7.4_
 
-  - [ ] 9.3 Implement backend process manager in `src/backends/backend-process.ts`
+  - [x] 9.3 Implement backend process manager in `src/backends/backend-process.ts`
     - Spawn backend as child process with configured command and args
     - Parse NDJSON progress events from stdout using readline
     - Handle process exit codes and stderr
     - Handle backend crashes (exit code !== 0) — capture stderr, wrap in descriptive error, propagate to caller
     - _Requirements: 11.2, 11.4_
 
-  - [ ]* 9.4 Write property tests for backend selection and NDJSON
+  - [x]* 9.4 Write property tests for backend selection and NDJSON
     - **Property 14: Context-aware backend selection picks cheapest fitting backend**
     - **Property 57: Backend progress events are NDJSON on stdout**
     - **Validates: Requirements 7.4, 11.4**

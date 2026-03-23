@@ -4,13 +4,13 @@
  */
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { CheckpointManager } from '../../src/infrastructure/checkpoint-manager.js'
-import { ExecutionStore } from '../../src/infrastructure/execution-store.js'
+import { CheckpointManager } from '../../src/infrastructure/checkpoint-manager'
+import { ExecutionStore } from '../../src/infrastructure/execution-store'
 import { unlinkSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import type { ExecutionRunRecord, PhaseName } from '../../src/core/types.js'
-import type { CheckpointRecoveryData } from '../../src/infrastructure/checkpoint-manager.js'
+import type { ExecutionRunRecord, PhaseName } from '../../src/core/types'
+import type { CheckpointRecoveryData } from '../../src/infrastructure/checkpoint-manager'
 
 describe('CheckpointManager', () => {
   let store: ExecutionStore
