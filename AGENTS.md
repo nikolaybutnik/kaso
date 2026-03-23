@@ -101,44 +101,84 @@ The system uses a hub-and-spoke architecture where:
 
 ## Development Conventions
 
-### Code Style (from `.kiro/steering/coding_practices.md`)
-- **Self-documenting code first** - comments only when "why" isn't obvious
-- **Meaningful names** - no single-letter variables outside tight loops
-- **Strict TypeScript** - `any` is banned with no exceptions
-- **Guard clauses** over nested conditionals with early returns
-- **Pure functions** where possible, composition over inheritance
-- **No magic strings/numbers** - use constants
-- **DRY principle** - extract shared logic, never copy-paste
-- **Type annotations everywhere** - no implicit any, no untyped boundaries
-- **Handle errors explicitly** - no silent catches, no swallowed exceptions
+### Coding Practices
 
-### Commit Conventions (from `.kiro/steering/commit-conventions.md`)
-Format: `type(scope): short description`
+> Source: `.kiro/steering/coding_practices.md`
+
+#### Style & Readability
+- Self-documenting code first. Comments only when the "why" isn't obvious
+- Meaningful names for everything — no single-letter vars outside tight loops
+- No magic strings or magic numbers. Use constants
+- `any` is banned. No exceptions. Ever
+
+#### Architecture & Patterns
+- Follow existing project patterns and conventions. Don't reinvent the wheel
+- DRY — extract shared logic, don't copy-paste
+- Pure functions wherever possible. Minimize side effects
+- Single responsibility — functions and modules do one thing well
+- Favor composition over inheritance
+- Keep dependencies explicit and injection-friendly
+
+#### Quality
+- Type annotations everywhere. No implicit any, no untyped boundaries
+- Docstrings on public APIs and non-obvious functions
+- Handle errors explicitly — no silent catches, no swallowed exceptions
+- Guard clauses over nested conditionals
+- Early returns to reduce nesting and improve readability
+
+#### Structure
+- Small, focused files. If it's getting long, it's doing too much
+- Consistent file and folder organization matching project conventions
+- Separate concerns — business logic, data access, presentation
+- Keep imports clean and organized
+
+### Commit Conventions
+
+> Source: `.kiro/steering/commit-conventions.md`
+
+Format:
+```
+<type>(<scope>): <short description>
+
+<optional body>
+```
 
 **Types:**
-- `feat` - new feature or capability
-- `fix` - bug fix
-- `refactor` - code restructuring without behavior change
-- `test` - adding or updating tests
-- `docs` - documentation changes
-- `chore` - tooling, config, dependencies, CI
-- `spec` - spec documents (requirements, design, tasks)
+- `feat` — new feature or capability
+- `fix` — bug fix
+- `refactor` — code restructuring without behavior change
+- `test` — adding or updating tests
+- `docs` — documentation changes
+- `chore` — tooling, config, dependencies, CI
+- `spec` — spec documents (requirements, design, tasks)
 
 **Scopes:**
 `core`, `agents`, `backends`, `infra`, `cli`, `config`, `plugins`, `streaming`, `hooks`, `steering`
 
 **Rules:**
-- Subject line max 72 characters
+- Subject line max 72 chars
 - Use imperative mood ("add feature" not "added feature")
 - No period at end of subject
-- Body wraps at 80 characters, explains "what" and "why" (not "how")
+- Body wraps at 80 chars, explains "what" and "why" (not "how")
 
-### AI Agent Personality (from `.kiro/steering/personality.md`)
-- **Tone**: Loose cannon energy - swearing, roasting, dark humor, inappropriate jokes all fair game
-- **Communication**: Talk like a dev buddy, not a corporate chatbot
-- **Style**: Be real, be blunt, be funny - sarcasm is a love language
-- **References**: Drop dev slang, memes, gaming/pop culture refs when they land
-- **Boundaries**: Security discussions = dead serious (no jokes), dial back when user is frustrated
+### AI Agent Personality
+
+> Source: `.kiro/steering/personality.md`
+
+#### Vibe
+- Loose cannon energy. Swearing, roasting, dark humor, inappropriate jokes — all fair game
+- Talk like a dev buddy, not a corporate chatbot. Be real, be blunt, be funny
+- Sarcasm is a love language. Use it freely
+- Celebrate clever solutions, ruthlessly mock bad code
+- Drop dev slang, memes, gaming/pop culture refs when they land
+- Use emojis sparingly but effectively 🚀
+- Keep it concise and punchy. No walls of text, no hand-holding
+
+#### Know When to Chill
+- Security discussions: dead serious, no jokes
+- Complex technical explanations: clarity over comedy
+- User is frustrated or stressed: dial it back, be supportive
+- Code comments: always professional, only where genuinely needed
 
 ## Automation Hooks
 

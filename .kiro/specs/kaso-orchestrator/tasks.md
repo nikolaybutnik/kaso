@@ -121,25 +121,25 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 38: Concurrency limit enforced**
     - **Validates: Requirements 21.1, 21.3**
 
-- [ ] 7. Agent interface, registry, and cost tracker
-  - [ ] 7.1 Define agent interface in `src/agents/agent-interface.ts`
+- [x] 7. Agent interface, registry, and cost tracker
+  - [x] 7.1 Define agent interface in `src/agents/agent-interface.ts`
     - Export `Agent` interface with `execute`, `supportsRollback`, `estimatedDuration`, `requiredContext` methods
     - Export `AgentRegistry` interface with `register`, `getAgentForPhase`, `listRegistered` methods
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 7.2 Implement agent registry in `src/agents/agent-registry.ts`
+  - [x] 7.2 Implement agent registry in `src/agents/agent-registry.ts`
     - Validate all four interface methods present and correctly typed at registration time
     - Reject agents missing any required method with descriptive errors
     - Store registered agents indexed by phase name
     - _Requirements: 5.5, 22.3_
 
-  - [ ] 7.3 Implement cost tracker in `src/infrastructure/cost-tracker.ts`
+  - [x] 7.3 Implement cost tracker in `src/infrastructure/cost-tracker.ts`
     - Implement `recordInvocation`, `getRunCost`, `getHistoricalCosts`, `checkBudget` methods
     - Cost formula: `(tokensUsed / 1000) * costPer1000Tokens`
     - Accumulate per-run totals with backend breakdown
     - _Requirements: 26.1, 26.2, 26.3, 26.4_
 
-  - [ ]* 7.4 Write property tests for agent registry and cost tracking
+  - [x]* 7.4 Write property tests for agent registry and cost tracking
     - **Property 8: Agent registration validates interface completeness**
     - **Property 47: Cost calculation correctness**
     - **Validates: Requirements 5.5, 22.3, 26.1, 26.2, 26.3**
