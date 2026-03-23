@@ -215,6 +215,7 @@ export interface AgentContext {
   worktreePath?: string
   backends: Record<string, ExecutorBackendConfig>
   removedFiles?: string[] // Files removed during context capping
+  abortSignal?: AbortSignal // For cooperative cancellation detection (Req 13.5)
 }
 
 // ============================================================================

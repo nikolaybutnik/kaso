@@ -92,6 +92,8 @@ interface RunningRunInfo {
   logs: LogEntry[]
   pauseRequested: boolean
   cancelRequested: boolean
+  /** Current phase's AbortController — replaced per phase, aborted on cancel (Req 13.5) */
+  phaseAbortController?: AbortController
 }
 
 function generateRunId(specPath: string): string {
@@ -380,6 +382,9 @@ export class Orchestrator {
         })
     }
 
+    // Abort the active phase's agent (Req 13.5)
+    runInfo.phaseAbortController?.abort()
+
     // Retain worktree for manual inspection (Req 19.4)
     this.retainWorktree(runInfo)
 
@@ -583,6 +588,7 @@ export class Orchestrator {
             cost?.totalCost,
           )
         }
+
         return
       }
 
@@ -674,6 +680,10 @@ export class Orchestrator {
     const slot = await this.concurrencyManager.acquire(runInfo.runId, phase)
 
     try {
+      // Create a fresh AbortController for this phase (Req 13.5)
+      const phaseAbortController = new AbortController()
+      runInfo.phaseAbortController = phaseAbortController
+
       const context = this.buildAgentContext(runInfo)
       const timeoutMs = this.getPhaseTimeoutMs(phase)
 
@@ -763,6 +773,7 @@ export class Orchestrator {
         duration,
       }
     } finally {
+      runInfo.phaseAbortController = undefined
       slot.release()
     }
   }
@@ -862,6 +873,7 @@ export class Orchestrator {
       config: this.config,
       worktreePath: runInfo.worktreePath,
       backends,
+      abortSignal: runInfo.phaseAbortController?.signal,
     }
   }
 

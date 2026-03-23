@@ -237,7 +237,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Append timestamped log entries and update spec status on phase transitions
     - _Requirements: 2.1, 2.4, 2.5, 3.1, 3.2, 3.3, 6.3, 16.7, 16.8, 18.1, 18.2, 18.3, 26.5, 26.6, 27.2, 27.4, 27.5_
 
-  - [ ] 13.4 Implement spec status writer in `src/infrastructure/spec-writer.ts`
+  - [x] 13.4 Implement spec status writer in `src/infrastructure/spec-writer.ts`
     - Write timestamped execution log entries to the Spec directory (e.g. `.kiro/specs/[feature-name]/execution-log.md`)
     - Update a Spec status field to reflect the current Phase name (e.g. `.kiro/specs/[feature-name]/status.json`)
     - Write all status updates and logs in a format compatible with Kiro's spec structure
@@ -245,7 +245,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Handle missing spec directories gracefully (log warning, don't crash)
     - _Requirements: 2.4, 3.1, 3.2, 3.3_
 
-  - [ ] 13.5 Add `AbortSignal` support to `AgentContext` and orchestrator cancel path
+  - [x] 13.5 Add `AbortSignal` support to `AgentContext` and orchestrator cancel path
     - Add optional `abortSignal: AbortSignal` field to `AgentContext` in `src/core/types.ts`
     - Create an `AbortController` per phase execution in the orchestrator
     - Pass `abortSignal` to agents via `AgentContext` so agents can check for cancellation
