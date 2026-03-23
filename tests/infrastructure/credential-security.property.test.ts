@@ -31,7 +31,6 @@ describe('Property 36: Secret redaction in logs', () => {
         return // Skip this test case
       }
       const credentialManager = new CredentialManager()
-      const secrets = new Set(secretsArray)
 
       // Inject secrets into environment so they're "loaded"
       secretsArray.forEach((secret, i) => {
@@ -169,13 +168,12 @@ describe('Property 37: Credentials loaded only from secure sources', () => {
       })
 
       // Mock keychain for other keys
-      getPasswordSpy.mockImplementation((service, account) => {
+      getPasswordSpy.mockImplementation((_service, account) => {
         const match = account.match(/KEYCHAIN_KEY_(\d+)/)
-        if (match) {
+        if (match?.[1]) {
           const index = parseInt(match[1])
-          // Only return keychain value if index is within bounds
           if (index < keychainKeys.length) {
-            return Promise.resolve(keychainKeys[index])
+            return Promise.resolve(keychainKeys[index] ?? null)
           }
         }
         return Promise.resolve(null)

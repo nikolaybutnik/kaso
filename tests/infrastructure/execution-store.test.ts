@@ -12,7 +12,6 @@ import { join } from 'path'
 import type {
   ExecutionRunRecord,
   PhaseResultRecord,
-  RunStatus,
 } from '../../src/core/types.js'
 
 describe('ExecutionStore', () => {
@@ -126,9 +125,9 @@ describe('ExecutionStore', () => {
       const results = store.getPhaseResults('run-with-phases')
 
       expect(results).toHaveLength(2)
-      expect(results[0].phase).toBe('intake')
-      expect(results[1].phase).toBe('validation')
-      expect(results[1].output).toEqual({ approved: true })
+      expect(results[0]?.phase).toBe('intake')
+      expect(results[1]?.phase).toBe('validation')
+      expect(results[1]?.output).toEqual({ approved: true })
     })
 
     it('should update run status', () => {
@@ -279,7 +278,7 @@ describe('ExecutionStore', () => {
 
       const retrievedPhases = newStore.getPhaseResults('persist-test')
       expect(retrievedPhases).toHaveLength(1)
-      expect(retrievedPhases[0].phase).toBe('intake')
+      expect(retrievedPhases[0]?.phase).toBe('intake')
 
       newStore.close()
     })
@@ -393,8 +392,8 @@ describe('ExecutionStore', () => {
 
       const results = store.getPhaseResults('error-phase-run')
       expect(results).toHaveLength(1)
-      expect(results[0].error?.message).toBe('Build failed')
-      expect(results[0].error?.code).toBe('BUILD_ERROR')
+      expect(results[0]?.error?.message).toBe('Build failed')
+      expect(results[0]?.error?.code).toBe('BUILD_ERROR')
     })
 
     it('should handle large payload in phase output', () => {
@@ -435,7 +434,7 @@ describe('ExecutionStore', () => {
       ).not.toThrow()
 
       const results = store.getPhaseResults('large-payload-run')
-      expect(results[0].output?.files).toHaveLength(100)
+      expect(results[0]?.output?.files).toHaveLength(100)
     })
   })
 })

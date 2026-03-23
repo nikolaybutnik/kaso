@@ -3,18 +3,25 @@
  * Tests backend config round-trip and validation
  */
 
-import { describe, expect, it } from 'vitest';
-import { loadConfig, loadConfigSafe } from '../../src/config/loader.js';
-import { validateConfig, getDefaultConfig, ExecutorBackendConfigSchema } from '../../src/config/schema.js';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
-import { resolve } from 'path';
-import { tmpdir } from 'os';
+import { describe, expect, it } from 'vitest'
+import { loadConfig, loadConfigSafe } from '../../src/config/loader.js'
+import {
+  validateConfig,
+  getDefaultConfig,
+  ExecutorBackendConfigSchema,
+} from '../../src/config/schema.js'
+import { writeFileSync, unlinkSync, existsSync } from 'fs'
+import { resolve } from 'path'
+import { tmpdir } from 'os'
 
 // Helper to create a temporary config file
 function createTempConfig(config: unknown): string {
-  const tmpPath = resolve(tmpdir(), `kaso-test-config-${Date.now()}-${Math.random().toString(36).substring(7)}.json`);
-  writeFileSync(tmpPath, JSON.stringify(config, null, 2), 'utf-8');
-  return tmpPath;
+  const tmpPath = resolve(
+    tmpdir(),
+    `kaso-test-config-${Date.now()}-${Math.random().toString(36).substring(7)}.json`,
+  )
+  writeFileSync(tmpPath, JSON.stringify(config, null, 2), 'utf-8')
+  return tmpPath
 }
 
 describe('Config Loader Tests', () => {
@@ -29,8 +36,8 @@ describe('Config Loader Tests', () => {
             protocol: 'cli-json',
             maxContextWindow: 128000,
             costPer1000Tokens: 0.01,
-            enabled: true
-          }
+            enabled: true,
+          },
         ],
         defaultBackend: 'kimi-test',
         backendSelectionStrategy: 'default',
@@ -43,50 +50,50 @@ describe('Config Loader Tests', () => {
           diffThreshold: 0.1,
           viewport: {
             width: 1280,
-            height: 720
-          }
-        }
-      };
+            height: 720,
+          },
+        },
+      }
 
-      const tmpPath = createTempConfig(config);
-      
+      const tmpPath = createTempConfig(config)
+
       try {
         // Load the config
-        const loaded = loadConfig({ configPath: tmpPath, useDefaults: false });
-        
+        const loaded = loadConfig({ configPath: tmpPath, useDefaults: false })
+
         // Verify all properties are preserved
-        expect(loaded.executorBackends).toHaveLength(1);
-        expect(loaded.defaultBackend).toBe('kimi-test');
-        expect(loaded.backendSelectionStrategy).toBe('default');
-        expect(loaded.maxPhaseRetries).toBe(2);
-        expect(loaded.defaultPhaseTimeout).toBe(300);
-        
+        expect(loaded.executorBackends).toHaveLength(1)
+        expect(loaded.defaultBackend).toBe('kimi-test')
+        expect(loaded.backendSelectionStrategy).toBe('default')
+        expect(loaded.maxPhaseRetries).toBe(2)
+        expect(loaded.defaultPhaseTimeout).toBe(300)
+
         // Verify backend config is preserved
-        const loadedBackend = loaded.executorBackends[0];
-        expect(loadedBackend.name).toBe('kimi-test');
-        expect(loadedBackend.command).toBe('kimi');
-        expect(loadedBackend.args).toEqual([]);
-        expect(loadedBackend.protocol).toBe('cli-json');
-        expect(loadedBackend.maxContextWindow).toBe(128000);
-        expect(loadedBackend.costPer1000Tokens).toBe(0.01);
-        expect(loadedBackend.enabled).toBe(true);
+        const loadedBackend = loaded.executorBackends[0]!
+        expect(loadedBackend.name).toBe('kimi-test')
+        expect(loadedBackend.command).toBe('kimi')
+        expect(loadedBackend.args).toEqual([])
+        expect(loadedBackend.protocol).toBe('cli-json')
+        expect(loadedBackend.maxContextWindow).toBe(128000)
+        expect(loadedBackend.costPer1000Tokens).toBe(0.01)
+        expect(loadedBackend.enabled).toBe(true)
       } finally {
         if (existsSync(tmpPath)) {
-          unlinkSync(tmpPath);
+          unlinkSync(tmpPath)
         }
       }
-    });
-  });
+    })
+  })
 
   describe('Config validation', () => {
     it('should reject config with missing required fields', () => {
       const invalidConfig = {
         // Missing executorBackends
-        defaultBackend: 'test'
-      };
+        defaultBackend: 'test',
+      }
 
-      expect(() => validateConfig(invalidConfig)).toThrow();
-    });
+      expect(() => validateConfig(invalidConfig)).toThrow()
+    })
 
     it('should reject config with invalid backend protocol', () => {
       const invalidConfig = {
@@ -94,22 +101,22 @@ describe('Config Loader Tests', () => {
           {
             name: 'test-backend',
             command: 'test',
-            protocol: 'invalid-protocol'
-          }
+            protocol: 'invalid-protocol',
+          },
         ],
-        defaultBackend: 'test-backend'
-      };
+        defaultBackend: 'test-backend',
+      }
 
-      expect(() => validateConfig(invalidConfig)).toThrow();
-    });
+      expect(() => validateConfig(invalidConfig)).toThrow()
+    })
 
     it('should accept valid config', () => {
       const validConfig = {
         executorBackends: [
           {
             name: 'test-backend',
-            command: 'test'
-          }
+            command: 'test',
+          },
         ],
         defaultBackend: 'test-backend',
         uiBaseline: {
@@ -118,27 +125,31 @@ describe('Config Loader Tests', () => {
           diffThreshold: 0.1,
           viewport: {
             width: 1280,
-            height: 720
-          }
-        }
-      };
+            height: 720,
+          },
+        },
+      }
 
-      expect(() => validateConfig(validConfig)).not.toThrow();
-    });
-  });
+      expect(() => validateConfig(validConfig)).not.toThrow()
+    })
+  })
 
   describe('loadConfigSafe behavior', () => {
     it('should return defaults when file does not exist', () => {
-      const safeConfig = loadConfigSafe({ configPath: '/non/existent/path/config.json' });
-      const defaultConfig = getDefaultConfig();
-      
+      const safeConfig = loadConfigSafe({
+        configPath: '/non/existent/path/config.json',
+      })
+      const defaultConfig = getDefaultConfig()
+
       // Should return valid config with defaults
-      expect(safeConfig.executorBackends).toBeDefined();
-      expect(safeConfig.defaultBackend).toBeDefined();
-      expect(safeConfig.maxPhaseRetries).toBe(defaultConfig.maxPhaseRetries);
-      expect(safeConfig.defaultPhaseTimeout).toBe(defaultConfig.defaultPhaseTimeout);
-    });
-  });
+      expect(safeConfig.executorBackends).toBeDefined()
+      expect(safeConfig.defaultBackend).toBeDefined()
+      expect(safeConfig.maxPhaseRetries).toBe(defaultConfig.maxPhaseRetries)
+      expect(safeConfig.defaultPhaseTimeout).toBe(
+        defaultConfig.defaultPhaseTimeout,
+      )
+    })
+  })
 
   describe('ExecutorBackendConfig schema', () => {
     it('should validate backend config', () => {
@@ -149,11 +160,11 @@ describe('Config Loader Tests', () => {
         protocol: 'cli-json',
         maxContextWindow: 100000,
         costPer1000Tokens: 0.02,
-        enabled: false
-      };
+        enabled: false,
+      }
 
-      const result = ExecutorBackendConfigSchema.safeParse(backendConfig);
-      expect(result.success).toBe(true);
-    });
-  });
-});
+      const result = ExecutorBackendConfigSchema.safeParse(backendConfig)
+      expect(result.success).toBe(true)
+    })
+  })
+})

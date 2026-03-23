@@ -74,7 +74,7 @@ describe('Worktree Isolation Properties', () => {
             args[1] === 'remove'
           ) {
             const removePath = args[2]
-            if (existsSync(removePath)) {
+            if (removePath && existsSync(removePath)) {
               rmSync(removePath, { recursive: true })
             }
           }
@@ -172,7 +172,7 @@ describe('Worktree Isolation Properties', () => {
             args[1] === 'remove'
           ) {
             const removePath = args[2]
-            if (existsSync(removePath)) {
+            if (removePath && existsSync(removePath)) {
               rmSync(removePath, { recursive: true })
             }
           }
@@ -247,7 +247,7 @@ describe('Worktree Isolation Properties', () => {
             args[1] === 'remove'
           ) {
             const removePath = args[2]
-            if (existsSync(removePath)) {
+            if (removePath && existsSync(removePath)) {
               rmSync(removePath, { recursive: true })
             }
           }
@@ -299,7 +299,7 @@ describe('Worktree Isolation Properties', () => {
           args[1] === 'remove'
         ) {
           const removePath = args[2]
-          if (existsSync(removePath)) {
+          if (removePath && existsSync(removePath)) {
             rmSync(removePath, { recursive: true })
           }
         }

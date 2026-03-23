@@ -144,15 +144,15 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 47: Cost calculation correctness**
     - **Validates: Requirements 5.5, 22.3, 26.1, 26.2, 26.3**
 
-- [ ] 8. State machine
-  - [ ] 8.1 Implement state machine in `src/core/state-machine.ts`
+- [x] 8. State machine
+  - [x] 8.1 Implement state machine in `src/core/state-machine.ts`
     - Enforce sequential 8-phase pipeline order with support for custom phase insertion
     - Handle phase transitions: success → next phase, failure → retry/loop-back/halt per phase policy
     - Track transition history with timestamps and triggers
     - Support pause/resume/cancel state transitions
     - _Requirements: 6.1, 6.3, 12.4, 13.5, 15.5, 18.1, 18.2, 18.3_
 
-  - [ ]* 8.2 Write property tests for pipeline ordering
+  - [x]* 8.2 Write property tests for pipeline ordering
     - **Property 9: Pipeline executes phases in sequential order**
     - **Property 10: Phase output flows to next phase context**
     - **Property 11: Failing phase results trigger appropriate pipeline response**

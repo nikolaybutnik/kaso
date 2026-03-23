@@ -123,7 +123,7 @@ describe('WorktreeManager', () => {
 
     it('should return path for existing worktree', () => {
       const worktrees = manager.listWorktrees()
-      const worktree = worktrees[0]
+      const worktree = worktrees[0]!
 
       const path = manager.getPath(worktree.runId)
 
@@ -163,7 +163,7 @@ describe('WorktreeManager', () => {
       await manager.create('test-feature', 'main')
 
       const worktrees = manager.listWorktrees()
-      const worktree = worktrees[0]
+      const worktree = worktrees[0]!
 
       const info = manager.getWorktreeInfo(worktree.runId)
 
@@ -214,7 +214,7 @@ describe('WorktreeManager', () => {
       await manager.create('test-feature', 'main')
 
       const worktrees = manager.listWorktrees()
-      const worktree = worktrees[0]
+      const worktree = worktrees[0]!
 
       const info = await manager.getWorktreeInfoFromDisk(worktree.runId)
 
@@ -257,7 +257,7 @@ describe('WorktreeManager', () => {
       await manager.create('test-feature', 'main')
 
       const worktrees = manager.listWorktrees()
-      const worktree = worktrees[0]
+      const worktree = worktrees[0]!
 
       await expect(manager.push(worktree.runId, 'origin')).rejects.toThrow(
         'Worktree path does not exist',
@@ -301,7 +301,7 @@ describe('WorktreeManager', () => {
       await manager.create('test-feature', 'main')
 
       const worktrees = manager.listWorktrees()
-      const worktree = worktrees[0]
+      const worktree = worktrees[0]!
 
       await manager.cleanup(worktree.runId)
 
@@ -395,7 +395,7 @@ describe('WorktreeManager', () => {
       await manager.create('test-feature', 'main')
 
       const worktrees = manager.listWorktrees()
-      const worktree = worktrees[0]
+      const worktree = worktrees[0]!
 
       const mockWorktreeGit: MockGit = {
         raw: vi.fn(),
