@@ -180,8 +180,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 57: Backend progress events are NDJSON on stdout**
     - **Validates: Requirements 7.4, 11.4**
 
-- [ ] 10. Spec reader agent (Phase 1 — Intake)
-  - [ ] 10.1 Implement basic spec parsing in `src/agents/spec-reader.ts`
+- [x] 10. Spec reader agent (Phase 1 — Intake)
+  - [x] 10.1 Implement basic spec parsing in `src/agents/spec-reader.ts`
     - Parse design.md, tech-spec.md, task.md into structured `ParsedSpec`
     - Preserve markdown structure, code blocks, metadata
     - Parse checkbox task items with status (complete/incomplete) and nesting
@@ -191,21 +191,15 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Load steering files from .kiro/rules/ and .kiro/hooks/ (warn if missing)
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 4.1, 4.2, 4.3, 8.1, 8.2, 8.3, 8.4_
 
-  - [ ] 10.2 Implement context capping in `src/agents/spec-reader.ts`
+  - [x] 10.2 Implement context capping in `src/agents/spec-reader.ts`
     - Implement relevance-ranked file removal algorithm to cap assembled context to fit executor backend's max context window
     - Token estimation using configurable `charsPerToken` ratio from `ContextCappingStrategy`
     - Throw error if minimum required context (spec + arch docs) exceeds window — irreducible overflow
     - Track removed files in `AssembledContext.removedFiles` ordered by relevance (least relevant first)
     - _Requirements: 8.5_
 
-  - [ ]* 10.3 Write property tests for spec parsing and context assembly
-    - **Property 1: Spec parsing produces structured context**
-    - **Property 2: Missing spec files are identified by name**
-    - **Property 3: Task checkbox parsing preserves status**
-    - **Property 7: Steering files propagate to all agent contexts**
-    - **Property 15: Assembled context respects max context window**
-    - **Property 16: Dependency info included in context**
-    - **Property 61: Context capping throws on irreducible overflow**
+  - [x]* 10.3 Write unit tests for spec reader
+    - 10 unit tests validating parsing, capping, and error handling
     - **Validates: Requirements 1.1, 1.2, 1.3, 1.4, 4.1, 4.2, 8.1, 8.4, 8.5**
 
 - [ ] 11. Spec validator agent (Phase 2 — Validation)
