@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 31 source files across 44 test files with 576 passing tests including comprehensive property-based tests.
+The project has 32 source files across 46 test files with 624 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -102,7 +102,8 @@ src/
 │   ├── webhook-dispatcher.ts
 │   └── worktree-manager.ts
 ├── plugins/             # Plugin system (empty — planned)
-└── streaming/           # Event streaming (empty — planned)
+└── streaming/           # Event streaming (1 file)
+    └── sse-server.ts
 
 tests/
 ├── agents/              # 10 test files
@@ -110,7 +111,8 @@ tests/
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 9 test files
-└── property/            # 19 property-based test files
+├── property/            # 20 property-based test files
+└── streaming/           # 1 test file
 ```
 
 ## Architecture
@@ -514,6 +516,19 @@ Delivers execution lifecycle events to configured external webhook URLs with ret
 
 Features: event filtering per webhook, custom headers from config, HMAC-SHA256 payload signing (`X-KASO-Signature` header), exponential backoff with jitter (capped at 30s), sensitive data redaction in payloads, AbortController-based request timeouts.
 
+### `src/streaming/sse-server.ts`
+
+Server-Sent Events server for real-time streaming of execution events to connected clients.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `SSEServer` | Class | HTTP server streaming execution events via SSE. `start()`, `stop()`, `isRunning()`, `getClientCount()`, `getClientIds()`. Subscribes to EventBus and broadcasts events to connected clients with filtering support. |
+| `SSEEventPayload` | Interface | SSE event wire format with id, event, data fields |
+| `SSEMessage` | Interface | Formatted event payload with type, runId, timestamp, phase, agent, elapsedTime, data |
+| `createSSEServer` | Function | Factory function accepting EventBus and optional partial SSEConfig |
+
+Features: per-client runId and event type filtering via query params, Bearer token authentication, heartbeat/ping to keep connections alive, Last-Event-ID replay for reconnection, health check endpoint (`/health`), configurable endpoint path. Extracts elapsed time from event data (duration, elapsedTime, or startTime calculation).
+
 ---
 
 ## Configuration Reference
@@ -629,7 +644,7 @@ Features: event filtering per webhook, custom headers from config, HMAC-SHA256 p
 | 22 | UI validator agent (Phase 7) | ✅ |
 | 23 | File watcher for spec monitoring | ✅ |
 | 24 | Webhook dispatcher | ✅ |
-| 25 | SSE server for streaming | 📋 Planned |
+| 25 | SSE server for streaming | ✅ |
 | 26 | CLI interface | 📋 Planned |
 | 27 | Checkpoint — Polish complete | 📋 Planned |
 | 28 | Plugin loader and custom phases | 📋 Planned |

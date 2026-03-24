@@ -113,6 +113,21 @@ export const WebhookConfigSchema = z.object({
 export type WebhookConfig = z.infer<typeof WebhookConfigSchema>
 
 /**
+ * SSE server configuration
+ */
+export const SSEConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  port: z.number().int().positive().default(3001),
+  host: z.string().default('localhost'),
+  endpoint: z.string().default('/events'),
+  heartbeatIntervalMs: z.number().int().positive().default(30000),
+  authToken: z.string().optional(),
+  maxClients: z.number().int().positive().default(100),
+})
+
+export type SSEConfig = z.infer<typeof SSEConfigSchema>
+
+/**
  * MCP server configuration
  */
 export const MCPServerConfigSchema = z.object({
@@ -174,6 +189,9 @@ export const KASOConfigSchema = z.object({
 
   // Webhooks
   webhooks: z.array(WebhookConfigSchema).default([]),
+
+  // SSE Streaming
+  sse: SSEConfigSchema.default({}).optional(),
 
   // MCP Integration
   mcpServers: z.array(MCPServerConfigSchema).default([]),

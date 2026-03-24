@@ -409,19 +409,30 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Unit tests go into /tests/infrastructure
     - _Requirements: 24.1, 24.2, 24.3, 24.4_
 
-  - [ ] 24.2 Write property tests for webhooks
+  - [x] 24.2 Write property tests for webhooks
     - Property tests go into /tests/property
     - **Property 44: Webhook payload contains required fields and auth headers**
     - **Property 45: Webhook retry with exponential backoff**
     - **Property 59: Webhook payloads are HMAC-SHA256 signed**
     - **Validates: Requirements 24.2, 24.3, 24.4**
 
-- [ ] 25. SSE server for real-time streaming
-  - [ ] 25.1 Implement SSE server in `src/streaming/sse-server.ts`
+- [x] 25. SSE server for real-time streaming
+  - [x] 25.1 Implement SSE server in `src/streaming/sse-server.ts`
     - Stream execution events via Server-Sent Events to connected clients
     - Subscribe to event bus and forward events
     - Include current phase, agent identifier, elapsed time in each event
+    - Unit tests go into /tests/streaming
     - _Requirements: 17.1, 17.2_
+
+  - [x] 25.2 Write property tests for SSE
+    - Property tests go into /tests/property
+    - **Property 46: SSE events contain required fields**
+    - **Property 47: SSE server handles concurrent client connections**
+    - **Property 48: SSE event filtering by runId works correctly**
+    - **Property 49: SSE heartbeat maintains connection**
+    - **Property 50: SSE event format consistency**
+    - **Property 51: SSE event type filtering**
+    - **Property 52: SSE authentication handling**
 
 - [ ] 26. CLI interface
   - [ ] 26.1 Implement CLI entry point and commands in `src/cli/index.ts` and `src/cli/commands.ts`
