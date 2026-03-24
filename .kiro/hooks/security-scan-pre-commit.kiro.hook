@@ -2,13 +2,13 @@
   "enabled": true,
   "name": "Security Scan Before Commit",
   "description": "Before the agent runs a git commit via shell, scan staged files for leaked secrets, hardcoded credentials, or API keys.",
-  "version": "1",
+  "version": "2",
   "when": {
     "type": "preToolUse",
-    "toolTypes": [".*git.*"]
+    "toolTypes": ["shell"]
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Check if this is a git commit command. If it is NOT a commit, skip and proceed.\n\nIf it IS a git commit, scan staged changes (git diff --cached) for: API keys/tokens (sk-, pk-, AKIA, ghp_), hardcoded credentials, connection strings with passwords, private keys. Block the commit if anything is found. If clean, proceed."
+    "prompt": "Check if this is a git commit command. If it is NOT a git commit (e.g. git status, git diff, git add, git log, git branch, etc.), skip all checks and proceed immediately.\n\nIf it IS a git commit, scan staged changes (git diff --cached) for: API keys/tokens (sk-, pk-, AKIA, ghp_), hardcoded credentials, connection strings with passwords, private keys. Block the commit if anything is found. If clean, proceed."
   }
 }
