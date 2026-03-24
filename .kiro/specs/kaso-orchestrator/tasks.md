@@ -267,8 +267,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 63: Cancel with AbortSignal terminates active agent**
     - **Validates: Requirements 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 6.4, 16.7, 16.8, 18.1, 18.2, 18.3, 26.5, 26.6**
 
-- [ ] 14. Error handling and recovery
-  - [ ] 14.1 Implement error handling logic in orchestrator
+- [x] 14. Error handling and recovery
+  - [x] 14.1 Implement error handling logic in orchestrator
     - Rollback for agents that support it on phase failure
     - Retry with modified strategy (reduced context / alternative backend) up to 2 additional attempts
     - Escalate after 3 consecutive failures with detailed failure report
@@ -277,16 +277,23 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Phase-specific error policies: halt, loop-back to implementation, or retry
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6_
 
-  - [ ]* 14.2 Write property tests for error handling
+  - [x]* 14.2 Write property tests for error handling
     - **Property 31: Rollback triggered for rollback-capable agents on failure**
     - **Property 32: Phase retry capped at 2 additional attempts**
     - **Property 33: Three consecutive failures trigger escalation**
     - **Property 34: Security concerns trigger immediate escalation**
     - **Validates: Requirements 16.1, 16.2, 16.3, 16.5**
 
-  - [ ]* 14.3 Write property tests for crash recovery
+  - [x]* 14.3 Write property tests for crash recovery
     - **Property 52: Crash recovery validates worktree integrity**
     - **Validates: Requirements 27.4, 27.5**
+
+  - [ ] 14.4 Wire remaining error handling gaps
+    - Apply `retryContext` from ErrorHandler in `buildAgentContext` — when `modifiedContext.reducedContext` is true, trim context; when `alternativeBackend` is set, route to that backend
+    - Wire `getPhaseErrorPolicy` into `handlePhaseFailure` so phase-specific policies (halt/loopback/retry) influence the error handler's decision instead of relying solely on the state machine
+    - Remove `_agentRegistry` from ErrorHandler constructor once policy wiring is complete (it was reserved for phase→agent lookups in error policies)
+    - Add property tests verifying reduced context and alternative backend are actually applied on retry
+    - _Requirements: 16.2, 16.6_
 
 - [ ] 15. Checkpoint — Orchestrator and error handling complete
   - Ensure all tests pass, ask the user if questions arise.

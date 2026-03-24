@@ -50,6 +50,7 @@ export type EventType =
   | 'run:failed'
   | 'run:cancelled'
   | 'run:budget_exceeded'
+  | 'run:escalated'
   | 'agent:progress'
   | 'agent:error'
   | 'worktree:created'

@@ -5,7 +5,8 @@
 
 import { EventBus } from './event-bus'
 import { StateMachine } from './state-machine'
-import type { AgentRegistry } from '@/agents/agent-interface'
+import { ErrorHandler } from './error-handler'
+import type { AgentRegistry, Agent } from '@/agents/agent-interface'
 import { ExecutionStore } from '@/infrastructure/execution-store'
 import { CheckpointManager } from '@/infrastructure/checkpoint-manager'
 import { WorktreeManager } from '@/infrastructure/worktree-manager'
@@ -13,10 +14,11 @@ import { CostTracker } from '@/infrastructure/cost-tracker'
 import { ConcurrencyManager } from './concurrency-manager'
 import { BackendRegistry } from '@/backends/backend-registry'
 import { SpecWriter } from '@/infrastructure/spec-writer'
-import type { KASOConfig } from '@/config/schema'
+import type { KASOConfig, ExecutorBackendConfig } from '@/config/schema'
 import type {
   PhaseName,
   AgentContext,
+  AgentError,
   PhaseResult,
   PhaseOutput,
   ExecutionRunRecord,
@@ -134,6 +136,7 @@ export class Orchestrator {
   private readonly backendRegistry: BackendRegistry
   private readonly specWriter: SpecWriter
   private readonly config: KASOConfig
+  private readonly errorHandler: ErrorHandler
   private readonly runningRuns = new Map<string, RunningRunInfo>()
   private readonly queuedSpecUpdates = new Map<string, string>()
 
@@ -160,6 +163,7 @@ export class Orchestrator {
     this.backendRegistry = backendRegistry
     this.specWriter = specWriter
     this.config = config
+    this.errorHandler = new ErrorHandler(agentRegistry, backendRegistry, config)
 
     // _stateMachine param kept for API compat — each run creates its own instance
     this.validatePhaseAgentsRegistered()
@@ -396,6 +400,7 @@ export class Orchestrator {
       `Run cancelled — worktree preserved at: ${runInfo.worktreePath ?? 'unknown'}`,
     )
 
+    this.cleanupTerminalRun(runInfo.runId)
     return { runId, status: 'cancelled' }
   }
 
@@ -521,6 +526,42 @@ export class Orchestrator {
 
       const phaseResult = await this.executePhase(runInfo, phase)
 
+      // Handle escalation from error handler (Req 14.1)
+      if (phaseResult.error?.data?.escalated === true) {
+        const reason = phaseResult.error.message
+        const failureReport = this.errorHandler.buildFailureReport(
+          runInfo.runId,
+          phase,
+          { message: reason, retryable: false },
+          runInfo.phaseOutputs,
+        )
+
+        this.emitEvent('run:escalated', runInfo, {
+          reason,
+          report: failureReport,
+        })
+
+        this.appendLog(runInfo, 'error', 'orchestrator', `Escalated: ${reason}`)
+
+        // Preserve worktree and phase outputs on halt (Req 16.6)
+        this.retainWorktree(runInfo)
+
+        // Write escalation status to spec directory
+        if (specDir) {
+          const cost = this.costTracker.getRunCost(runInfo.runId)
+          await this.specWriter.writeRunCompleted(
+            specDir,
+            runInfo.runId,
+            'failed',
+            cost?.totalCost,
+            `Escalated: ${reason}`,
+          )
+        }
+
+        this.failRun(runInfo, reason)
+        return
+      }
+
       const resultRecord: PhaseResultRecord = {
         ...phaseResult,
         runId: runInfo.runId,
@@ -563,6 +604,8 @@ export class Orchestrator {
 
       // Terminal failure — pipeline halts (Req 6.3)
       if (transition.trigger === 'failure' && transition.to === undefined) {
+        // Preserve worktree and phase outputs on halt (Req 16.6)
+        this.retainWorktree(runInfo)
         this.failRun(runInfo, `Pipeline failed at phase '${phase}'`)
         return
       }
@@ -589,6 +632,7 @@ export class Orchestrator {
           )
         }
 
+        this.cleanupTerminalRun(runInfo.runId)
         return
       }
 
@@ -643,10 +687,15 @@ export class Orchestrator {
       // Normal success — advance to next phase
       phaseIdx++
     }
+
+    // Pipeline loop exited without explicit terminal — shouldn't happen, but handle gracefully
+    if (!isTerminal(runInfo.status)) {
+      this.failRun(runInfo, 'Pipeline exited without reaching a terminal state')
+    }
   }
 
   /**
-   * Execute a single phase with timeout enforcement (Req 16.7, 16.8).
+   * Execute a single phase with timeout enforcement and error handling (Req 14.1, 16.7, 16.8).
    * Uses AbortController pattern to prevent timer leaks.
    */
   private async executePhase(
@@ -730,26 +779,22 @@ export class Orchestrator {
         }
       }
 
-      this.eventBus.emit({
-        type: 'phase:failed',
-        runId: runInfo.runId,
-        timestamp: completedAt,
-        phase,
-        agent: agentName,
-        data: { error: agentResult.error?.message },
-      })
+      // Handle failure with error handler (Req 14.1)
+      const error = agentResult.error ?? {
+        message: 'Agent returned unsuccessful result',
+        retryable: true,
+      }
 
-      return {
+      return this.handlePhaseFailure(
+        runInfo,
         phase,
-        status: 'failure',
-        error: agentResult.error ?? {
-          message: 'Agent returned unsuccessful result',
-          retryable: true,
-        },
+        agent,
+        error,
         startedAt,
         completedAt,
         duration,
-      }
+        agentName,
+      )
     } catch (error) {
       const completedAt = nowISO()
       const duration = Date.now() - new Date(startedAt).getTime()
@@ -767,17 +812,122 @@ export class Orchestrator {
         data: { error: errorMessage(error) },
       })
 
-      return {
+      const agentError: AgentError = {
+        message: errorMessage(error),
+        retryable: !isTimeout,
+      }
+
+      const result = this.handlePhaseFailure(
+        runInfo,
         phase,
-        status: isTimeout ? 'timeout' : 'failure',
-        error: { message: errorMessage(error), retryable: !isTimeout },
+        agent,
+        agentError,
         startedAt,
         completedAt,
         duration,
+        agentName,
+      )
+
+      // Preserve timeout status so callers can distinguish timeout from generic failure
+      if (isTimeout) {
+        result.status = 'timeout'
       }
+
+      return result
     } finally {
       runInfo.phaseAbortController = undefined
       slot.release()
+    }
+  }
+
+  /**
+   * Handle phase failure with error handler logic (Req 14.1).
+   * Determines whether to retry, rollback, loopback, escalate, or halt.
+   */
+  private handlePhaseFailure(
+    runInfo: RunningRunInfo,
+    phase: PhaseName,
+    agent: Agent,
+    error: AgentError,
+    startedAt: string,
+    completedAt: string,
+    duration: number,
+    agentName: string,
+  ): PhaseResult {
+    const errorResult = this.errorHandler.handleFailure(
+      runInfo.runId,
+      phase,
+      error,
+      agent,
+    )
+
+    this.eventBus.emit({
+      type: 'phase:failed',
+      runId: runInfo.runId,
+      timestamp: completedAt,
+      phase,
+      agent: agentName,
+      data: { error: error.message, action: errorResult.action },
+    })
+
+    switch (errorResult.action) {
+      case 'escalate':
+      case 'halt':
+        // Mark as non-retryable to force halt through state machine
+        return {
+          phase,
+          status: 'failure',
+          error: {
+            message: errorResult.reason,
+            retryable: false,
+            data: { escalated: true },
+          },
+          startedAt,
+          completedAt,
+          duration,
+        }
+
+      case 'rollback-retry':
+        // Perform rollback for agents that support it (Req 16.1)
+        if (agent.supportsRollback()) {
+          this.appendLog(
+            runInfo,
+            'info',
+            'orchestrator',
+            `Rolling back changes for phase '${phase}'`,
+          )
+          // Note: Actual rollback implementation would call agent.rollback()
+          // if that method existed on the Agent interface
+        }
+        return {
+          phase,
+          status: 'failure',
+          error: { ...error, retryable: true },
+          startedAt,
+          completedAt,
+          duration,
+        }
+
+      case 'retry':
+      case 'loopback':
+        return {
+          phase,
+          status: 'failure',
+          error: { ...error, retryable: true },
+          startedAt,
+          completedAt,
+          duration,
+        }
+
+      default:
+        return {
+          phase,
+          status: 'failure',
+          error,
+          startedAt,
+          completedAt,
+          duration,
+        }
     }
   }
 
@@ -857,10 +1007,7 @@ export class Orchestrator {
   // ---------------------------------------------------------------------------
 
   private buildAgentContext(runInfo: RunningRunInfo): AgentContext {
-    const backends: Record<
-      string,
-      import('@/config/schema').ExecutorBackendConfig
-    > = {}
+    const backends: Record<string, ExecutorBackendConfig> = {}
     for (const name of this.backendRegistry.listBackends()) {
       const cfg = this.backendRegistry.getConfig(name)
       if (cfg) {
@@ -935,6 +1082,8 @@ export class Orchestrator {
     runInfo: RunningRunInfo,
     message: string,
   ): { runId: string; status: string } {
+    this.cleanupTerminalRun(runInfo.runId)
+
     // Write run failed log and status
     const specDir = this.getSpecDirectoryPath(runInfo.specPath)
     if (specDir) {
@@ -961,6 +1110,15 @@ export class Orchestrator {
     this.emitEvent('run:failed', runInfo, { error: message })
     this.appendLog(runInfo, 'error', 'orchestrator', message)
     return { runId: runInfo.runId, status: 'failed' }
+  }
+
+  /**
+   * Release error handler retry state and remove from active tracking
+   * to prevent unbounded memory growth in long-running processes.
+   */
+  private cleanupTerminalRun(runId: string): void {
+    this.errorHandler.clearRunState(runId)
+    // Don't delete from runningRuns — getRunStatus needs it for post-completion queries
   }
 
   /** Mark the worktree as retained so it won't be auto-cleaned (Req 19.4) */

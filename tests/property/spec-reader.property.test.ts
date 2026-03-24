@@ -70,7 +70,9 @@ const taskItemArbitrary = fc
 test.prop([
   fc
     .string({ minLength: 1, maxLength: 50 })
-    .filter((s) => !s.includes('/') && !s.includes('\0')),
+    .filter(
+      (s) => !s.includes('/') && !s.includes('\0') && s !== '.' && s !== '..',
+    ),
   markdownArbitrary,
   markdownArbitrary,
   taskItemArbitrary,

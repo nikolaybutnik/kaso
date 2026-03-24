@@ -136,6 +136,23 @@ function createSlowAgent(delayMs: number): Agent {
   }
 }
 
+/**
+ * Creates a slow agent that ignores abort signals.
+ * Used for timeout testing to ensure the timeout actually fires.
+ */
+function createUncooperativeSlowAgent(delayMs: number): Agent {
+  return {
+    execute: vi.fn(async (): Promise<AgentResult> => {
+      // Simply wait for the delay without checking abort
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs))
+      return { success: true, output: { result: 'slow-ok' } }
+    }),
+    supportsRollback: () => false,
+    estimatedDuration: () => delayMs,
+    requiredContext: () => [],
+  }
+}
+
 function createMockAgentRegistry(
   agentFactory: () => Agent = createSuccessAgent,
 ): AgentRegistry {
@@ -533,12 +550,13 @@ describe('Orchestrator Properties', () => {
         defaultPhaseTimeout: timeoutSeconds,
       })
 
-      // Agent takes slightly longer than the timeout
-      const agentDelayMs = timeoutMs + 50
+      // Agent takes significantly longer than the timeout to ensure timeout is triggered
+      const agentDelayMs = timeoutMs + 100
       const { orchestrator } = buildOrchestrator({
         config,
+        // Use uncooperative agent to ensure timeout actually fires
         agentRegistry: createMockAgentRegistry(() =>
-          createSlowAgent(agentDelayMs),
+          createUncooperativeSlowAgent(agentDelayMs),
         ),
       })
 
