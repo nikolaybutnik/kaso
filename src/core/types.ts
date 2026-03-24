@@ -59,6 +59,14 @@ export type EventType =
   | 'concurrency:released'
   | 'concurrency:queued'
   | 'concurrency:dequeued'
+  | 'watcher:started'
+  | 'watcher:ready'
+  | 'watcher:stopped'
+  | 'watcher:error'
+  | 'watcher:status:detected'
+  | 'watcher:status:removed'
+  | 'watcher:spec:ready'
+  | 'watcher:callback:error'
 
 /**
  * Backend protocols supported by executor backends

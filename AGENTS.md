@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 26 source files across 41 test files with 496 passing tests including comprehensive property-based tests.
+The project has 30 source files across 42 test files with 523 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -90,11 +90,12 @@ src/
 │   ├── orchestrator.ts
 │   ├── state-machine.ts
 │   └── types.ts
-├── infrastructure/      # Core services (7 files)
+├── infrastructure/      # Core services (8 files)
 │   ├── checkpoint-manager.ts
 │   ├── cost-tracker.ts
 │   ├── credential-manager.ts
 │   ├── execution-store.ts
+│   ├── file-watcher.ts
 │   ├── log-redactor.ts
 │   ├── spec-writer.ts
 │   └── worktree-manager.ts
@@ -106,7 +107,7 @@ tests/
 ├── backends/            # 2 test files
 ├── config/              # 1 test file
 ├── core/                # 3 test files
-├── infrastructure/      # 8 test files (includes 1 property test)
+├── infrastructure/      # 9 test files (includes 1 property test)
 └── property/            # 16 property-based test files
 ```
 
@@ -483,6 +484,20 @@ Writes execution state back to Kiro spec directories.
 
 Writes `execution-log.md` and `status.json` to spec directories. Gracefully degrades on missing directories.
 
+### `src/infrastructure/file-watcher.ts`
+
+Monitors `.kiro/specs/` directories for spec status changes and triggers orchestration runs.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `FileWatcher` | Class | Watches `status.json` files via chokidar. `start(callback)`, `stop()`, `checkSpecStatus(path)`, `triggerSpecCheck(path)`, `getWatchedSpecs()`, `getState()`, `isWatching()`. |
+| `FileWatcherConfig` | Interface | specsDir, watchPatterns, ignorePatterns, pollingInterval, usePolling |
+| `SpecReadyCallback` | Type | `(specPath: string, specName: string) => void \| Promise<void>` |
+| `FileWatcherState` | Type | `'idle' \| 'watching' \| 'stopped' \| 'error'` |
+| `createFileWatcher` | Function | Factory function accepting optional config and EventBus |
+
+Detects specs transitioning to "ready-for-dev" (runStatus=pending, no currentPhase). Deduplicates triggers, resets on status change away from ready. Emits events via EventBus for observability. Supports polling mode for network filesystems.
+
 ---
 
 ## Configuration Reference
@@ -596,7 +611,7 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 | 20 | Delivery agent (Phase 8) | ✅ |
 | 21 | Checkpoint — Quality gates | ✅ |
 | 22 | UI validator agent (Phase 7) | ✅ |
-| 23 | File watcher for spec monitoring | 📋 Planned |
+| 23 | File watcher for spec monitoring | ✅ |
 | 24 | Webhook dispatcher | 📋 Planned |
 | 25 | SSE server for streaming | 📋 Planned |
 | 26 | CLI interface | 📋 Planned |

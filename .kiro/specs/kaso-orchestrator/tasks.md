@@ -392,8 +392,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 60: UI baselines stored under configured directory by route**
     - **Validates: Requirements 14.4, 14.5, 14.6, 14.8**
 
-- [ ] 23. File watcher for spec monitoring
-  - [ ] 23.1 Implement file watcher in `src/infrastructure/file-watcher.ts`
+- [x] 23. File watcher for spec monitoring
+  - [x] 23.1 Implement file watcher in `src/infrastructure/file-watcher.ts`
     - Monitor .kiro/specs/ directories for file changes using `chokidar`
     - Detect spec status transitions to "ready-for-dev"
     - Trigger orchestrator `startRun` on detection
