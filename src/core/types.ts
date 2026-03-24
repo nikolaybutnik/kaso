@@ -67,6 +67,13 @@ export type EventType =
   | 'watcher:status:removed'
   | 'watcher:spec:ready'
   | 'watcher:callback:error'
+  | 'mcp:connected'
+  | 'mcp:disconnected'
+  | 'mcp:error'
+  | 'mcp:reconnected'
+  | 'mcp:tool:invoking'
+  | 'mcp:tool:success'
+  | 'mcp:tool:error'
 
 /**
  * Backend protocols supported by executor backends
@@ -223,6 +230,7 @@ export interface AgentContext {
   config: KASOConfig
   worktreePath?: string
   backends: Record<string, ExecutorBackendConfig>
+  mcpTools?: import('../config/schema').MCPToolDefinition[] // MCP tools available for this phase (Req 25.2)
   preferredBackend?: string // Override default backend on retry (Req 16.2)
   removedFiles?: string[] // Files removed during context capping
   abortSignal?: AbortSignal // For cooperative cancellation detection (Req 13.5)

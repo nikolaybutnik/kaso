@@ -1,6 +1,6 @@
 {
   "name": "kaso",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Kiro-Enabled Agent Swarm Orchestrator - locally-run modular orchestration system for AI-assisted engineering",
   "main": "dist/index.js",
   "type": "module",

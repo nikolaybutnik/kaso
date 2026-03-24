@@ -16,12 +16,12 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 36 source files across 51 test files with 735 passing tests including comprehensive property-based tests.
+The project has 37 source files across 53 test files with 794 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
 - **Phase 3 (Remaining Agents & CLI)**: ✅ Complete
-- **Phase 4 (Extensibility)**: 🔧 In Progress (Plugin loader, phase injector complete)
+- **Phase 4 (Extensibility)**: 🔧 In Progress (Plugin loader, phase injector, MCP client complete)
 
 ## Technology Stack
 
@@ -81,6 +81,8 @@ src/
 │   ├── backend-process.ts
 │   └── backend-registry.ts
 ├── cli/                 # CLI interface (2 files)
+│   ├── commands.ts
+│   └── index.ts
 ├── config/              # Configuration loading & validation (2 files)
 │   ├── loader.ts
 │   └── schema.ts
@@ -92,13 +94,14 @@ src/
 │   ├── orchestrator.ts
 │   ├── state-machine.ts
 │   └── types.ts
-├── infrastructure/      # Core services (9 files)
+├── infrastructure/      # Core services (10 files)
 │   ├── checkpoint-manager.ts
 │   ├── cost-tracker.ts
 │   ├── credential-manager.ts
 │   ├── execution-store.ts
 │   ├── file-watcher.ts
 │   ├── log-redactor.ts
+│   ├── mcp-client.ts
 │   ├── spec-writer.ts
 │   ├── webhook-dispatcher.ts
 │   └── worktree-manager.ts
@@ -113,9 +116,9 @@ tests/
 ├── backends/            # 2 test files
 ├── config/              # 1 test file
 ├── core/                # 3 test files
-├── infrastructure/      # 9 test files
+├── infrastructure/      # 10 test files
 ├── plugins/             # 2 test files
-├── property/            # 22 property-based test files
+├── property/            # 23 property-based test files
 └── streaming/           # 1 test file
 ```
 
@@ -520,6 +523,20 @@ Delivers execution lifecycle events to configured external webhook URLs with ret
 
 Features: event filtering per webhook, custom headers from config, HMAC-SHA256 payload signing (`X-KASO-Signature` header), exponential backoff with jitter (capped at 30s), sensitive data redaction in payloads, AbortController-based request timeouts.
 
+### `src/infrastructure/mcp-client.ts`
+
+Manages connections to configured MCP servers, lists available tools, invokes tools with typed arguments, and scopes tool availability to the Implementation phase only.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `MCPClient` | Class | Manages MCP server connections and tool invocation. `initialize()`, `connect()`, `disconnect()`, `disconnectServer()`, `getAllTools()`, `getToolsForServer()`, `getToolsForPhase()`, `isPhaseEligible()`, `setServerTools()`, `getConnectedServerCount()`, `getConnectionState()`, `getAllConnections()`, `hasAvailableTools()`, `isToolAvailable()`, `invokeTool()`, `reconnect()`. |
+| `MCPConnectionState` | Type | `'connecting' \| 'connected' \| 'disconnected' \| 'error'` |
+| `MCPConnection` | Interface | Server connection info with name, config, state, tools, error, lastConnected |
+| `MCPInvocationResult` | Interface | Tool invocation result with success, output, error |
+| `createMCPClient` | Function | Factory function accepting MCPServerConfig array and optional EventBus |
+
+Features: phase-scoped tool access (only Implementation phase receives MCP tools per Req 25.2/25.3), graceful degradation on server crashes (marks tools unavailable, continues execution), tool injection via `setServerTools()` for testing and SDK integration, reconnection support, EventBus integration for observability. Supports stdio, SSE, and WebSocket transports.
+
 ### `src/streaming/sse-server.ts`
 
 Server-Sent Events server for real-time streaming of execution events to connected clients.
@@ -684,9 +701,9 @@ Inserts custom phases at configurable positions in the 8-phase pipeline. Custom 
 | 24 | Webhook dispatcher | ✅ |
 | 25 | SSE server for streaming | ✅ |
 | 26 | CLI interface | ✅ |
-| 27 | Checkpoint — Polish complete | 📋 Planned |
+| 27 | Checkpoint — Polish complete | ✅ |
 | 28 | Plugin loader and custom phases | ✅ |
-| 29 | MCP client integration | 📋 Planned |
+| 29 | MCP client integration | ✅ |
 | 30 | Wire everything together | 📋 Planned |
 | 31 | Final checkpoint | 📋 Planned |
 

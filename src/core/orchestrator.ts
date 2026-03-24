@@ -14,6 +14,7 @@ import { CostTracker } from '@/infrastructure/cost-tracker'
 import { ConcurrencyManager } from './concurrency-manager'
 import { BackendRegistry } from '@/backends/backend-registry'
 import { SpecWriter } from '@/infrastructure/spec-writer'
+import type { MCPClient } from '@/infrastructure/mcp-client'
 import type { KASOConfig, ExecutorBackendConfig } from '@/config/schema'
 import type {
   PhaseName,
@@ -144,6 +145,7 @@ export class Orchestrator {
   private readonly errorHandler: ErrorHandler
   private readonly runningRuns = new Map<string, RunningRunInfo>()
   private readonly queuedSpecUpdates = new Map<string, string>()
+  private mcpClient?: MCPClient
 
   constructor(
     eventBus: EventBus,
@@ -173,6 +175,11 @@ export class Orchestrator {
     // _stateMachine param kept for API compat — each run creates its own instance
     this.validatePhaseAgentsRegistered()
     this.validateDependencies(_stateMachine)
+  }
+
+  /** Set the MCP client for tool integration (Req 25.1, 25.2, 25.3) */
+  setMCPClient(client: MCPClient): void {
+    this.mcpClient = client
   }
 
   /** Verify all injected dependencies are present */
@@ -743,7 +750,7 @@ export class Orchestrator {
       const phaseAbortController = new AbortController()
       runInfo.phaseAbortController = phaseAbortController
 
-      const context = this.buildAgentContext(runInfo)
+      const context = this.buildAgentContext(runInfo, phase)
       const timeoutMs = this.getPhaseTimeoutMs(phase)
 
       // Race agent execution against timeout, with proper cleanup
@@ -1033,7 +1040,10 @@ export class Orchestrator {
   // Context building
   // ---------------------------------------------------------------------------
 
-  private buildAgentContext(runInfo: RunningRunInfo): AgentContext {
+  private buildAgentContext(
+    runInfo: RunningRunInfo,
+    phase?: PhaseName,
+  ): AgentContext {
     const backends: Record<string, ExecutorBackendConfig> = {}
     for (const name of this.backendRegistry.listBackends()) {
       const cfg = this.backendRegistry.getConfig(name)
@@ -1041,6 +1051,12 @@ export class Orchestrator {
         backends[name] = cfg
       }
     }
+
+    // Scope MCP tools to eligible phases only (Req 25.2, 25.3)
+    const mcpTools =
+      phase && this.mcpClient
+        ? this.mcpClient.getToolsForPhase(phase)
+        : undefined
 
     const context: AgentContext = {
       runId: runInfo.runId,
@@ -1050,6 +1066,7 @@ export class Orchestrator {
       config: this.config,
       worktreePath: runInfo.worktreePath,
       backends,
+      mcpTools,
       abortSignal: runInfo.phaseAbortController?.signal,
     }
 
@@ -1397,7 +1414,9 @@ export interface CreateOrchestratorOptions {
 /**
  * Create an Orchestrator instance with all dependencies
  */
-export function createOrchestrator(options: CreateOrchestratorOptions): Orchestrator {
+export function createOrchestrator(
+  options: CreateOrchestratorOptions,
+): Orchestrator {
   return new Orchestrator(
     options.eventBus,
     options.stateMachine,

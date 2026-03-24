@@ -488,15 +488,17 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Validates: Requirements 22.2, 22.3, 23.3**
 
 - [ ] 29. MCP client integration
-  - [ ] 29.1 Implement MCP client in `src/infrastructure/mcp-client.ts`
+  - [x] 29.1 Implement MCP client in `src/infrastructure/mcp-client.ts`
     - Connect to configured MCP servers, manage connections
     - List available tools, invoke tools with typed args
     - Make MCP tool definitions available in AgentContext
     - Pass MCP tools to ExecutorBackend during Implementation phase when protocol supports it
     - Handle MCP server crashes gracefully — detect connection loss, log error, mark tools as unavailable, continue execution without MCP tools
+    - Unit tests go into /tests/infrastructure (32 tests)
     - _Requirements: 25.1, 25.2, 25.3_
 
-  - [ ]* 29.2 Write property test for MCP tool scoping
+  - [x] 29.2 Write property test for MCP tool scoping
+    - Property tests go into /tests/property
     - **Property 46: MCP tools scoped to Executor_Backend during Implementation only**
     - **Validates: Requirements 25.2, 25.3**
 
