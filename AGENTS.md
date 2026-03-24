@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 26 source files across 39 test files with 468 passing tests including comprehensive property-based tests.
+The project has 26 source files across 41 test files with 496 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -127,7 +127,7 @@ tests/
 4. **Implementation** (`executor`): Generate code changes via AI backend with self-correction retry loop (up to 3 internal retries).
 5. **Architecture Review** (`architecture-guardian`): Review modified files against architectural patterns, import boundaries, naming conventions, and state management.
 6. **Test & Verification** (`test-engineer`): Generate test stubs for modified files, run full test suite in worktree, collect coverage data.
-7. **UI/UX Validation** (`ui-validator`): Visual regression testing. *Not yet implemented.*
+7. **UI/UX Validation** (`ui-validator`): Visual regression testing via Playwright screenshot capture, baseline diffing, and AI-based review for visual consistency, responsive behavior, and accessibility. Skips automatically for non-UI specs.
 8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review with consensus logic, conventional commits, and automated PR creation.
 
 ---
@@ -321,6 +321,17 @@ Phase 8 (Review & Delivery) agent — multi-perspective code review with consens
 | `createReviewCouncilAgent` | Function | Factory function accepting optional `EventBus` and `backendResolver` |
 | `ReviewPerspective` | Type | `'security' \| 'performance' \| 'maintainability'` |
 | `ReviewVote` | Interface | Individual vote with perspective, approved, feedback, severity |
+
+### `src/agents/ui-validator.ts`
+
+Phase 7 (UI/UX Validation) agent — visual regression testing using Playwright, baseline management, and AI-based UI review.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `UIValidatorAgent` | Class | Identifies affected routes from modified files and spec content. Captures screenshots via Playwright (falls back to mock when unavailable). Diffs against baseline images, creates new baselines when none exist. Performs AI review for visual consistency, responsive behavior, and accessibility. Produces `UIReview` with approved, screenshots, uiIssues. Skips automatically for non-UI specs. Supports `AbortSignal` for cooperative cancellation. Public methods: `isUISpec`, `identifyRoutes`, `updateBaselines`. |
+| `createUIValidatorAgent` | Function | Factory function accepting optional `EventBus` and `playwright` dependency |
+| `ScreenshotInfo` | Interface | Screenshot metadata with route, path, baseline, diff, diffPercentage |
+| `UIIssue` | Interface | UI issue with type (visual/responsive/accessibility/consistency), description, severity |
 
 ### `src/agents/delivery.ts`
 
@@ -583,8 +594,8 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 | 18 | Test engineer agent (Phase 6) | ✅ |
 | 19 | Review council (Phase 8) | ✅ |
 | 20 | Delivery agent (Phase 8) | ✅ |
-| 21 | Checkpoint — Quality gates | 📋 Planned |
-| 22 | UI validator agent (Phase 7) | 📋 Planned |
+| 21 | Checkpoint — Quality gates | ✅ |
+| 22 | UI validator agent (Phase 7) | ✅ |
 | 23 | File watcher for spec monitoring | 📋 Planned |
 | 24 | Webhook dispatcher | 📋 Planned |
 | 25 | SSE server for streaming | 📋 Planned |

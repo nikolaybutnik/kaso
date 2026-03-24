@@ -372,6 +372,7 @@ export interface UIReview extends PhaseOutput {
     type: 'visual' | 'responsive' | 'accessibility' | 'consistency'
     description: string
     component?: string
+    severity: 'high' | 'medium' | 'low'
   }>
   skipped?: boolean
 }

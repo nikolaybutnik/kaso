@@ -369,11 +369,11 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 30: PR contains required sections**
     - **Validates: Requirements 15.7, 15.8**
 
-- [ ] 21. Checkpoint — Quality gates complete
+- [x] 21. Checkpoint — Quality gates complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 22. UI validator agent (Phase 7)
-  - [ ] 22.1 Implement UI validator in `src/agents/ui-validator.ts`
+- [x] 22. UI validator agent (Phase 7)
+  - [x] 22.1 Implement UI validator in `src/agents/ui-validator.ts`
     - Identify affected routes and components from spec
     - Capture screenshots using Playwright within worktree
     - Diff against baseline images when baselines exist
@@ -385,7 +385,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Skip phase when spec does not modify UI components or routes
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8_
 
-  - [ ]* 22.2 Write property tests for UI validator
+  - [x] 22.2 Write property tests for UI validator
     - **Property 25: UI phase skipped for non-UI specs**
     - **Property 26: UIReview conforms to schema**
     - **Property 55: UI baseline management lifecycle**
