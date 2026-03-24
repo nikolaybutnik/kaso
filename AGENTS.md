@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 24 source files (~8,750 lines of TypeScript) across 31 test files with 362 passing tests including comprehensive property-based tests.
+The project has 25 source files (~9,150 lines of TypeScript) across 33 test files with 385 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -64,10 +64,11 @@ npm run test:coverage
 
 ```
 src/
-├── agents/              # Agent implementations (5 files)
+├── agents/              # Agent implementations (6 files)
 │   ├── agent-interface.ts
 │   ├── agent-registry.ts
 │   ├── architecture-guardian.ts
+│   ├── executor.ts
 │   ├── spec-reader.ts
 │   └── spec-validator.ts
 ├── backends/            # Executor backend adapters (3 files)
@@ -98,12 +99,12 @@ src/
 └── streaming/           # Event streaming (empty — planned)
 
 tests/
-├── agents/              # 5 test files
+├── agents/              # 6 test files
 ├── backends/            # 2 test files
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 8 test files (includes 1 property test)
-└── property/            # 12 property-based test files
+└── property/            # 13 property-based test files
 ```
 
 ## Architecture
@@ -120,7 +121,7 @@ tests/
 1. **Intake** (`spec-reader`): Parse Kiro spec files, load architecture docs, steering files, and assemble execution context with optional context capping.
 2. **Validation** (`spec-validator`): Check for undefined API contracts, missing DB schemas, missing error handling, and architecture contradictions.
 3. **Architecture Analysis** (`architecture-guardian`): Map spec requirements to codebase modules, load ADRs, identify patterns and potential violations.
-4. **Implementation** (`executor`): Generate code changes via AI backend. *Not yet implemented.*
+4. **Implementation** (`executor`): Generate code changes via AI backend with self-correction retry loop (up to 3 internal retries).
 5. **Architecture Review** (`architecture-guardian`): Review modified files against architectural patterns, import boundaries, naming conventions, and state management.
 6. **Test & Verification** (`test-engineer`): Generate and execute tests. *Not yet implemented.*
 7. **UI/UX Validation** (`ui-validator`): Visual regression testing. *Not yet implemented.*
@@ -289,6 +290,15 @@ Phase 3 (Analysis) and Phase 5 (Review) agent.
 |--------|------|-------------|
 | `ArchitectureGuardianAgent` | Class | Constructor takes `'architecture-analysis' \| 'architecture-review'` to select mode. Phase 3: loads ADRs, identifies patterns, detects tech stack patterns, maps module boundaries, detects potential violations. Phase 5: reviews modified files against patterns, checks import boundaries, naming conventions, state management. |
 
+### `src/agents/executor.ts`
+
+Phase 4 (Implementation) agent — delegates code generation to AI backends with self-correction.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ExecutorAgent` | Class | Delegates to configured `ExecutorBackend` via `BackendRegistry`. Validates intake, validation, and architecture context. Self-correction retry loop (up to 3 retries) re-invokes backend with failure context. Streams NDJSON progress events via `EventBus`. Produces `ImplementationResult` with modifiedFiles, addedTests, duration, backend name, selfCorrectionAttempts. Supports `AbortSignal` for cooperative cancellation. |
+| `createExecutorAgent` | Function | Factory function accepting optional `EventBus` and `BackendRegistry` |
+
 ### `src/backends/backend-adapter.ts`
 
 Backend interface definition.
@@ -313,7 +323,7 @@ Backend discovery and selection.
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `BackendRegistry` | Class | Registers backends from config. Selection strategies: `'default'` (use configured default) or `'context-aware'` (cheapest backend whose maxContextWindow fits the estimated context size). |
+| `BackendRegistry` | Class | Registers backends from config. Selection strategies: `'default'` (use configured default) or `'context-aware'` (cheapest backend whose maxContextWindow fits the estimated context size). `registerBackend()` allows direct instance registration for testing with mocks. |
 
 ### `src/config/schema.ts`
 
@@ -537,7 +547,7 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 | 14.1–14.4 | Error handling and recovery | ✅ |
 | 15 | Checkpoint — Orchestrator complete | ✅ |
 | 16.1–16.2 | Architecture guardian (Phase 3 & 5) | ✅ |
-| 17 | Executor agent (Phase 4) | 📋 Planned |
+| 17 | Executor agent (Phase 4) | ✅ |
 | 18 | Test engineer agent (Phase 6) | 📋 Planned |
 | 19 | Review council (Phase 8) | 📋 Planned |
 | 20 | Delivery agent (Phase 8) | 📋 Planned |
