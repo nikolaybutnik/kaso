@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 34 source files across 48 test files with 668 passing tests including comprehensive property-based tests.
+The project has 34 source files across 48 test files with 671 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -79,7 +79,7 @@ src/
 │   ├── backend-adapter.ts
 │   ├── backend-process.ts
 │   └── backend-registry.ts
-├── cli/                 # CLI interface (empty — planned)
+├── cli/                 # CLI interface (2 files)
 ├── config/              # Configuration loading & validation (2 files)
 │   ├── loader.ts
 │   └── schema.ts
@@ -645,7 +645,7 @@ Features: per-client runId and event type filtering via query params, Bearer tok
 | 23 | File watcher for spec monitoring | ✅ |
 | 24 | Webhook dispatcher | ✅ |
 | 25 | SSE server for streaming | ✅ |
-| 26 | CLI interface | 📋 Planned |
+| 26 | CLI interface | ✅ |
 | 27 | Checkpoint — Polish complete | 📋 Planned |
 | 28 | Plugin loader and custom phases | 📋 Planned |
 | 29 | MCP client integration | 📋 Planned |

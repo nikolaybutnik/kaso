@@ -1,8 +1,12 @@
-import { AgentContext, AgentResult, PhaseName } from '@/core/types'
-
 /**
  * Core interface that all agents must implement
  * Defines the contract for agent execution in the KASO system
+ */
+
+import type { AgentContext, AgentResult, PhaseName } from '@/core/types'
+
+/**
+ * Core interface that all agents must implement
  */
 export interface Agent {
   /**
@@ -72,4 +76,55 @@ export interface AgentRegistry {
    * @returns Array of all agent metadata
    */
   listRegistered(): AgentMetadata[]
+}
+
+// ============================================================================
+// Factory Function
+// ============================================================================
+
+import { EventBus } from '@/core/event-bus'
+import { BackendRegistry } from '@/backends/backend-registry'
+import type { KASOConfig } from '@/config/schema'
+import { SpecReaderAgent } from './spec-reader'
+import { SpecValidatorAgent } from './spec-validator'
+import { ArchitectureGuardianAgent } from './architecture-guardian'
+import { ExecutorAgent } from './executor'
+import { TestEngineerAgent } from './test-engineer'
+import { UIValidatorAgent } from './ui-validator'
+import { ReviewCouncilAgent } from './review-council'
+
+/**
+ * Create an agent instance for a given phase
+ * @param phase - The phase name
+ * @param config - The KASO configuration
+ * @returns An agent instance for the phase
+ */
+export function createAgent(phase: PhaseName, config: KASOConfig): Agent {
+  const eventBus = new EventBus()
+  const backendRegistry = new BackendRegistry(config)
+
+  switch (phase) {
+    case 'intake':
+      // SpecReaderAgent needs a spec path, will be set during execution
+      return new SpecReaderAgent('.')
+    case 'validation':
+      return new SpecValidatorAgent()
+    case 'architecture-analysis':
+      return new ArchitectureGuardianAgent('architecture-analysis')
+    case 'architecture-review':
+      return new ArchitectureGuardianAgent('architecture-review')
+    case 'implementation':
+      return new ExecutorAgent(eventBus, backendRegistry)
+    case 'test-verification':
+      return new TestEngineerAgent(eventBus)
+    case 'ui-validation':
+      return new UIValidatorAgent({ eventBus })
+    case 'review-delivery':
+      return new ReviewCouncilAgent({ eventBus, backendResolver: () => undefined })
+    default:
+      if (phase.startsWith('custom-')) {
+        throw new Error(`Custom phase agents must be loaded via plugin system: ${phase}`)
+      }
+      throw new Error(`Unknown phase: ${phase}`)
+  }
 }

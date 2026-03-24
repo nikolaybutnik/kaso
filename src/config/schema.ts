@@ -128,6 +128,18 @@ export const SSEConfigSchema = z.object({
 export type SSEConfig = z.infer<typeof SSEConfigSchema>
 
 /**
+ * File watcher configuration
+ */
+export const FileWatcherConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  specsDir: z.string().default('.kiro/specs'),
+  debounceMs: z.number().int().positive().default(1000),
+  pollIntervalMs: z.number().int().positive().default(5000),
+})
+
+export type FileWatcherConfig = z.infer<typeof FileWatcherConfigSchema>
+
+/**
  * MCP server configuration
  */
 export const MCPServerConfigSchema = z.object({
@@ -192,6 +204,9 @@ export const KASOConfigSchema = z.object({
 
   // SSE Streaming
   sse: SSEConfigSchema.default({}).optional(),
+
+  // File Watcher
+  fileWatcher: FileWatcherConfigSchema.default({}).optional(),
 
   // MCP Integration
   mcpServers: z.array(MCPServerConfigSchema).default([]),

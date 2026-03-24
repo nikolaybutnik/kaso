@@ -434,8 +434,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 51: SSE event type filtering**
     - **Property 52: SSE authentication handling**
 
-- [ ] 26. CLI interface
-  - [ ] 26.1 Implement CLI entry point and commands in `src/cli/index.ts` and `src/cli/commands.ts`
+- [x] 26. CLI interface
+  - [x] 26.1 Implement CLI entry point and commands in `src/cli/index.ts` and `src/cli/commands.ts`
     - `kaso start <spec-path>` — initiate new Execution_Run
     - `kaso status [run-id]` — display run state, phase, elapsed time, cost; list all active runs when no id
     - `kaso pause <run-id>` — pause specified run
@@ -445,14 +445,16 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - `kaso history [--limit N]` — list past runs with status, duration, cost
     - `kaso logs <run-id> [--phase <phase-name>]` — stream/display execution logs
     - `kaso watch` — start file-watcher mode for automatic spec detection
-    - Format output for terminal readability
+    - Format output for terminal readability with color support
+    - Unit tests go into /tests/cli
     - _Requirements: 28.1, 28.2, 28.3, 28.4, 28.5, 28.6, 28.7, 28.8, 28.9_
 
-  - [ ]* 26.2 Write property test for CLI command routing
+  - [x] 26.2 Write property test for CLI command routing
+    - Property tests go into /tests/property
     - **Property 53: CLI commands map to orchestrator operations**
     - **Validates: Requirements 28.1, 28.2, 28.3, 28.4, 28.5, 28.6, 28.7, 28.8, 28.9**
 
-  - [ ] 26.3 Implement `kaso doctor` command
+  - [x] 26.3 Implement `kaso doctor` command
     - Verify Git installation and version (2.40+)
     - Verify Kimi Code CLI authentication status
     - Verify required API keys are present (env vars / keychain)

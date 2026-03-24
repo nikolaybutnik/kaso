@@ -274,6 +274,13 @@ export class ExecutionStore {
   }
 
   /**
+   * Get runs with optional limit (alias for listRuns)
+   */
+  getRuns(limit = 100): ExecutionRunRecord[] {
+    return this.listRuns(limit, 0)
+  }
+
+  /**
    * List runs with pagination
    */
   listRuns(limit = 100, offset = 0): ExecutionRunRecord[] {

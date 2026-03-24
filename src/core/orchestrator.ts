@@ -1375,3 +1375,40 @@ export class Orchestrator {
     })
   }
 }
+
+// ============================================================================
+// Factory Function
+// ============================================================================
+
+export interface CreateOrchestratorOptions {
+  eventBus: EventBus
+  stateMachine: StateMachine
+  agentRegistry: AgentRegistry
+  executionStore: ExecutionStore
+  checkpointManager: CheckpointManager
+  worktreeManager: WorktreeManager
+  costTracker: CostTracker
+  concurrencyManager: ConcurrencyManager
+  backendRegistry: BackendRegistry
+  specWriter: SpecWriter
+  config: KASOConfig
+}
+
+/**
+ * Create an Orchestrator instance with all dependencies
+ */
+export function createOrchestrator(options: CreateOrchestratorOptions): Orchestrator {
+  return new Orchestrator(
+    options.eventBus,
+    options.stateMachine,
+    options.agentRegistry,
+    options.executionStore,
+    options.checkpointManager,
+    options.worktreeManager,
+    options.costTracker,
+    options.concurrencyManager,
+    options.backendRegistry,
+    options.specWriter,
+    options.config,
+  )
+}
