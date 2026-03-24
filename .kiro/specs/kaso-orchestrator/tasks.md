@@ -519,10 +519,10 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - SSE event streaming test — connect SSE client, run a pipeline, verify events received
     - _Requirements: All_
 
-- [ ] 31. Final checkpoint — All systems go
+- [x] 31. Final checkpoint — All systems go
   - Ensure all tests pass, ask the user if questions arise.
 
-  - [ ] 31.1 Documentation and examples
+  - [x] 31.1 Documentation and examples
     - Create example spec in `.kiro/specs/example/` with sample design.md, tech-spec.md, and task.md
     - Document configuration schema with annotated example `kaso.config.json`
     - Create troubleshooting guide covering common failure modes (missing API keys, git worktree errors, backend crashes, MCP connection failures)
