@@ -8,14 +8,17 @@
 import chokidar, { FSWatcher } from 'chokidar'
 import { promises as fs } from 'fs'
 import { join, dirname, basename } from 'path'
-import { EventBus } from '../core/event-bus'
-import type { EventType } from '../core/types'
-import type { SpecStatus } from './spec-writer'
+import { EventBus } from '@/core/event-bus'
+import type { EventType } from '@/core/types'
+import type { SpecStatus } from '@/infrastructure/spec-writer'
 
 /**
  * Callback function type for spec readiness detection
  */
-export type SpecReadyCallback = (specPath: string, specName: string) => void | Promise<void>
+export type SpecReadyCallback = (
+  specPath: string,
+  specName: string,
+) => void | Promise<void>
 
 /**
  * File watcher configuration
@@ -52,14 +55,14 @@ export class FileWatcher {
   private readyCallback: SpecReadyCallback | null = null
   private readonly seenSpecs: Set<string> = new Set()
 
-  constructor(
-    config: Partial<FileWatcherConfig> = {},
-    eventBus?: EventBus,
-  ) {
+  constructor(config: Partial<FileWatcherConfig> = {}, eventBus?: EventBus) {
     this.config = {
       specsDir: config.specsDir ?? '.kiro/specs',
       watchPatterns: config.watchPatterns ?? ['**/status.json'],
-      ignorePatterns: config.ignorePatterns ?? ['**/node_modules/**', '**/.git/**'],
+      ignorePatterns: config.ignorePatterns ?? [
+        '**/node_modules/**',
+        '**/.git/**',
+      ],
       pollingInterval: config.pollingInterval ?? 1000,
       usePolling: config.usePolling ?? false,
     }
@@ -231,7 +234,10 @@ export class FileWatcher {
     })
   }
 
-  private async handleFileChange(filePath: string, changeType: 'added' | 'changed'): Promise<void> {
+  private async handleFileChange(
+    filePath: string,
+    changeType: 'added' | 'changed',
+  ): Promise<void> {
     // Only process status.json files
     if (basename(filePath) !== 'status.json') {
       return
@@ -338,7 +344,10 @@ export class FileWatcher {
   // Callback invocation
   // ---------------------------------------------------------------------------
 
-  private async invokeCallback(specPath: string, specName: string): Promise<void> {
+  private async invokeCallback(
+    specPath: string,
+    specName: string,
+  ): Promise<void> {
     if (!this.readyCallback) {
       return
     }
@@ -361,10 +370,7 @@ export class FileWatcher {
   // Event emission
   // ---------------------------------------------------------------------------
 
-  private emitEvent(
-    type: string,
-    data: Record<string, unknown>,
-  ): void {
+  private emitEvent(type: string, data: Record<string, unknown>): void {
     this.eventBus.emit({
       type: type as EventType,
       runId: 'file-watcher',

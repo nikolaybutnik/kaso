@@ -6,9 +6,9 @@
  */
 
 import { createHmac } from 'crypto'
-import type { ExecutionEvent, EventType } from '../core/types'
-import type { WebhookConfig } from '../config/schema'
-import { EventBus } from '../core/event-bus'
+import type { ExecutionEvent, EventType } from '@/core/types'
+import type { WebhookConfig } from '@/config/schema'
+import { EventBus } from '@/core/event-bus'
 
 /** Webhook payload structure */
 export interface WebhookPayload {
@@ -196,9 +196,7 @@ export class WebhookDispatcher {
   /**
    * Sanitize data by removing sensitive fields
    */
-  private sanitizeData(
-    data: Record<string, unknown>,
-  ): Record<string, unknown> {
+  private sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
     const sensitiveFields = ['secret', 'password', 'token', 'key', 'auth']
     const sanitized: Record<string, unknown> = {}
 
@@ -285,10 +283,7 @@ export class WebhookDispatcher {
   /**
    * Build request headers including custom headers and signature
    */
-  buildHeaders(
-    webhook: WebhookConfig,
-    body: string,
-  ): Record<string, string> {
+  buildHeaders(webhook: WebhookConfig, body: string): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'KASO-WebhookDispatcher/0.1.0',

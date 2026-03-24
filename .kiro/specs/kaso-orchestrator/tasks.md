@@ -487,7 +487,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 48: Plugin discovery loads configured plugins**
     - **Validates: Requirements 22.2, 22.3, 23.3**
 
-- [ ] 29. MCP client integration
+- [x] 29. MCP client integration
   - [x] 29.1 Implement MCP client in `src/infrastructure/mcp-client.ts`
     - Connect to configured MCP servers, manage connections
     - List available tools, invoke tools with typed args
@@ -512,7 +512,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Add explicit smoke test: run a simple spec end-to-end through the full pipeline with a mock backend to verify wiring
     - _Requirements: All_
 
-  - [ ]* 30.2 Write integration tests
+  - [ ] 30.2 Write integration tests
     - End-to-end pipeline test with mock backend — run a spec through all 8 phases and verify outputs
     - File watcher trigger test — verify spec status change triggers `startRun`
     - Git worktree isolation verification — confirm no writes to main working directory

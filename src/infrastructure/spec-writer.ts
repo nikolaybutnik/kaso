@@ -5,7 +5,7 @@
 
 import { promises as fs } from 'fs'
 import { join } from 'path'
-import type { PhaseName, RunStatus } from '../core/types'
+import type { PhaseName, RunStatus } from '@/core/types'
 
 /**
  * Status data structure written to status.json
