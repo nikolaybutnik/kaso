@@ -399,16 +399,18 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Trigger orchestrator `startRun` on detection
     - _Requirements: 2.1, 2.2_
 
-- [ ] 24. Webhook dispatcher
-  - [ ] 24.1 Implement webhook dispatcher in `src/infrastructure/webhook-dispatcher.ts`
+- [x] 24. Webhook dispatcher
+  - [x] 24.1 Implement webhook dispatcher in `src/infrastructure/webhook-dispatcher.ts`
     - Send HTTP POST to registered webhook URLs on lifecycle events
     - Include event type, spec name, phase name, timestamp in JSON payload
     - Include custom headers from WebhookConfig in requests
     - Sign payloads with HMAC-SHA256 when secret is configured, send in `X-KASO-Signature` header
     - Retry failed deliveries up to 3 times with exponential backoff
+    - Unit tests go into /tests/infrastructure
     - _Requirements: 24.1, 24.2, 24.3, 24.4_
 
-  - [ ]* 24.2 Write property tests for webhooks
+  - [ ] 24.2 Write property tests for webhooks
+    - Property tests go into /tests/property
     - **Property 44: Webhook payload contains required fields and auth headers**
     - **Property 45: Webhook retry with exponential backoff**
     - **Property 59: Webhook payloads are HMAC-SHA256 signed**

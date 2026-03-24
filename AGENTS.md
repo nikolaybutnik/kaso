@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 30 source files across 42 test files with 523 passing tests including comprehensive property-based tests.
+The project has 31 source files across 44 test files with 576 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -64,7 +64,7 @@ npm run test:coverage
 
 ```
 src/
-├── agents/              # Agent implementations (9 files)
+├── agents/              # Agent implementations (10 files)
 │   ├── agent-interface.ts
 │   ├── agent-registry.ts
 │   ├── architecture-guardian.ts
@@ -73,7 +73,8 @@ src/
 │   ├── review-council.ts
 │   ├── spec-reader.ts
 │   ├── spec-validator.ts
-│   └── test-engineer.ts
+│   ├── test-engineer.ts
+│   └── ui-validator.ts
 ├── backends/            # Executor backend adapters (3 files)
 │   ├── backend-adapter.ts
 │   ├── backend-process.ts
@@ -90,7 +91,7 @@ src/
 │   ├── orchestrator.ts
 │   ├── state-machine.ts
 │   └── types.ts
-├── infrastructure/      # Core services (8 files)
+├── infrastructure/      # Core services (9 files)
 │   ├── checkpoint-manager.ts
 │   ├── cost-tracker.ts
 │   ├── credential-manager.ts
@@ -98,17 +99,18 @@ src/
 │   ├── file-watcher.ts
 │   ├── log-redactor.ts
 │   ├── spec-writer.ts
+│   ├── webhook-dispatcher.ts
 │   └── worktree-manager.ts
 ├── plugins/             # Plugin system (empty — planned)
 └── streaming/           # Event streaming (empty — planned)
 
 tests/
-├── agents/              # 9 test files
+├── agents/              # 10 test files
 ├── backends/            # 2 test files
 ├── config/              # 1 test file
 ├── core/                # 3 test files
-├── infrastructure/      # 9 test files (includes 1 property test)
-└── property/            # 16 property-based test files
+├── infrastructure/      # 9 test files
+└── property/            # 19 property-based test files
 ```
 
 ## Architecture
@@ -498,6 +500,20 @@ Monitors `.kiro/specs/` directories for spec status changes and triggers orchest
 
 Detects specs transitioning to "ready-for-dev" (runStatus=pending, no currentPhase). Deduplicates triggers, resets on status change away from ready. Emits events via EventBus for observability. Supports polling mode for network filesystems.
 
+### `src/infrastructure/webhook-dispatcher.ts`
+
+Delivers execution lifecycle events to configured external webhook URLs with retry logic and payload signing.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `WebhookDispatcher` | Class | Subscribes to EventBus and dispatches events to configured webhooks. `start()`, `stop()`, `isActive()`, `getWebhooks()`, `addWebhook()`, `removeWebhook()`, `dispatchToWebhook()`, `buildPayload()`, `buildHeaders()`, `signPayload()`, `verifySignature()`, `calculateBackoff()`. |
+| `WebhookDispatcherConfig` | Interface | webhooks, maxRetries, baseDelayMs, timeoutMs |
+| `WebhookPayload` | Interface | event, specName, phase, timestamp, runId, data |
+| `WebhookDeliveryResult` | Interface | success, statusCode, error, attempts, duration |
+| `createWebhookDispatcher` | Function | Factory function accepting optional config and dependencies |
+
+Features: event filtering per webhook, custom headers from config, HMAC-SHA256 payload signing (`X-KASO-Signature` header), exponential backoff with jitter (capped at 30s), sensitive data redaction in payloads, AbortController-based request timeouts.
+
 ---
 
 ## Configuration Reference
@@ -612,7 +628,7 @@ Detects specs transitioning to "ready-for-dev" (runStatus=pending, no currentPha
 | 21 | Checkpoint — Quality gates | ✅ |
 | 22 | UI validator agent (Phase 7) | ✅ |
 | 23 | File watcher for spec monitoring | ✅ |
-| 24 | Webhook dispatcher | 📋 Planned |
+| 24 | Webhook dispatcher | ✅ |
 | 25 | SSE server for streaming | 📋 Planned |
 | 26 | CLI interface | 📋 Planned |
 | 27 | Checkpoint — Polish complete | 📋 Planned |
