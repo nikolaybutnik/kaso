@@ -298,14 +298,14 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
 - [x] 15. Checkpoint — Orchestrator and error handling complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 16. Architecture guardian agent (Phase 3 & 5)
-  - [ ] 16.1 Implement architecture guardian in `src/agents/architecture-guardian.ts`
+- [x] 16. Architecture guardian agent (Phase 3 & 5)
+  - [x] 16.1 Implement architecture guardian in `src/agents/architecture-guardian.ts`
     - Phase 3 (Analysis): map spec requirements to codebase modules, identify patterns, load ADRs, detect potential violations
     - Phase 5 (Review): review all modified files against ArchitectureContext patterns, check import boundaries, naming conventions, state management
     - Produce `ArchitectureContext` (Phase 3) and `ArchitectureReview` (Phase 5) outputs
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 12.1, 12.2, 12.3_
 
-  - [ ]* 16.2 Write property tests for architecture guardian
+  - [x]* 16.2 Write property tests for architecture guardian
     - **Property 18: ADRs are loaded when present**
     - **Property 22: Architecture review covers all modified files**
     - **Validates: Requirements 10.3, 12.1**

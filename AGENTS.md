@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-**KASO** is a TypeScript-based, locally-run modular orchestration system that reads Kiro-generated specification documents and coordinates specialized AI agents through an 8-phase development lifecycle. The system automates the entire pipeline from spec intake to PR delivery with minimal human intervention.
+KASO is a TypeScript-based, locally-run modular orchestration system that reads Kiro-generated specification documents and coordinates specialized AI agents through an 8-phase development lifecycle. It automates the pipeline from spec intake to PR delivery with minimal human intervention.
 
-### Key Design Goals
+### Design Goals
 - Deterministic, sequential 8-phase pipeline with clear phase boundaries
 - Stateless agents communicating exclusively through structured context objects
 - Composition over inheritance with pure functions wherever possible
@@ -15,139 +15,36 @@
 - Full CLI interface for controlling and inspecting all orchestration operations
 
 ### Current Status
-- **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
-- **Phase 2 (Core Orchestration)**: 🚧 In Progress (~85% complete)
-- **Phases 3-8**: 📋 Planned
 
-The project has 21 source files (~7,000 lines of TypeScript) with 313 passing tests including comprehensive property-based tests for security and correctness.
+The project has 24 source files (~8,750 lines of TypeScript) across 31 test files with 362 passing tests including comprehensive property-based tests.
+
+- **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
+- **Phase 2 (Core Orchestration)**: ✅ Complete
+- **Phase 3 (Remaining Agents & CLI)**: 📋 Planned
 
 ## Technology Stack
 
 | Component | Technology |
 |-----------|------------|
-| **Language** | TypeScript 5.3+ (Node.js 18+) |
-| **Module System** | ESNext with path mapping via `@/` aliases |
-| **Testing** | Vitest 1.1+ with @fast-check/vitest for property-based testing |
-| **Database** | SQLite (via better-sqlite3) with JSONL fallback |
-| **Git Operations** | simple-git |
-| **Credentials** | keytar for OS keychain integration |
-| **File Watching** | chokidar |
-| **UI Testing** | Playwright |
-| **CLI** | Commander.js |
-| **Configuration** | Zod for runtime schema validation |
-| **Build** | TypeScript compiler (tsc) |
-
-## Project Structure
-
-```
-src/
-├── agents/          # Agent implementations
-│   ├── agent-interface.ts      # Agent contract (Agent, AgentRegistry interfaces)
-│   ├── agent-registry.ts       # Agent registration and validation
-│   ├── spec-reader.ts          # Phase 1: Intake - Parse Kiro specs
-│   └── spec-validator.ts       # Phase 2: Validation - Validate specs
-├── backends/        # Executor backend adapters
-│   ├── backend-adapter.ts      # Backend interface definition
-│   ├── backend-registry.ts     # Backend discovery and selection
-│   └── backend-process.ts      # Subprocess management for backends
-├── cli/             # CLI interface (planned)
-├── config/          # Configuration loading & validation ✅
-│   ├── loader.ts               # Config file I/O with deep merge
-│   └── schema.ts               # Zod schemas with 260+ lines of type definitions
-├── core/            # Core orchestration logic
-│   ├── orchestrator.ts         # Central hub (1,155 lines)
-│   ├── state-machine.ts        # Phase transitions and execution state
-│   ├── event-bus.ts            # Typed pub/sub for real-time events
-│   ├── concurrency-manager.ts  # Slot-based concurrency limiting
-│   └── types.ts                # 443 lines of domain types
-├── infrastructure/  # Core services ✅
-│   ├── checkpoint-manager.ts   # Write-ahead persistence for crash recovery
-│   ├── cost-tracker.ts         # Token usage and cost accumulation
-│   ├── credential-manager.ts   # Secure API key handling
-│   ├── execution-store.ts      # SQLite/JSONL dual-mode persistence
-│   ├── log-redactor.ts         # Secret redaction from logs
-│   ├── spec-writer.ts          # Write execution status to spec directories
-│   └── worktree-manager.ts     # Git worktree lifecycle management
-├── plugins/         # Plugin system (planned)
-└── streaming/       # Event streaming (planned)
-
-tests/
-├── agents/          # Agent implementation tests
-├── backends/        # Backend adapter tests
-├── config/          # Config loader tests
-├── core/            # Core component tests
-├── infrastructure/  # Infrastructure component tests
-└── property/        # Property-based tests for universal correctness
-
-.kiro/
-├── specs/kaso-orchestrator/     # Main feature spec
-│   ├── requirements.md         # Detailed requirements
-│   ├── design.md               # Architecture & design decisions
-│   └── tasks.md                # 31 implementation tasks with status
-└── steering/                    # Project conventions
-    ├── coding_practices.md     # Code style & standards
-    ├── commit-conventions.md   # Git commit standards
-    └── personality.md          # AI agent tone guidelines
-```
-
-## Architecture
-
-### Hub-and-Spoke Design
-
-The system uses a hub-and-spoke architecture where:
-- **Central Orchestrator** (`src/core/orchestrator.ts`): Coordinates all agent execution through the 8-phase pipeline
-- **Specialized Agents**: Stateless, single-responsibility workers implementing the Agent interface
-- **Pluggable Executor Backends**: Swappable AI coding tools (Kimi Code, Claude Code, Codex CLI, local models)
-- **Infrastructure Layer**: Persistence, security, and checkpointing services
-
-### 8-Phase Execution Pipeline
-
-1. **Intake** (`spec-reader`): Parse Kiro spec files and assemble execution context
-2. **Validation** (`spec-validator`): Verify spec completeness and feasibility
-3. **Architecture Analysis** (`architecture-guardian`): Map requirements to existing codebase patterns
-4. **Implementation** (`executor`): Generate code changes via AI backend
-5. **Architecture Review** (`architecture-guardian`): Validate code against architectural patterns
-6. **Test & Verification** (`test-engineer`): Generate and execute comprehensive tests
-7. **UI/UX Validation** (`ui-validator`): Perform visual regression testing for UI changes
-8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review and PR creation
-
-### Key Components
-
-**Agent Interface Contract** (`src/agents/agent-interface.ts`):
-```typescript
-export interface Agent {
-  execute(context: AgentContext): Promise<AgentResult>
-  supportsRollback(): boolean
-  estimatedDuration(): number
-  requiredContext(): string[]
-}
-```
-
-**AgentContext** (`src/core/types.ts`): Structured data object passed between phases containing spec data, architecture context, and execution state.
-
-**Worktree Isolation**: All file modifications occur in isolated git worktrees (never in the main working directory). Worktrees are created under `.kaso/worktrees/` with branch naming pattern `kaso/[feature-name]-[YYYYMMDDTHHmmss]`.
-
-**Event Streaming**: Real-time progress events via EventBus with types like `phase:started`, `phase:completed`, `run:failed`, etc.
-
-**ExecutionStore**: Dual-mode persistence (SQLite primary, JSONL fallback) for runs and phase results. Tables: `runs`, `phase_results`, `checkpoints`.
-
-**CredentialManager**: Secure API key loading from environment variables (primary) or OS keychain via keytar (fallback). Never reads from git-tracked files.
-
-**CheckpointManager**: Write-ahead persistence before phase transitions for crash recovery. Supports automatic recovery on startup.
+| Language | TypeScript 5.3+ (Node.js 18+) |
+| Module System | ESNext with `@/` path aliases |
+| Testing | Vitest 1.1+ with @fast-check/vitest for property-based testing |
+| Database | SQLite (via better-sqlite3) with JSONL fallback |
+| Git Operations | simple-git |
+| Credentials | keytar for OS keychain integration |
+| File Watching | chokidar |
+| UI Testing | Playwright |
+| CLI | Commander.js |
+| Configuration | Zod for runtime schema validation |
+| Build | TypeScript compiler (tsc) |
 
 ## Build and Test Commands
 
-### Prerequisites
-- Node.js 18+
-- Git 2.40+
-- Kimi Code CLI (or configured alternative backend)
-
-### Build Commands
 ```bash
 # Compile TypeScript
 npm run build
 
-# Run all tests
+# Run all tests (single execution)
 npm test
 
 # Run tests in watch mode
@@ -163,16 +60,381 @@ npm run test:integration
 npm run test:coverage
 ```
 
-### Testing Strategy
-- **Unit Tests**: All infrastructure and core components have comprehensive unit tests
-- **Property-Based Tests**: Uses @fast-check/vitest for universal correctness properties (313 total tests)
-- **Coverage**: Vitest coverage with v8 provider, targets `src/**/*.ts`
+## Project Structure
 
-## Configuration
+```
+src/
+├── agents/              # Agent implementations (5 files)
+│   ├── agent-interface.ts
+│   ├── agent-registry.ts
+│   ├── architecture-guardian.ts
+│   ├── spec-reader.ts
+│   └── spec-validator.ts
+├── backends/            # Executor backend adapters (3 files)
+│   ├── backend-adapter.ts
+│   ├── backend-process.ts
+│   └── backend-registry.ts
+├── cli/                 # CLI interface (empty — planned)
+├── config/              # Configuration loading & validation (2 files)
+│   ├── loader.ts
+│   └── schema.ts
+├── core/                # Core orchestration logic (7 files)
+│   ├── concurrency-manager.ts
+│   ├── error-handler.ts
+│   ├── event-bus.ts
+│   ├── markdown-parser.ts
+│   ├── orchestrator.ts
+│   ├── state-machine.ts
+│   └── types.ts
+├── infrastructure/      # Core services (7 files)
+│   ├── checkpoint-manager.ts
+│   ├── cost-tracker.ts
+│   ├── credential-manager.ts
+│   ├── execution-store.ts
+│   ├── log-redactor.ts
+│   ├── spec-writer.ts
+│   └── worktree-manager.ts
+├── plugins/             # Plugin system (empty — planned)
+└── streaming/           # Event streaming (empty — planned)
+
+tests/
+├── agents/              # 5 test files
+├── backends/            # 2 test files
+├── config/              # 1 test file
+├── core/                # 3 test files
+├── infrastructure/      # 8 test files (includes 1 property test)
+└── property/            # 12 property-based test files
+```
+
+## Architecture
+
+### Hub-and-Spoke Design
+
+- **Central Orchestrator** (`src/core/orchestrator.ts`): Coordinates all agent execution through the 8-phase pipeline. Wires together the state machine, event bus, agent registry, execution store, checkpoint manager, worktree manager, cost tracker, and concurrency manager.
+- **Specialized Agents**: Stateless, single-responsibility workers implementing the `Agent` interface.
+- **Pluggable Executor Backends**: Swappable AI coding tools communicating via NDJSON over stdio.
+- **Infrastructure Layer**: Persistence, security, checkpointing, and cost tracking services.
+
+### 8-Phase Execution Pipeline
+
+1. **Intake** (`spec-reader`): Parse Kiro spec files, load architecture docs, steering files, and assemble execution context with optional context capping.
+2. **Validation** (`spec-validator`): Check for undefined API contracts, missing DB schemas, missing error handling, and architecture contradictions.
+3. **Architecture Analysis** (`architecture-guardian`): Map spec requirements to codebase modules, load ADRs, identify patterns and potential violations.
+4. **Implementation** (`executor`): Generate code changes via AI backend. *Not yet implemented.*
+5. **Architecture Review** (`architecture-guardian`): Review modified files against architectural patterns, import boundaries, naming conventions, and state management.
+6. **Test & Verification** (`test-engineer`): Generate and execute tests. *Not yet implemented.*
+7. **UI/UX Validation** (`ui-validator`): Visual regression testing. *Not yet implemented.*
+8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review and PR creation. *Not yet implemented.*
+
+---
+
+## Module Reference
+
+### `src/core/types.ts`
+
+All domain type definitions for the system.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `PhaseName` | Type | Union of 8 pipeline phase names plus `custom-${string}` |
+| `RunStatus` | Type | `'pending' \| 'running' \| 'paused' \| 'completed' \| 'failed' \| 'cancelled'` |
+| `EventType` | Type | 20 event types for the pub/sub system |
+| `BackendProtocol` | Type | `'cli-stdout' \| 'cli-json' \| 'acp' \| 'mcp'` |
+| `ExecutionEvent` | Interface | Event payload with type, runId, timestamp, optional phase/agent/data |
+| `PhaseTransition` | Interface | Records from/to phase, timestamp, and trigger reason |
+| `PhaseResult` | Interface | Phase execution result with status, output, error, timing |
+| `PhaseResultRecord` | Interface | Persisted PhaseResult with runId and sequence number |
+| `ExecutionRunStatus` | Interface | Run status snapshot with current phase, cost, timing |
+| `ExecutionRunRecord` | Interface | Full run record with phase results and logs |
+| `ParsedSpec` | Interface | Structured spec data from Kiro files |
+| `ParsedMarkdown` | Interface | Parsed markdown with sections, code blocks, metadata |
+| `MarkdownSection` | Interface | Hierarchical markdown section with children |
+| `CodeBlock` | Interface | Code block with language, content, line number |
+| `TaskItem` | Interface | Checkbox task with id, title, status, children |
+| `SteeringFiles` | Interface | Loaded steering file contents |
+| `AgentContext` | Interface | Main context object passed to all agents |
+| `AgentResult` | Interface | Agent execution result with success, output, error, tokens |
+| `AgentError` | Interface | Structured error with message, code, retryable flag |
+| `LogEntry` | Interface | Timestamped log entry with level and source |
+| `PhaseOutput` | Interface | Generic phase output (base for specific types) |
+| `AssembledContext` | Interface | Phase 1 output — assembled spec context |
+| `ValidationReport` | Interface | Phase 2 output — validation issues and fixes |
+| `ArchitectureContext` | Interface | Phase 3 output — patterns, boundaries, ADRs |
+| `ImplementationResult` | Interface | Phase 4 output — modified files, tests, duration |
+| `ArchitectureReview` | Interface | Phase 5 output — violations in modified files |
+| `TestReport` | Interface | Phase 6 output — test results and coverage |
+| `UIReview` | Interface | Phase 7 output — screenshots and UI issues |
+| `ReviewCouncilResult` | Interface | Phase 8 output — consensus votes |
+| `DeliveryResult` | Interface | Phase 8 output — branch, commits, PR URL |
+| `BackendRequest` | Interface | Request payload sent to executor backends |
+| `BackendResponse` | Interface | Response from executor backends |
+| `BackendProgressEvent` | Interface | NDJSON progress event from backends |
+| `WorktreeInfo` | Interface | Git worktree path, branch, and runId |
+
+### `src/core/orchestrator.ts`
+
+Central hub that wires all components and drives the 8-phase pipeline.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `Orchestrator` | Class | Main orchestrator — `startRun`, `pauseRun`, `resumeRun`, `cancelRun`, `queueSpecUpdate`, `recoverInterruptedRuns`, `getRunStatus`, `listActiveRuns` |
+| `StartRunOptions` | Interface | Options for `startRun` — specPath, baseBranch |
+| `RunStatusResponse` | Interface | Status response with phase, cost, timing |
+
+Key behaviors:
+- Creates a git worktree per run, executes phases sequentially with checkpointing between each
+- Rejects concurrent runs for the same spec
+- Enforces per-phase timeouts (default 300s, configurable)
+- Enforces cost budgets — halts and emits `run:budget_exceeded` when exceeded
+- Supports pause/resume/cancel with `AbortSignal` propagation to agents
+- Queues spec updates during active runs for re-execution after completion
+- Recovers interrupted runs on startup by scanning for non-terminal runs
+- Writes timestamped execution logs and status updates to spec directories via `SpecWriter`
+
+### `src/core/state-machine.ts`
+
+Enforces the sequential 8-phase pipeline order with configurable phase policies.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `StateMachine` | Class | Phase transition engine with pause/resume/cancel support |
+| `SMTransition` | Interface | Transition record with from/to phase, timestamp, trigger |
+| `PhaseConfig` | Interface | Per-phase config: maxRetries, onFailure policy, timeout |
+
+Supports custom phase insertion, transition history tracking, and phase-specific failure policies (halt, retry, loopback).
+
+### `src/core/error-handler.ts`
+
+Error classification and recovery strategy selection.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ErrorHandler` | Class | Handles phase failures — `handleFailure`, `classifyError`, `getPhaseErrorPolicy`, `buildFailureReport` |
+| `ErrorHandlerResult` | Interface | Action to take: retry, rollback-retry, loopback, escalate, halt |
+| `ErrorSeverity` | Type | `'transient' \| 'recoverable' \| 'security' \| 'architectural' \| 'fatal'` |
+| `RetryState` | Interface | Tracks retry count and last strategy per phase |
+
+Recovery strategies escalate through: default → reduced-context → alternative-backend. Security and architectural errors trigger immediate escalation. Phase-specific policies (halt/loopback/retry) are enforced per phase.
+
+### `src/core/event-bus.ts`
+
+Typed pub/sub system for real-time execution events.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `EventBus` | Class | `emit`, `on`, `onAny`, `getRecentEvents`, `removeAllListeners` |
+| `EventListener` | Type | Callback receiving `ExecutionEvent` |
+| `UnsubscribeFunction` | Type | Returned by `on`/`onAny` for cleanup |
+
+Maintains event history (configurable max size) for replay/reconnect scenarios.
+
+### `src/core/markdown-parser.ts`
+
+Shared markdown parsing utility.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `parseMarkdown` | Function | Parses markdown into `ParsedMarkdown` with sections, code blocks, and YAML frontmatter |
+
+### `src/core/concurrency-manager.ts`
+
+Slot-based concurrency limiting with queuing.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ConcurrencyManager` | Class | `acquire`, `getActiveSlotCount`, `getQueueLength`, `getMaxSlots`, `getQueueMetrics`, `clearQueue` |
+| `ConcurrencySlot` | Interface | Acquired slot with `release()` function |
+
+Defaults to CPU cores minus one. Queues requests when all slots are occupied and processes them FIFO on release.
+
+### `src/agents/agent-interface.ts`
+
+Core agent contract.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `Agent` | Interface | `execute(context)`, `supportsRollback()`, `estimatedDuration()`, `requiredContext()` |
+| `AgentMetadata` | Interface | Phase, agent instance, name, description |
+| `AgentRegistry` | Interface | `register`, `getAgentForPhase`, `listRegistered` |
+
+### `src/agents/agent-registry.ts`
+
+Agent registration with interface validation.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `AgentRegistryImpl` | Class | Validates all 4 interface methods at registration time. Rejects agents missing methods with descriptive errors. Supports `unregister`, `hasAgentForPhase`, `getAgentMetadata`, `getAgentCount`. |
+
+### `src/agents/spec-reader.ts`
+
+Phase 1 (Intake) agent — parses Kiro spec files and assembles execution context.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `SpecReaderAgent` | Class | Parses design.md, tech-spec.md, task.md. Loads architecture docs (ARCHITECTURE.md, .cursorrules, ADRs). Extracts dependencies from package.json. Loads steering files. Applies context capping with relevance-ranked file removal. |
+
+### `src/agents/spec-validator.ts`
+
+Phase 2 (Validation) agent — validates spec completeness and feasibility.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `SpecValidatorAgent` | Class | Checks for undefined API contracts, missing DB schemas, missing error handling, and architecture contradictions. Produces `ValidationReport` with issues, severity, and suggested fixes. |
+
+### `src/agents/architecture-guardian.ts`
+
+Phase 3 (Analysis) and Phase 5 (Review) agent.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ArchitectureGuardianAgent` | Class | Constructor takes `'architecture-analysis' \| 'architecture-review'` to select mode. Phase 3: loads ADRs, identifies patterns, detects tech stack patterns, maps module boundaries, detects potential violations. Phase 5: reviews modified files against patterns, checks import boundaries, naming conventions, state management. |
+
+### `src/backends/backend-adapter.ts`
+
+Backend interface definition.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ExecutorBackend` | Interface | `execute(request)`, `isAvailable()`, `onProgress(callback)`. Properties: `name`, `protocol`, `maxContextWindow`, `costPer1000Tokens`. |
+
+### `src/backends/backend-process.ts`
+
+Subprocess management for CLI-based backends.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `CLIProcessBackend` | Class | Spawns child process, communicates via NDJSON on stdout. Handles timeouts (SIGTERM → SIGKILL escalation), exit codes, stderr capture. |
+| `MockBackend` | Class | Test double that simulates backend execution with progress events. |
+| `BackendExecutionError` | Class | Typed error with exitCode and stderr lines. |
+
+### `src/backends/backend-registry.ts`
+
+Backend discovery and selection.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `BackendRegistry` | Class | Registers backends from config. Selection strategies: `'default'` (use configured default) or `'context-aware'` (cheapest backend whose maxContextWindow fits the estimated context size). |
+
+### `src/config/schema.ts`
+
+Zod schemas for runtime configuration validation.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `KASOConfigSchema` | Zod Schema | Main config schema with all sections |
+| `KASOConfig` | Type | Inferred TypeScript type from schema |
+| `ExecutorBackendConfigSchema` | Zod Schema | Backend config: name, command, args, protocol, maxContextWindow, costPer1000Tokens |
+| `PluginConfigSchema` | Zod Schema | Plugin: package, enabled, config |
+| `CustomPhaseConfigSchema` | Zod Schema | Custom phase: name (must match `custom-*`), package, position |
+| `ContextCappingStrategySchema` | Zod Schema | Context capping: enabled, charsPerToken, relevanceRanking |
+| `ReviewCouncilConfigSchema` | Zod Schema | Review council: maxReviewRounds, enableParallelReview, reviewBudgetUsd, perspectives |
+| `UIBaselineConfigSchema` | Zod Schema | UI baselines: baselineDir, captureOnPass, diffThreshold, viewport |
+| `WebhookConfigSchema` | Zod Schema | Webhooks: url, events, headers, secret |
+| `MCPServerConfigSchema` | Zod Schema | MCP servers: name, transport, command, args, url, env |
+| `MCPToolDefinitionSchema` | Zod Schema | MCP tools: name, description, inputSchema, server |
+| `validateConfig` | Function | Parse and validate config, throws on failure |
+| `isValidConfig` | Function | Boolean check without throwing |
+| `getDefaultConfig` | Function | Returns config with all defaults applied |
+
+### `src/config/loader.ts`
+
+Configuration file I/O with deep merge.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `loadConfig` | Function | Load and validate from JSON file, merge with defaults |
+| `loadConfigSafe` | Function | Same as `loadConfig` but returns defaults on failure |
+| `loadConfigFromFile` | Function | Load from specific path |
+| `checkConfigFile` | Function | Boolean check if config file exists and is valid |
+| `getConfigPath` | Function | Returns resolved path to `kaso.config.json` |
+| `ConfigLoaderOptions` | Interface | `configPath`, `useDefaults` |
+
+### `src/infrastructure/execution-store.ts`
+
+Dual-mode persistence for runs and phase results.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ExecutionStore` | Class | SQLite primary, JSONL fallback. Methods: `saveRun`, `getRun`, `listRuns`, `appendPhaseResult`, `getInterruptedRuns`, `updateRunStatus`, `checkpoint`, `getPhaseResults`, `getDatabase`, `close`. |
+| `ExecutionStoreConfig` | Interface | `type` (`'sqlite' \| 'jsonl'`), `path` |
+
+SQLite schema: `runs` table, `phase_results` table, `checkpoints` table.
+
+### `src/infrastructure/checkpoint-manager.ts`
+
+Write-ahead persistence for crash recovery.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `CheckpointManager` | Class | `saveCheckpoint`, `getLatestCheckpoint`, `clearCheckpoints`, `hasCheckpoints`, `createFromRun`, `recoverFromCheckpoint`, `listCheckpoints`, `cleanupOldCheckpoints` |
+| `CheckpointRecord` | Interface | id, runId, phase, data, createdAt, isLatest |
+| `CheckpointRecoveryData` | Interface | Typed recovery payload with run and phaseResults |
+
+Stores checkpoints as JSON in SQLite with runId index. Verifies write-ahead succeeded after save.
+
+### `src/infrastructure/cost-tracker.ts`
+
+Token usage and cost accumulation.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `CostTracker` | Class | `recordInvocation`, `getRunCost`, `getHistoricalCosts`, `checkBudget`, `getTotalHistoricalCost`, `cleanupRun` |
+| `InvocationCost` | Interface | Per-invocation cost record |
+| `RunCost` | Interface | Per-run cost with backend breakdown |
+
+Cost formula: `(tokensUsed / 1000) * costPer1000Tokens`.
+
+### `src/infrastructure/credential-manager.ts`
+
+Secure API key handling.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `CredentialManager` | Class | `getApiKey` (env var → keytar fallback), `getApiKeys`, `validateAllPresent`, `redact`, `getAllSecrets`, `clearCache` |
+| `CredentialManagerOptions` | Interface | `serviceName`, `requiredKeys` |
+
+Never reads from git-tracked files.
+
+### `src/infrastructure/log-redactor.ts`
+
+Secret redaction from arbitrary text.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `redactSecrets` | Function | Replace all occurrences of secrets with `[REDACTED]` |
+| `redactMultiple` | Function | Redact across multiple text sources |
+| `redactObject` | Function | Stringify and redact an object |
+| `redactError` | Function | Redact Error message and stack trace |
+
+Sorts secrets longest-first to handle overlapping patterns correctly.
+
+### `src/infrastructure/worktree-manager.ts`
+
+Git worktree lifecycle management.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `WorktreeManager` | Class | `create`, `getPath`, `push`, `cleanup`, `retain`, `exists`, `isConsistent`, `listWorktrees`, `loadExistingWorktrees`, `getWorktreeInfo`, `getWorktreeInfoFromDisk` |
+
+Branch naming: `kaso/[specName]-[YYYYMMDDTHHmmss]`. Worktrees stored under `.kaso/worktrees/`. Supports retention (skip cleanup), consistency checks, and disk recovery for crash scenarios.
+
+### `src/infrastructure/spec-writer.ts`
+
+Writes execution state back to Kiro spec directories.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `SpecWriter` | Class | `appendExecutionLog`, `updateSpecStatus`, `writeRunStarted`, `writePhaseTransition`, `writeRunCompleted` |
+| `SpecStatus` | Interface | currentPhase, runStatus, lastUpdated, runId |
+| `ExecutionLogEntry` | Interface | Timestamped log entry for execution-log.md |
+
+Writes `execution-log.md` and `status.json` to spec directories. Gracefully degrades on missing directories.
+
+---
+
+## Configuration Reference
 
 ### Main Config File: `kaso.config.json`
-
-The configuration file uses Zod schemas for runtime validation with sensible defaults:
 
 ```json
 {
@@ -188,13 +450,20 @@ The configuration file uses Zod schemas for runtime validation with sensible def
     }
   ],
   "defaultBackend": "kimi-code",
+  "backendSelectionStrategy": "default",
   "maxConcurrentAgents": "auto",
   "maxPhaseRetries": 2,
   "defaultPhaseTimeout": 300,
+  "phaseTimeouts": {},
   "contextCapping": {
     "enabled": true,
     "charsPerToken": 4,
-    "relevanceRanking": ["design.md", "tech-spec.md", "task.md", "ARCHITECTURE.md"]
+    "relevanceRanking": ["design.md", "tech-spec.md", "task.md", "ARCHITECTURE.md", ".cursorrules", "package.json"]
+  },
+  "reviewCouncil": {
+    "maxReviewRounds": 2,
+    "enableParallelReview": false,
+    "perspectives": ["security", "performance", "maintainability"]
   },
   "uiBaseline": {
     "baselineDir": ".kiro/ui-baselines",
@@ -204,151 +473,101 @@ The configuration file uses Zod schemas for runtime validation with sensible def
   },
   "executionStore": {
     "type": "sqlite",
-    "path": ".kaso/execution-store.db"
-  }
+    "path": ".kaso-execution-store.db"
+  },
+  "webhooks": [],
+  "mcpServers": [],
+  "plugins": [],
+  "customPhases": [],
+  "costBudgetPerRun": null
 }
 ```
-
-### Configuration Schema (`src/config/schema.ts`)
-
-Key configuration sections:
-- `executorBackends`: Array of backend configurations with protocol selection
-- `maxConcurrentAgents`: Concurrency limit (number or "auto" for CPU cores - 1)
-- `contextCapping`: Automatic context trimming with relevance ranking
-- `reviewCouncil`: Multi-perspective review configuration
-- `uiBaseline`: Visual regression testing settings
-- `webhooks`: Outbound webhook configuration with HMAC signing
-- `mcpServers`: MCP (Model Context Protocol) server connections
-- `plugins`: Custom agent plugins from npm packages
-- `customPhases`: Pipeline extension points
 
 ### Required Environment Variables
 - API keys for configured AI backends (e.g., `KIMI_API_KEY`, `ANTHROPIC_API_KEY`)
 - Git credentials (if using remote operations)
 - Webhook secrets (for signed webhook payloads)
 
-## Code Style Guidelines
+---
 
-> Source: `.kiro/steering/coding_practices.md`
+## Security
 
-### Style & Readability
-- Self-documenting code first. Comments only when the "why" isn't obvious
-- Meaningful names for everything — no single-letter vars outside tight loops
-- No magic strings or magic numbers. Use constants
-- `any` is banned. No exceptions. Ever
-
-### Architecture & Patterns
-- Follow existing project patterns and conventions. Don't reinvent the wheel
-- DRY — extract shared logic, don't copy-paste
-- Pure functions wherever possible. Minimize side effects
-- Single responsibility — functions and modules do one thing well
-- Favor composition over inheritance
-- Keep dependencies explicit and injection-friendly
-
-### Quality
-- Type annotations everywhere. No implicit any, no untyped boundaries
-- Docstrings on public APIs and non-obvious functions
-- Handle errors explicitly — no silent catches, no swallowed exceptions
-- Guard clauses over nested conditionals
-- Early returns to reduce nesting and improve readability
-
-### Structure
-- Small, focused files. If it's getting long, it's doing too much
-- Consistent file and folder organization matching project conventions
-- Separate concerns — business logic, data access, presentation
-- Keep imports clean and organized
-
-## Commit Conventions
-
-> Source: `.kiro/steering/commit-conventions.md`
-
-Format:
-```
-<type>(<scope>): <short description>
-
-<optional body>
-```
-
-**Types:**
-- `feat` — new feature or capability
-- `fix` — bug fix
-- `refactor` — code restructuring without behavior change
-- `test` — adding or updating tests
-- `docs` — documentation changes
-- `chore` — tooling, config, dependencies, CI
-- `spec` — spec documents (requirements, design, tasks)
-
-**Scopes:**
-`core`, `agents`, `backends`, `infra`, `cli`, `config`, `plugins`, `streaming`, `hooks`, `steering`
-
-**Rules:**
-- Subject line max 72 chars
-- Use imperative mood ("add feature" not "added feature")
-- No period at end of subject
-- Body wraps at 80 chars, explains "what" and "why" (not "how")
-
-## Security Considerations
-
-1. **Worktree Isolation**: Ensures main working directory is never modified during execution
-2. **Credential Security**: No secrets in code or tracked files; environment variables or OS keychain only
-3. **Log Redaction**: All API keys automatically redacted from log output via `CredentialManager`
-4. **Webhook Security**: HMAC-SHA256 payload signing for webhooks
-5. **Review Council**: Multi-perspective security review for all changes (Phase 8)
+1. **Worktree Isolation**: All file modifications confined to git worktrees under `.kaso/worktrees/` — main working directory is never modified
+2. **Credential Security**: API keys loaded from environment variables or OS keychain via keytar — never from git-tracked files
+3. **Log Redaction**: All known secrets automatically redacted from log output
+4. **Webhook Security**: HMAC-SHA256 payload signing (planned)
+5. **Review Council**: Multi-perspective security review for all changes (planned)
 6. **Audit Trail**: Complete execution logs and phase history persisted in SQLite
-
-## Resource Management
-
-- **Concurrency**: Limit concurrent agents based on CPU cores (default: cores - 1)
-- **Cost Tracking**: Per-run cost calculation with configurable budgets
-- **Context Capping**: Automatic context trimming with relevance ranking
-- **Phase Timeouts**: Configurable timeouts per phase with retry logic
 
 ## Error Handling
 
-- **Rollback**: Support for agents implementing `supportsRollback()`
-- **Retry Logic**: Up to 2 additional attempts with modified strategies
-- **Escalation**: Halt after 3 consecutive failures with detailed reports
-- **Immediate Escalation**: Security concerns trigger immediate developer notification
-- **Crash Recovery**: Automatic resumption from last completed phase on restart
+- **Rollback**: Agents implementing `supportsRollback()` get rollback-retry on failure
+- **Retry Escalation**: default → reduced-context → alternative-backend, capped at configured max retries
+- **Phase Policies**: Per-phase failure behavior — halt (intake, validation), loopback to implementation (architecture-review, test-verification), retry (implementation, ui-validation)
+- **Immediate Escalation**: Security concerns and architectural deadlocks bypass retry logic
+- **Crash Recovery**: Automatic resumption from last checkpoint on startup
 
-## Key Files for AI Agents
+## Resource Management
 
-**When working on this codebase, always refer to:**
-- `.kiro/steering/coding_practices.md` - Code style and quality standards
-- `.kiro/steering/personality.md` - Communication tone guidelines
-- `.kiro/steering/commit-conventions.md` - Git commit message format
-- `src/core/types.ts` - All domain types and interfaces (443 lines)
-- `src/config/schema.ts` - Configuration schemas and validation
-- `.kiro/specs/kaso-orchestrator/tasks.md` - Implementation task tracker
+- **Concurrency**: Slot-based limiting, defaults to CPU cores - 1
+- **Cost Tracking**: Per-run cost calculation with configurable budget caps
+- **Context Capping**: Relevance-ranked file removal to fit backend context windows
+- **Phase Timeouts**: Configurable per phase (default 300s)
 
-**Useful commands:**
-```bash
-# After any changes
-npm run build && npm test
-
-# Check test coverage
-npm run test:coverage
-
-# Run specific test suites
-npm run test:property  # Security property tests
-```
+---
 
 ## Implementation Status
 
-See `.kiro/specs/kaso-orchestrator/tasks.md` for the complete 31-task implementation plan. Key milestones:
-
 | Task | Description | Status |
 |------|-------------|--------|
-| 1.1-1.5 | Project scaffolding, core types, config | ✅ Complete |
-| 2.1-2.3 | Credential manager, log redactor | ✅ Complete |
-| 3.1-3.3 | Execution store, checkpoint manager | ✅ Complete |
-| 4.1-4.2 | Worktree manager | ✅ Complete |
-| 6.1-6.3 | Event bus, concurrency manager | ✅ Complete |
-| 7.1-7.4 | Agent interface, registry, cost tracker | ✅ Complete |
-| 8.1-8.2 | State machine | ✅ Complete |
-| 9.1-9.4 | Backend adapters | ✅ Complete |
-| 10.1-10.3 | Spec reader agent | ✅ Complete |
-| 11.1-11.2 | Spec validator agent | ✅ Complete |
-| 13.1-13.5 | Orchestrator | ✅ Complete |
-| 14.1-14.3 | Error handling and recovery | 🚧 In Progress |
-| 16-31 | Remaining phases, CLI, plugins, MCP | 📋 Planned |
+| 0 | Verify prerequisites | ✅ |
+| 1.1–1.5 | Project scaffolding, core types, config | ✅ |
+| 2.1–2.3 | Credential manager, log redactor | ✅ |
+| 3.1–3.3 | Execution store, checkpoint manager | ✅ |
+| 4.1–4.2 | Worktree manager | ✅ |
+| 5 | Checkpoint — Foundation complete | ✅ |
+| 6.1–6.3 | Event bus, concurrency manager | ✅ |
+| 7.1–7.4 | Agent interface, registry, cost tracker | ✅ |
+| 8.1–8.2 | State machine | ✅ |
+| 9.1–9.4 | Backend adapters | ✅ |
+| 10.1–10.3 | Spec reader agent (Phase 1) | ✅ |
+| 11.1–11.2 | Spec validator agent (Phase 2) | ✅ |
+| 12 | Checkpoint — Core pipeline agents ready | ✅ |
+| 13.1–13.5 | Orchestrator (central hub) | ✅ |
+| 14.1–14.4 | Error handling and recovery | ✅ |
+| 15 | Checkpoint — Orchestrator complete | ✅ |
+| 16.1–16.2 | Architecture guardian (Phase 3 & 5) | ✅ |
+| 17 | Executor agent (Phase 4) | 📋 Planned |
+| 18 | Test engineer agent (Phase 6) | 📋 Planned |
+| 19 | Review council (Phase 8) | 📋 Planned |
+| 20 | Delivery agent (Phase 8) | 📋 Planned |
+| 21 | Checkpoint — Quality gates | 📋 Planned |
+| 22 | UI validator agent (Phase 7) | 📋 Planned |
+| 23 | File watcher for spec monitoring | 📋 Planned |
+| 24 | Webhook dispatcher | 📋 Planned |
+| 25 | SSE server for streaming | 📋 Planned |
+| 26 | CLI interface | 📋 Planned |
+| 27 | Checkpoint — Polish complete | 📋 Planned |
+| 28 | Plugin loader and custom phases | 📋 Planned |
+| 29 | MCP client integration | 📋 Planned |
+| 30 | Wire everything together | 📋 Planned |
+| 31 | Final checkpoint | 📋 Planned |
+
+## Commit Conventions
+
+Format: `<type>(<scope>): <short description>`
+
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `spec`
+
+Scopes: `core`, `agents`, `backends`, `infra`, `cli`, `config`, `plugins`, `streaming`, `hooks`, `steering`
+
+Rules: subject max 72 chars, imperative mood, no trailing period, body wraps at 80 chars.
+
+## Key Files for AI Agents
+
+- `.kiro/steering/coding_practices.md` — Code style and quality standards
+- `.kiro/steering/personality.md` — Communication tone guidelines
+- `.kiro/steering/commit-conventions.md` — Git commit message format
+- `src/core/types.ts` — All domain types and interfaces
+- `src/config/schema.ts` — Configuration schemas and validation
+- `.kiro/specs/kaso-orchestrator/tasks.md` — Implementation task tracker
