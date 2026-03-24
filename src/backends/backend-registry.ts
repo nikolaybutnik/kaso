@@ -53,6 +53,19 @@ export class BackendRegistry {
   }
 
   /**
+   * Register a backend instance directly (for testing with mock backends)
+   * @param name - Backend name
+   * @param backend - Backend instance
+   * @param config - Optional backend configuration
+   */
+  registerBackend(name: string, backend: ExecutorBackend, config?: ExecutorBackendConfig): void {
+    this.backends.set(name, backend)
+    if (config) {
+      this.configs.set(name, config)
+    }
+  }
+
+  /**
    * Get a backend by name
    * @param name - Backend name
    * @returns The backend instance

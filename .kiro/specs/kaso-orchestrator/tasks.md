@@ -310,7 +310,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 22: Architecture review covers all modified files**
     - **Validates: Requirements 10.3, 12.1**
 
-- [ ] 17. Executor agent (Phase 4 — Implementation)
+- [-] 17. Executor agent (Phase 4 — Implementation)
   - [ ] 17.1 Implement executor agent in `src/agents/executor.ts`
     - Receive spec, ArchitectureContext, and ValidationReport as combined input
     - Delegate to configured ExecutorBackend via backend process manager
@@ -320,7 +320,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - All file operations confined to worktree
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
-  - [ ]* 17.2 Write property tests for executor agent
+  - [x]* 17.2 Write property tests for executor agent
     - **Property 19: Implementation context includes spec, architecture, and validation**
     - **Property 20: Executor retries capped at 3**
     - **Validates: Requirements 11.1, 11.3**
