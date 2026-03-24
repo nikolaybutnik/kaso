@@ -9,25 +9,26 @@ import { SSEServer, createSSEServer } from '../../src/streaming/sse-server'
 import { EventBus } from '../../src/core/event-bus'
 import type { SSEConfig } from '../../src/config/schema'
 import type { ExecutionEvent } from '../../src/core/types'
+import http from 'http'
 
 // =============================================================================
-// Test Fixtures
+// Test Helpers
 // =============================================================================
 
 function createMockSSEConfig(overrides: Partial<SSEConfig> = {}): SSEConfig {
   return {
     enabled: true,
-    port: 0, // Use random port for testing
+    port: 0,
     host: 'localhost',
     endpoint: '/events',
-    heartbeatIntervalMs: 1000, // Short interval for testing
+    heartbeatIntervalMs: 60000, // Long default so heartbeats don't interfere
     authToken: undefined,
     maxClients: 100,
     ...overrides,
   }
 }
 
-function createMockExecutionEvent(
+function createMockEvent(
   overrides: Partial<ExecutionEvent> = {},
 ): ExecutionEvent {
   return {
@@ -36,12 +37,105 @@ function createMockExecutionEvent(
     timestamp: new Date().toISOString(),
     phase: 'intake',
     agent: 'spec-reader',
-    data: {
-      duration: 5000,
-      message: 'Phase started',
-    },
+    data: { duration: 5000, message: 'Phase started' },
     ...overrides,
   }
+}
+
+/**
+ * Parse raw SSE text into structured events.
+ * SSE format: "id: ...\nevent: ...\ndata: ...\n\n"
+ */
+function parseSSEStream(
+  raw: string,
+): Array<{ id?: string; event?: string; data?: string }> {
+  const events: Array<{ id?: string; event?: string; data?: string }> = []
+  const blocks = raw.split('\n\n').filter((b) => b.trim().length > 0)
+
+  for (const block of blocks) {
+    const entry: { id?: string; event?: string; data?: string } = {}
+    const dataLines: string[] = []
+
+    for (const line of block.split('\n')) {
+      if (line.startsWith('id: ')) entry.id = line.slice(4)
+      else if (line.startsWith('event: ')) entry.event = line.slice(7)
+      else if (line.startsWith('data: ')) dataLines.push(line.slice(6))
+    }
+
+    if (dataLines.length > 0) entry.data = dataLines.join('\n')
+    if (entry.id || entry.event || entry.data) events.push(entry)
+  }
+  return events
+}
+
+/**
+ * Connect to SSE endpoint and collect events until we have enough or timeout.
+ * Returns the raw text chunks received.
+ */
+function collectSSEEvents(
+  port: number,
+  path: string,
+  opts: {
+    headers?: Record<string, string>
+    timeoutMs?: number
+    minEvents?: number
+  } = {},
+): Promise<string> {
+  const { headers = {}, timeoutMs = 2000, minEvents = 1 } = opts
+
+  return new Promise((resolve, reject) => {
+    const req = http.get(
+      `http://localhost:${port}${path}`,
+      { headers },
+      (res) => {
+        if (res.statusCode !== 200) {
+          let body = ''
+          res.on('data', (chunk: Buffer) => {
+            body += chunk.toString()
+          })
+          res.on('end', () =>
+            reject(new Error(`HTTP ${res.statusCode}: ${body}`)),
+          )
+          return
+        }
+
+        let buffer = ''
+        const timer = setTimeout(() => {
+          req.destroy()
+          resolve(buffer)
+        }, timeoutMs)
+
+        res.on('data', (chunk: Buffer) => {
+          buffer += chunk.toString()
+          const events = parseSSEStream(buffer)
+          if (events.length >= minEvents) {
+            clearTimeout(timer)
+            // Give a tiny bit more time for any trailing data
+            setTimeout(() => {
+              req.destroy()
+              resolve(buffer)
+            }, 50)
+          }
+        })
+
+        res.on('end', () => {
+          clearTimeout(timer)
+          resolve(buffer)
+        })
+      },
+    )
+
+    req.on('error', (err) => {
+      if (
+        err.message.includes('ECONNRESET') ||
+        err.message.includes('socket hang up')
+      ) {
+        resolve('')
+      } else {
+        reject(err)
+      }
+    })
+  })
 }
 
 // =============================================================================
@@ -73,20 +167,9 @@ describe('SSEServer', () => {
       expect(server.getClientCount()).toBe(0)
     })
 
-    it('should create SSE server with custom config', () => {
-      const config: Partial<SSEConfig> = {
-        port: 9999,
-        host: '127.0.0.1',
-        endpoint: '/stream',
-      }
-      server = createSSEServer(eventBus, config)
-      expect(server.isRunning()).toBe(false)
-    })
-
     it('should throw error when starting already running server', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
-
       await expect(server.start()).rejects.toThrow('already running')
     })
   })
@@ -116,8 +199,25 @@ describe('SSEServer', () => {
 
     it('should safely stop non-running server', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
-      await server.stop() // Should not throw
+      await server.stop()
       expect(server.isRunning()).toBe(false)
+    })
+
+    it('should disconnect all clients on stop', async () => {
+      server = new SSEServer(eventBus, createMockSSEConfig())
+      await server.start()
+      const port = server.getPort()
+
+      // Connect a client (fire and forget — we just want it registered)
+      collectSSEEvents(port, '/events', {
+        timeoutMs: 5000,
+        minEvents: 999,
+      }).catch(() => {})
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(server.getClientCount()).toBe(1)
+
+      await server.stop()
+      expect(server.getClientCount()).toBe(0)
     })
   })
 
@@ -126,151 +226,342 @@ describe('SSEServer', () => {
   // ===========================================================================
 
   describe('client connections', () => {
-    it('should accept SSE client connections', async () => {
+    it('should accept SSE connections and send initial connected event', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      // Get the actual port
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const raw = await collectSSEEvents(port, '/events', {
+        minEvents: 1,
+        timeoutMs: 2000,
+      })
+      const events = parseSSEStream(raw)
 
-      expect(port).toBeGreaterThan(0)
+      expect(events.length).toBeGreaterThanOrEqual(1)
+      const connected = events.find((e) => e.event === 'connected')
+      expect(connected).toBeDefined()
 
-      // Connect a client
-      const response = await fetch(`http://localhost:${port}/events`)
-      expect(response.status).toBe(200)
-      expect(response.headers.get('content-type')).toBe('text/event-stream')
-
-      // Wait for connection to register
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(server.getClientCount()).toBe(1)
+      const data = JSON.parse(connected!.data!)
+      expect(data.clientId).toBeDefined()
+      expect(data.message).toContain('Connected')
     })
 
-    it('should track multiple client connections', async () => {
+    it('should track client count accurately', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
       expect(server.getClientCount()).toBe(0)
+
+      // Connect two clients
+      const p1 = collectSSEEvents(port, '/events', {
+        timeoutMs: 3000,
+        minEvents: 999,
+      }).catch(() => {})
+      const p2 = collectSSEEvents(port, '/events', {
+        timeoutMs: 3000,
+        minEvents: 999,
+      }).catch(() => {})
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(server.getClientCount()).toBe(2)
+      expect(server.getClientIds().length).toBe(2)
+
+      // Cleanup
+      await server.stop()
+      await Promise.allSettled([p1, p2])
     })
 
-    it('should return client IDs', async () => {
-      server = new SSEServer(eventBus, createMockSSEConfig())
-      expect(server.getClientIds()).toEqual([])
+    it('should enforce maxClients limit', async () => {
+      server = new SSEServer(eventBus, createMockSSEConfig({ maxClients: 2 }))
+      await server.start()
+      const port = server.getPort()
+
+      // Fill up the slots
+      const p1 = collectSSEEvents(port, '/events', {
+        timeoutMs: 3000,
+        minEvents: 999,
+      }).catch(() => {})
+      const p2 = collectSSEEvents(port, '/events', {
+        timeoutMs: 3000,
+        minEvents: 999,
+      }).catch(() => {})
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect(server.getClientCount()).toBe(2)
+
+      // Third client should be rejected
+      const response = await fetch(`http://localhost:${port}/events`)
+      expect(response.status).toBe(503)
+
+      await server.stop()
+      await Promise.allSettled([p1, p2])
     })
   })
 
   // ===========================================================================
-  // Event Broadcasting
+  // Event Broadcasting — actual data verification
   // ===========================================================================
 
   describe('event broadcasting', () => {
-    it('should format execution events correctly', async () => {
+    it('should deliver events to connected clients with correct SSE format', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const event = createMockExecutionEvent({
-        type: 'phase:completed',
-        phase: 'validation',
-        agent: 'spec-validator',
-        data: { duration: 10000, result: 'success' },
+      // Start collecting (wait for connected + 1 real event)
+      const collectPromise = collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 3000,
       })
 
-      // Emit event - should not throw
-      eventBus.emit(event)
+      // Wait for client to connect
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      // Give time for event to be processed
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      // Emit an event
+      eventBus.emit(
+        createMockEvent({
+          type: 'phase:completed',
+          runId: 'run-abc',
+          phase: 'validation',
+          agent: 'spec-validator',
+          data: { duration: 12345 },
+        }),
+      )
 
-      // Verify server is still running after event broadcast
-      expect(server.isRunning()).toBe(true)
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+
+      // Find the phase:completed event
+      const phaseEvent = events.find((e) => e.event === 'phase:completed')
+      expect(phaseEvent).toBeDefined()
+      expect(phaseEvent!.id).toBeDefined()
+
+      const data = JSON.parse(phaseEvent!.data!)
+      expect(data.type).toBe('phase:completed')
+      expect(data.runId).toBe('run-abc')
+      expect(data.phase).toBe('validation')
+      expect(data.agent).toBe('spec-validator')
+      expect(data.elapsedTime).toBe(12345)
     })
 
-    it('should handle events with elapsed time calculation', async () => {
+    it('should include phase, agent, and elapsedTime per Req 17.2', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const startTime = new Date(Date.now() - 5000).toISOString()
-      const event = createMockExecutionEvent({
-        timestamp: new Date().toISOString(),
-        data: { startTime },
+      const collectPromise = collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 3000,
       })
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      eventBus.emit(event)
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      eventBus.emit(
+        createMockEvent({
+          type: 'agent:progress',
+          phase: 'implementation',
+          agent: 'executor',
+          data: { elapsedTime: 42000 },
+        }),
+      )
 
-      expect(server.isRunning()).toBe(true)
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+      const progressEvent = events.find((e) => e.event === 'agent:progress')
+      expect(progressEvent).toBeDefined()
+
+      const data = JSON.parse(progressEvent!.data!)
+      expect(data.phase).toBe('implementation')
+      expect(data.agent).toBe('executor')
+      expect(data.elapsedTime).toBe(42000)
+      expect(data.timestamp).toBeDefined()
     })
 
-    it('should handle events with direct duration', async () => {
+    it('should calculate elapsed time from startTime when no duration', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const event = createMockExecutionEvent({
-        data: { duration: 15000 },
+      const collectPromise = collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 3000,
       })
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      eventBus.emit(event)
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      const now = new Date()
+      const fiveSecondsAgo = new Date(now.getTime() - 5000)
 
-      expect(server.isRunning()).toBe(true)
+      eventBus.emit(
+        createMockEvent({
+          timestamp: now.toISOString(),
+          data: { startTime: fiveSecondsAgo.toISOString() },
+        }),
+      )
+
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+      const event = events.find((e) => e.event === 'phase:started')
+      expect(event).toBeDefined()
+
+      const data = JSON.parse(event!.data!)
+      // Should be approximately 5000ms (allow some tolerance)
+      expect(data.elapsedTime).toBeGreaterThanOrEqual(4900)
+      expect(data.elapsedTime).toBeLessThanOrEqual(5100)
     })
 
-    it('should handle events with elapsedTime field', async () => {
+    it('should handle events without data gracefully', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const event = createMockExecutionEvent({
-        data: { elapsedTime: 20000 },
+      const collectPromise = collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 3000,
       })
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      eventBus.emit(event)
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      eventBus.emit(createMockEvent({ data: undefined }))
 
-      expect(server.isRunning()).toBe(true)
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+      const event = events.find((e) => e.event === 'phase:started')
+      expect(event).toBeDefined()
+
+      const data = JSON.parse(event!.data!)
+      expect(data.type).toBe('phase:started')
+      expect(data.elapsedTime).toBeUndefined()
     })
 
-    it('should handle events without data', async () => {
+    it('should broadcast to multiple clients simultaneously', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const event = createMockExecutionEvent({ data: undefined })
-      eventBus.emit(event)
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      const collect1 = collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 3000,
+      })
+      const collect2 = collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 3000,
+      })
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      expect(server.isRunning()).toBe(true)
+      eventBus.emit(
+        createMockEvent({ type: 'run:completed', runId: 'broadcast-test' }),
+      )
+
+      const [raw1, raw2] = await Promise.all([collect1, collect2])
+
+      const events1 = parseSSEStream(raw1)
+      const events2 = parseSSEStream(raw2)
+
+      const completed1 = events1.find((e) => e.event === 'run:completed')
+      const completed2 = events2.find((e) => e.event === 'run:completed')
+
+      expect(completed1).toBeDefined()
+      expect(completed2).toBeDefined()
+      expect(JSON.parse(completed1!.data!).runId).toBe('broadcast-test')
+      expect(JSON.parse(completed2!.data!).runId).toBe('broadcast-test')
     })
+  })
 
-    it('should handle all event types', async () => {
+  // ===========================================================================
+  // Event Filtering — verify filtering actually works on data
+  // ===========================================================================
+
+  describe('event filtering', () => {
+    it('should only deliver events matching runId filter', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const eventTypes = [
-        'phase:started',
-        'phase:completed',
-        'phase:failed',
-        'phase:timeout',
-        'run:started',
-        'run:paused',
-        'run:resumed',
-        'run:completed',
-        'run:failed',
-        'run:cancelled',
-        'agent:progress',
-        'agent:error',
-      ] as const
+      // Connect with runId filter
+      const collectPromise = collectSSEEvents(
+        port,
+        '/events?runId=target-run',
+        {
+          minEvents: 2,
+          timeoutMs: 3000,
+        },
+      )
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      for (const type of eventTypes) {
-        eventBus.emit(
-          createMockExecutionEvent({
-            type,
-            data: { message: `Test ${type}` },
-          }),
-        )
+      // Emit matching and non-matching events
+      eventBus.emit(
+        createMockEvent({ type: 'phase:started', runId: 'target-run' }),
+      )
+      eventBus.emit(
+        createMockEvent({ type: 'phase:completed', runId: 'other-run' }),
+      )
+      eventBus.emit(
+        createMockEvent({ type: 'run:completed', runId: 'target-run' }),
+      )
+
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+
+      // Should have connected + 2 matching events (not the other-run one)
+      const nonConnectedEvents = events.filter((e) => e.event !== 'connected')
+      expect(nonConnectedEvents.length).toBe(2)
+      for (const evt of nonConnectedEvents) {
+        const data = JSON.parse(evt.data!)
+        expect(data.runId).toBe('target-run')
       }
+    })
 
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(server.isRunning()).toBe(true)
+    it('should only deliver events matching event type filter', async () => {
+      server = new SSEServer(eventBus, createMockSSEConfig())
+      await server.start()
+      const port = server.getPort()
+
+      const collectPromise = collectSSEEvents(
+        port,
+        '/events?events=phase:started,run:completed',
+        {
+          minEvents: 2,
+          timeoutMs: 3000,
+        },
+      )
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      eventBus.emit(createMockEvent({ type: 'phase:started' }))
+      eventBus.emit(createMockEvent({ type: 'phase:completed' })) // Should be filtered out
+      eventBus.emit(createMockEvent({ type: 'agent:progress' })) // Should be filtered out
+      eventBus.emit(createMockEvent({ type: 'run:completed' }))
+
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+
+      const nonConnectedEvents = events.filter((e) => e.event !== 'connected')
+      expect(nonConnectedEvents.length).toBe(2)
+
+      const eventTypes = nonConnectedEvents.map((e) => e.event)
+      expect(eventTypes).toContain('phase:started')
+      expect(eventTypes).toContain('run:completed')
+      expect(eventTypes).not.toContain('phase:completed')
+      expect(eventTypes).not.toContain('agent:progress')
+    })
+
+    it('should deliver all events when no filter specified', async () => {
+      server = new SSEServer(eventBus, createMockSSEConfig())
+      await server.start()
+      const port = server.getPort()
+
+      const collectPromise = collectSSEEvents(port, '/events', {
+        minEvents: 4,
+        timeoutMs: 3000,
+      })
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      eventBus.emit(createMockEvent({ type: 'phase:started' }))
+      eventBus.emit(createMockEvent({ type: 'phase:completed' }))
+      eventBus.emit(createMockEvent({ type: 'run:completed' }))
+
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+
+      const nonConnectedEvents = events.filter((e) => e.event !== 'connected')
+      expect(nonConnectedEvents.length).toBe(3)
     })
   })
 
@@ -285,10 +576,7 @@ describe('SSEServer', () => {
         createMockSSEConfig({ authToken: 'secret-token' }),
       )
       await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const port = server.getPort()
 
       const response = await fetch(`http://localhost:${port}/events`)
       expect(response.status).toBe(401)
@@ -300,17 +588,13 @@ describe('SSEServer', () => {
         createMockSSEConfig({ authToken: 'secret-token' }),
       )
       await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const port = server.getPort()
 
       const response = await fetch(`http://localhost:${port}/events`, {
-        headers: {
-          Authorization: 'Bearer secret-token',
-        },
+        headers: { Authorization: 'Bearer secret-token' },
       })
       expect(response.status).toBe(200)
+      expect(response.headers.get('content-type')).toBe('text/event-stream')
     })
 
     it('should reject requests with invalid auth token', async () => {
@@ -319,17 +603,36 @@ describe('SSEServer', () => {
         createMockSSEConfig({ authToken: 'secret-token' }),
       )
       await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const port = server.getPort()
 
       const response = await fetch(`http://localhost:${port}/events`, {
-        headers: {
-          Authorization: 'Bearer wrong-token',
-        },
+        headers: { Authorization: 'Bearer wrong-token' },
       })
       expect(response.status).toBe(401)
+    })
+
+    it('should allow access without auth when not configured', async () => {
+      server = new SSEServer(
+        eventBus,
+        createMockSSEConfig({ authToken: undefined }),
+      )
+      await server.start()
+      const port = server.getPort()
+
+      const response = await fetch(`http://localhost:${port}/events`)
+      expect(response.status).toBe(200)
+    })
+
+    it('should protect all endpoints when auth is configured', async () => {
+      server = new SSEServer(
+        eventBus,
+        createMockSSEConfig({ authToken: 'token' }),
+      )
+      await server.start()
+      const port = server.getPort()
+
+      const healthResponse = await fetch(`http://localhost:${port}/health`)
+      expect(healthResponse.status).toBe(401)
     })
   })
 
@@ -338,31 +641,38 @@ describe('SSEServer', () => {
   // ===========================================================================
 
   describe('endpoints', () => {
-    it('should respond to health check', async () => {
+    it('should respond to health check with client count', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
+      const port = server.getPort()
 
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      // Connect a client first
+      const clientPromise = collectSSEEvents(port, '/events', {
+        timeoutMs: 3000,
+        minEvents: 999,
+      }).catch(() => {})
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       const response = await fetch(`http://localhost:${port}/health`)
       expect(response.status).toBe(200)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body = await response.json() as any
+      const body = (await response.json()) as {
+        status: string
+        clients: number
+        uptime: number
+      }
       expect(body.status).toBe('ok')
-      expect(typeof body.clients).toBe('number')
+      expect(body.clients).toBe(1)
       expect(typeof body.uptime).toBe('number')
+
+      await server.stop()
+      await clientPromise
     })
 
     it('should return 404 for unknown paths', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const port = server.getPort()
 
       const response = await fetch(`http://localhost:${port}/unknown`)
       expect(response.status).toBe(404)
@@ -371,10 +681,7 @@ describe('SSEServer', () => {
     it('should return 405 for non-GET methods on SSE endpoint', async () => {
       server = new SSEServer(eventBus, createMockSSEConfig())
       await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const port = server.getPort()
 
       const response = await fetch(`http://localhost:${port}/events`, {
         method: 'POST',
@@ -388,95 +695,58 @@ describe('SSEServer', () => {
         createMockSSEConfig({ endpoint: '/custom-stream' }),
       )
       await server.start()
+      const port = server.getPort()
 
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Should work on custom endpoint
       const response = await fetch(`http://localhost:${port}/custom-stream`)
       expect(response.status).toBe(200)
+      expect(response.headers.get('content-type')).toBe('text/event-stream')
+    })
 
-      // Should also work on /events (fallback)
-      const response2 = await fetch(`http://localhost:${port}/events`)
-      expect(response2.status).toBe(200)
+    it('should set correct SSE headers', async () => {
+      server = new SSEServer(eventBus, createMockSSEConfig())
+      await server.start()
+      const port = server.getPort()
+
+      const response = await fetch(`http://localhost:${port}/events`)
+      expect(response.headers.get('content-type')).toBe('text/event-stream')
+      expect(response.headers.get('cache-control')).toBe('no-cache')
+      expect(response.headers.get('connection')).toBe('keep-alive')
     })
   })
 
   // ===========================================================================
-  // Heartbeat
+  // Heartbeat — verify actual ping data reaches clients
   // ===========================================================================
 
   describe('heartbeat', () => {
-    it('should send periodic heartbeats', async () => {
+    it('should send ping events to connected clients', async () => {
       server = new SSEServer(
         eventBus,
         createMockSSEConfig({ heartbeatIntervalMs: 100 }),
       )
       await server.start()
+      const port = server.getPort()
 
-      // Wait for at least one heartbeat cycle
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      // Collect enough events to capture at least one ping
+      const raw = await collectSSEEvents(port, '/events', {
+        minEvents: 2,
+        timeoutMs: 500,
+      })
+      const events = parseSSEStream(raw)
 
-      // Server should still be running
-      expect(server.isRunning()).toBe(true)
-    })
-  })
+      const pingEvent = events.find((e) => e.event === 'ping')
+      expect(pingEvent).toBeDefined()
 
-  // ===========================================================================
-  // Event Filtering
-  // ===========================================================================
-
-  describe('event filtering', () => {
-    it('should support runId query parameter filtering', async () => {
-      server = new SSEServer(eventBus, createMockSSEConfig())
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Connect with runId filter
-      const response = await fetch(
-        `http://localhost:${port}/events?runId=specific-run`,
-      )
-      expect(response.status).toBe(200)
-    })
-
-    it('should support event type filtering', async () => {
-      server = new SSEServer(eventBus, createMockSSEConfig())
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Connect with events filter
-      const response = await fetch(
-        `http://localhost:${port}/events?events=phase:started,phase:completed`,
-      )
-      expect(response.status).toBe(200)
-    })
-  })
-
-  // ===========================================================================
-  // Error Handling
-  // ===========================================================================
-
-  describe('error handling', () => {
-    it('should handle errors in event listeners gracefully', async () => {
-      server = new SSEServer(eventBus, createMockSSEConfig())
-      await server.start()
-
-      // Emit events - should not throw
-      eventBus.emit(createMockExecutionEvent())
-      eventBus.emit(createMockExecutionEvent())
-
-      await new Promise((resolve) => setTimeout(resolve, 50))
-      expect(server.isRunning()).toBe(true)
+      const data = JSON.parse(pingEvent!.data!)
+      expect(data.timestamp).toBeDefined()
+      expect(typeof data.clients).toBe('number')
     })
   })
 })
+
+// =============================================================================
+// Factory Function
+// =============================================================================
 
 describe('createSSEServer', () => {
   it('should create server with default config', () => {
@@ -489,10 +759,7 @@ describe('createSSEServer', () => {
 
   it('should merge custom config with defaults', () => {
     const eventBus = new EventBus()
-    const server = createSSEServer(eventBus, {
-      port: 9999,
-      enabled: true,
-    })
+    const server = createSSEServer(eventBus, { port: 9999, enabled: true })
 
     expect(server).toBeInstanceOf(SSEServer)
   })

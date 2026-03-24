@@ -149,6 +149,15 @@ export class SSEServer {
   }
 
   /**
+   * Get the port the server is listening on (useful for tests with port 0)
+   */
+  getPort(): number {
+    if (!this.server) return 0
+    const address = this.server.address()
+    return address && typeof address === 'object' ? address.port : 0
+  }
+
+  /**
    * Handle incoming HTTP requests
    */
   private handleRequest(
@@ -213,6 +222,13 @@ export class SSEServer {
     url: URL,
   ): void {
     const clientId = this.generateClientId()
+
+    // Enforce maxClients limit before writing SSE headers
+    if (this.clients.size >= this.config.maxClients) {
+      res.writeHead(503, { 'Content-Type': 'text/plain' })
+      res.end('Service Unavailable: max clients reached')
+      return
+    }
 
     // Parse query parameters for filtering
     const filterRunId = url.searchParams.get('runId') || undefined

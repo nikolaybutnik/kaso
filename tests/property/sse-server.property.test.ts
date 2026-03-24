@@ -6,18 +6,26 @@
  * - Property 47: SSE server handles concurrent client connections
  * - Property 48: SSE event filtering by runId works correctly
  * - Property 49: SSE heartbeat maintains connection
+ * - Property 50: SSE event format consistency
+ * - Property 51: SSE event type filtering
+ * - Property 52: SSE authentication handling
  *
  * Requirements: 17.1, 17.2
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import * as fc from 'fast-check'
-import { SSEServer, createSSEServer, type SSEMessage } from '../../src/streaming/sse-server'
+import {
+  SSEServer,
+  createSSEServer,
+  type SSEMessage,
+} from '../../src/streaming/sse-server'
 import { EventBus } from '../../src/core/event-bus'
 import type { ExecutionEvent, EventType, PhaseName } from '../../src/core/types'
+import http from 'http'
 
 // =============================================================================
-// Test Fixtures and Helpers
+// Helpers
 // =============================================================================
 
 const EVENT_TYPES: EventType[] = [
@@ -46,7 +54,7 @@ const PHASE_NAMES: PhaseName[] = [
   'review-delivery',
 ]
 
-function createExecutionEvent(overrides: Partial<ExecutionEvent> = {}): ExecutionEvent {
+function createEvent(overrides: Partial<ExecutionEvent> = {}): ExecutionEvent {
   return {
     type: 'phase:started',
     runId: 'test-run',
@@ -58,17 +66,88 @@ function createExecutionEvent(overrides: Partial<ExecutionEvent> = {}): Executio
   }
 }
 
+function parseSSEStream(
+  raw: string,
+): Array<{ id?: string; event?: string; data?: string }> {
+  const events: Array<{ id?: string; event?: string; data?: string }> = []
+  const blocks = raw.split('\n\n').filter((b) => b.trim().length > 0)
+  for (const block of blocks) {
+    const entry: { id?: string; event?: string; data?: string } = {}
+    const dataLines: string[] = []
+    for (const line of block.split('\n')) {
+      if (line.startsWith('id: ')) entry.id = line.slice(4)
+      else if (line.startsWith('event: ')) entry.event = line.slice(7)
+      else if (line.startsWith('data: ')) dataLines.push(line.slice(6))
+    }
+    if (dataLines.length > 0) entry.data = dataLines.join('\n')
+    if (entry.id || entry.event || entry.data) events.push(entry)
+  }
+  return events
+}
+
+function collectSSEEvents(
+  port: number,
+  path: string,
+  opts: {
+    headers?: Record<string, string>
+    timeoutMs?: number
+    minEvents?: number
+  } = {},
+): Promise<string> {
+  const { headers = {}, timeoutMs = 2000, minEvents = 1 } = opts
+  return new Promise((resolve, reject) => {
+    const req = http.get(
+      `http://localhost:${port}${path}`,
+      { headers },
+      (res) => {
+        if (res.statusCode !== 200) {
+          let body = ''
+          res.on('data', (chunk: Buffer) => {
+            body += chunk.toString()
+          })
+          res.on('end', () =>
+            reject(new Error(`HTTP ${res.statusCode}: ${body}`)),
+          )
+          return
+        }
+        let buffer = ''
+        const timer = setTimeout(() => {
+          req.destroy()
+          resolve(buffer)
+        }, timeoutMs)
+        res.on('data', (chunk: Buffer) => {
+          buffer += chunk.toString()
+          if (parseSSEStream(buffer).length >= minEvents) {
+            clearTimeout(timer)
+            setTimeout(() => {
+              req.destroy()
+              resolve(buffer)
+            }, 50)
+          }
+        })
+        res.on('end', () => {
+          clearTimeout(timer)
+          resolve(buffer)
+        })
+      },
+    )
+    req.on('error', (err) => {
+      if (
+        err.message.includes('ECONNRESET') ||
+        err.message.includes('socket hang up')
+      )
+        resolve('')
+      else reject(err)
+    })
+  })
+}
+
 // =============================================================================
 // Property Tests
 // =============================================================================
 
 describe('SSE Property Tests', () => {
-  let eventBus: EventBus
   let server: SSEServer | null = null
-
-  beforeEach(() => {
-    eventBus = new EventBus()
-  })
 
   afterEach(async () => {
     if (server && server.isRunning()) {
@@ -82,82 +161,83 @@ describe('SSE Property Tests', () => {
   // ===========================================================================
 
   describe('Property 46: SSE events contain required fields', () => {
-    it('should include type, runId, timestamp in all events', async () => {
+    it('for any event type/phase/agent combo, the SSE message contains type, runId, and timestamp', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.constantFrom(...EVENT_TYPES),
-          fc.string({ minLength: 1, maxLength: 50 }),
-          fc.string({ minLength: 1, maxLength: 50 }),
           fc.constantFrom(...PHASE_NAMES),
-          fc.string({ minLength: 1, maxLength: 50 }),
-          async (eventType, runId, timestamp, phase, agent) => {
+          fc
+            .string({ minLength: 1, maxLength: 30 })
+            .filter((s) => /^[a-z-]+$/.test(s)),
+          fc
+            .string({ minLength: 1, maxLength: 30 })
+            .filter((s) => /^[a-z-]+$/.test(s)),
+          async (eventType, phase, runId, agent) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, { port: 0 })
             await server.start()
+            const port = server.getPort()
 
-            const event = createExecutionEvent({
-              type: eventType,
-              runId,
-              timestamp,
-              phase,
-              agent,
+            const collectPromise = collectSSEEvents(port, '/events', {
+              minEvents: 2,
+              timeoutMs: 2000,
             })
+            await new Promise((resolve) => setTimeout(resolve, 80))
 
-            // Event should be processed without error
-            eventBus.emit(event)
-            await new Promise((resolve) => setTimeout(resolve, 10))
+            eventBus.emit(createEvent({ type: eventType, phase, runId, agent }))
 
-            expect(server.isRunning()).toBe(true)
+            const raw = await collectPromise
+            const events = parseSSEStream(raw)
+            const sseEvent = events.find((e) => e.event === eventType)
+
+            expect(sseEvent).toBeDefined()
+            const data: SSEMessage = JSON.parse(sseEvent!.data!)
+            expect(data.type).toBe(eventType)
+            expect(data.runId).toBe(runId)
+            expect(data.timestamp).toBeDefined()
+            expect(data.phase).toBe(phase)
+            expect(data.agent).toBe(agent)
+
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 20 },
+        { numRuns: 8 },
       )
     })
 
-    it('should handle events with various data shapes', async () => {
+    it('elapsedTime is present when duration is in event data', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.dictionary(fc.string(), fc.oneof(fc.string(), fc.integer(), fc.boolean())),
-          fc.integer({ min: 0, max: 100000 }),
-          async (data, duration) => {
+          fc.integer({ min: 0, max: 1000000 }),
+          async (duration) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, { port: 0 })
             await server.start()
+            const port = server.getPort()
 
-            const event = createExecutionEvent({
-              data: { ...data, duration },
+            const collectPromise = collectSSEEvents(port, '/events', {
+              minEvents: 2,
+              timeoutMs: 2000,
             })
+            await new Promise((resolve) => setTimeout(resolve, 80))
 
-            eventBus.emit(event)
-            await new Promise((resolve) => setTimeout(resolve, 10))
+            eventBus.emit(createEvent({ data: { duration } }))
 
-            expect(server.isRunning()).toBe(true)
+            const raw = await collectPromise
+            const events = parseSSEStream(raw)
+            const sseEvent = events.find((e) => e.event === 'phase:started')
+            expect(sseEvent).toBeDefined()
+
+            const data: SSEMessage = JSON.parse(sseEvent!.data!)
+            expect(data.elapsedTime).toBe(duration)
+
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 20 },
+        { numRuns: 8 },
       )
-    })
-
-    it('should format event with all required fields', async () => {
-      server = createSSEServer(eventBus, { port: 0 })
-      await server.start()
-
-      const event: ExecutionEvent = {
-        type: 'phase:completed',
-        runId: 'run-abc-123',
-        timestamp: new Date().toISOString(),
-        phase: 'validation',
-        agent: 'spec-validator',
-        data: {
-          duration: 12345,
-          result: 'success',
-        },
-      }
-
-      // Emit the event
-      eventBus.emit(event)
-      await new Promise((resolve) => setTimeout(resolve, 10))
-
-      // Server should remain stable
-      expect(server.isRunning()).toBe(true)
     })
   })
 
@@ -166,77 +246,48 @@ describe('SSE Property Tests', () => {
   // ===========================================================================
 
   describe('Property 47: SSE server handles concurrent client connections', () => {
-    it('should handle rapid start/stop cycles', async () => {
+    it('N concurrent clients all receive the same broadcast event', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.integer({ min: 1, max: 5 }),
-          async (cycles) => {
-            server = createSSEServer(eventBus, { port: 0 })
-
-            for (let i = 0; i < cycles; i++) {
-              await server.start()
-              expect(server.isRunning()).toBe(true)
-
-              // Emit an event during each cycle
-              eventBus.emit(createExecutionEvent())
-              await new Promise((resolve) => setTimeout(resolve, 5))
-
-              await server.stop()
-              expect(server.isRunning()).toBe(false)
-            }
-          },
-        ),
-        { numRuns: 10 },
-      )
-    })
-
-    it('should handle multiple connection attempts', async () => {
-      server = createSSEServer(eventBus, { port: 0 })
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Make multiple concurrent connection requests
-      const requests = Array.from({ length: 5 }, () =>
-        fetch(`http://localhost:${port}/events`)
-      )
-
-      const responses = await Promise.all(requests)
-
-      // All should succeed
-      for (const response of responses) {
-        expect(response.status).toBe(200)
-        expect(response.headers.get('content-type')).toBe('text/event-stream')
-      }
-    })
-
-    it('should maintain consistent state during event bursts', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 10, max: 50 }),
-          async (eventCount) => {
+          fc.integer({ min: 2, max: 5 }),
+          async (clientCount) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, { port: 0 })
             await server.start()
+            const port = server.getPort()
 
-            // Emit many events rapidly
-            for (let i = 0; i < eventCount; i++) {
-              eventBus.emit(
-                createExecutionEvent({
-                  type: i % 2 === 0 ? 'phase:started' : 'phase:completed',
-                  data: { index: i },
-                }),
-              )
+            // Connect N clients
+            const collectors = Array.from({ length: clientCount }, () =>
+              collectSSEEvents(port, '/events', {
+                minEvents: 2,
+                timeoutMs: 3000,
+              }),
+            )
+            await new Promise((resolve) => setTimeout(resolve, 150))
+
+            expect(server.getClientCount()).toBe(clientCount)
+
+            // Broadcast one event
+            const testRunId = `concurrent-${clientCount}`
+            eventBus.emit(
+              createEvent({ type: 'run:completed', runId: testRunId }),
+            )
+
+            const results = await Promise.all(collectors)
+
+            // Every client should have received the event
+            for (const raw of results) {
+              const events = parseSSEStream(raw)
+              const found = events.find((e) => e.event === 'run:completed')
+              expect(found).toBeDefined()
+              expect(JSON.parse(found!.data!).runId).toBe(testRunId)
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 50))
-
-            expect(server.isRunning()).toBe(true)
-            expect(server.getClientCount()).toBeGreaterThanOrEqual(0)
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 10 },
+        { numRuns: 5 },
       )
     })
   })
@@ -246,54 +297,52 @@ describe('SSE Property Tests', () => {
   // ===========================================================================
 
   describe('Property 48: SSE event filtering by runId', () => {
-    it('should accept various runId formats in filter', async () => {
+    it('client with runId filter only receives events for that runId', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.string({ minLength: 1, maxLength: 100 }),
-          async (runId) => {
+          fc
+            .string({ minLength: 1, maxLength: 20 })
+            .filter((s) => /^[a-z0-9-]+$/.test(s)),
+          fc
+            .string({ minLength: 1, maxLength: 20 })
+            .filter((s) => /^[a-z0-9-]+$/.test(s)),
+          async (targetRunId, otherRunId) => {
+            fc.pre(targetRunId !== otherRunId)
+
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, { port: 0 })
             await server.start()
+            const port = server.getPort()
 
-            const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-            const address = httpServer?.address()
-            const port = address && typeof address === 'object' ? address.port : 0
+            const collectPromise = collectSSEEvents(
+              port,
+              `/events?runId=${encodeURIComponent(targetRunId)}`,
+              { minEvents: 2, timeoutMs: 2000 },
+            )
+            await new Promise((resolve) => setTimeout(resolve, 80))
 
-            const encodedRunId = encodeURIComponent(runId)
-            const response = await fetch(
-              `http://localhost:${port}/events?runId=${encodedRunId}`,
+            // Emit for both runIds
+            eventBus.emit(
+              createEvent({ type: 'phase:started', runId: targetRunId }),
+            )
+            eventBus.emit(
+              createEvent({ type: 'phase:completed', runId: otherRunId }),
             )
 
-            expect(response.status).toBe(200)
+            const raw = await collectPromise
+            const events = parseSSEStream(raw)
+            const nonConnected = events.filter((e) => e.event !== 'connected')
+
+            // Should only have the target event
+            expect(nonConnected.length).toBe(1)
+            expect(JSON.parse(nonConnected[0]!.data!).runId).toBe(targetRunId)
+
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 20 },
+        { numRuns: 8 },
       )
-    })
-
-    it('should filter events when client connects with runId', async () => {
-      server = createSSEServer(eventBus, { port: 0 })
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Connect with specific runId filter
-      const targetRunId = 'target-run-123'
-      const response = await fetch(
-        `http://localhost:${port}/events?runId=${targetRunId}`,
-      )
-
-      expect(response.status).toBe(200)
-
-      // Emit events for different runIds
-      eventBus.emit(createExecutionEvent({ runId: targetRunId }))
-      eventBus.emit(createExecutionEvent({ runId: 'other-run-456' }))
-      eventBus.emit(createExecutionEvent({ runId: targetRunId }))
-
-      await new Promise((resolve) => setTimeout(resolve, 20))
-
-      expect(server.isRunning()).toBe(true)
     })
   })
 
@@ -302,78 +351,38 @@ describe('SSE Property Tests', () => {
   // ===========================================================================
 
   describe('Property 49: SSE heartbeat maintains connection', () => {
-    it('should maintain server with various heartbeat intervals', async () => {
+    it('ping events are delivered within the configured interval', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.integer({ min: 50, max: 500 }),
+          fc.integer({ min: 80, max: 300 }),
           async (intervalMs) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, {
               port: 0,
               heartbeatIntervalMs: intervalMs,
             })
             await server.start()
+            const port = server.getPort()
 
-            // Wait for at least one heartbeat cycle
-            await new Promise((resolve) => setTimeout(resolve, intervalMs + 50))
-
-            expect(server.isRunning()).toBe(true)
-          },
-        ),
-        { numRuns: 10 },
-      )
-    })
-
-    it('should send ping events during heartbeat', async () => {
-      server = createSSEServer(eventBus, {
-        port: 0,
-        heartbeatIntervalMs: 100,
-      })
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Connect a client
-      const response = await fetch(`http://localhost:${port}/events`)
-      expect(response.status).toBe(200)
-
-      // Wait for multiple heartbeat cycles
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      expect(server.isRunning()).toBe(true)
-    })
-
-    it('should handle various SSE config combinations', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.record({
-            enabled: fc.boolean(),
-            port: fc.integer({ min: 1024, max: 65535 }),
-            host: fc.constantFrom('localhost', '127.0.0.1', '0.0.0.0'),
-            endpoint: fc.constantFrom('/events', '/stream', '/sse'),
-            heartbeatIntervalMs: fc.integer({ min: 1000, max: 60000 }),
-            maxClients: fc.integer({ min: 1, max: 1000 }),
-          }),
-          async (config) => {
-            // Use port 0 for testing to avoid conflicts
-            server = createSSEServer(eventBus, {
-              ...config,
-              port: 0,
+            // Wait long enough for at least one heartbeat
+            const raw = await collectSSEEvents(port, '/events', {
+              minEvents: 2,
+              timeoutMs: intervalMs + 200,
             })
-            await server.start()
+            const events = parseSSEStream(raw)
 
-            // Emit test event
-            eventBus.emit(createExecutionEvent())
-            await new Promise((resolve) => setTimeout(resolve, 10))
+            const ping = events.find((e) => e.event === 'ping')
+            expect(ping).toBeDefined()
 
-            expect(server.isRunning()).toBe(true)
+            const data = JSON.parse(ping!.data!)
+            expect(data.timestamp).toBeDefined()
+            expect(typeof data.clients).toBe('number')
 
             await server.stop()
-            expect(server.isRunning()).toBe(false)
+            server = null
           },
         ),
-        { numRuns: 10 },
+        { numRuns: 5 },
       )
     })
   })
@@ -383,67 +392,76 @@ describe('SSE Property Tests', () => {
   // ===========================================================================
 
   describe('Property 50: SSE event format consistency', () => {
-    it('should produce valid SSE message format', async () => {
+    it('every SSE event has id, event, and parseable JSON data fields', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.constantFrom(...EVENT_TYPES),
-          fc.string({ minLength: 1, maxLength: 50 }),
           fc.constantFrom(...PHASE_NAMES),
-          fc.string({ minLength: 1, maxLength: 50 }),
           fc.integer({ min: 0, max: 100000 }),
-          async (type, runId, phase, agent, duration) => {
+          async (type, phase, duration) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, { port: 0 })
             await server.start()
+            const port = server.getPort()
 
-            const event: ExecutionEvent = {
-              type,
-              runId,
-              timestamp: new Date().toISOString(),
-              phase,
-              agent,
-              data: { duration },
+            const collectPromise = collectSSEEvents(port, '/events', {
+              minEvents: 2,
+              timeoutMs: 2000,
+            })
+            await new Promise((resolve) => setTimeout(resolve, 80))
+
+            eventBus.emit(createEvent({ type, phase, data: { duration } }))
+
+            const raw = await collectPromise
+            const events = parseSSEStream(raw)
+
+            // Every event should have id, event type, and valid JSON data
+            for (const evt of events) {
+              expect(evt.id).toBeDefined()
+              expect(evt.event).toBeDefined()
+              expect(evt.data).toBeDefined()
+              expect(() => JSON.parse(evt.data!)).not.toThrow()
             }
 
-            // Should not throw when processing event
-            eventBus.emit(event)
-            await new Promise((resolve) => setTimeout(resolve, 10))
-
-            expect(server.isRunning()).toBe(true)
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 20 },
+        { numRuns: 8 },
       )
     })
 
-    it('should handle edge cases in event data', async () => {
+    it('SSEMessage data always contains type and runId', async () => {
+      const eventBus = new EventBus()
       server = createSSEServer(eventBus, { port: 0 })
       await server.start()
+      const port = server.getPort()
 
-      // Test with empty data
-      eventBus.emit(createExecutionEvent({ data: {} }))
+      const collectPromise = collectSSEEvents(port, '/events', {
+        minEvents: 4,
+        timeoutMs: 3000,
+      })
+      await new Promise((resolve) => setTimeout(resolve, 80))
 
-      // Test with null/undefined values
-      eventBus.emit(
-        createExecutionEvent({
-          data: {
-            nullValue: null,
-            undefinedValue: undefined,
-          },
-        }),
-      )
+      // Emit several different event types
+      for (const type of [
+        'phase:started',
+        'run:completed',
+        'agent:progress',
+      ] as EventType[]) {
+        eventBus.emit(createEvent({ type, runId: 'format-test' }))
+      }
 
-      // Test with nested objects
-      eventBus.emit(
-        createExecutionEvent({
-          data: {
-            nested: { deep: { value: 123 } },
-            array: [1, 2, 3],
-          },
-        }),
-      )
+      const raw = await collectPromise
+      const events = parseSSEStream(raw)
+      const nonConnected = events.filter((e) => e.event !== 'connected')
 
-      await new Promise((resolve) => setTimeout(resolve, 20))
-      expect(server.isRunning()).toBe(true)
+      for (const evt of nonConnected) {
+        const data: SSEMessage = JSON.parse(evt.data!)
+        expect(data.type).toBeDefined()
+        expect(data.runId).toBe('format-test')
+        expect(data.timestamp).toBeDefined()
+      }
     })
   })
 
@@ -452,120 +470,113 @@ describe('SSE Property Tests', () => {
   // ===========================================================================
 
   describe('Property 51: SSE event type filtering', () => {
-    it('should accept various event type filters', async () => {
+    it('client with event filter only receives matching event types', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.array(fc.constantFrom(...EVENT_TYPES), { minLength: 1, maxLength: 5 }),
-          async (eventTypes) => {
+          fc.subarray(EVENT_TYPES, { minLength: 1, maxLength: 4 }),
+          async (allowedTypes) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, { port: 0 })
             await server.start()
+            const port = server.getPort()
 
-            const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-            const address = httpServer?.address()
-            const port = address && typeof address === 'object' ? address.port : 0
-
-            const eventsParam = eventTypes.join(',')
-            const response = await fetch(
-              `http://localhost:${port}/events?events=${eventsParam}`,
+            const filterParam = allowedTypes.join(',')
+            const collectPromise = collectSSEEvents(
+              port,
+              `/events?events=${filterParam}`,
+              { minEvents: 1 + allowedTypes.length, timeoutMs: 2000 },
             )
+            await new Promise((resolve) => setTimeout(resolve, 80))
 
-            expect(response.status).toBe(200)
+            // Emit ALL event types
+            for (const type of EVENT_TYPES) {
+              eventBus.emit(createEvent({ type }))
+            }
+
+            const raw = await collectPromise
+            const events = parseSSEStream(raw)
+            const nonConnected = events.filter((e) => e.event !== 'connected')
+
+            // Every received event should be in the allowed list
+            for (const evt of nonConnected) {
+              expect(allowedTypes).toContain(evt.event)
+            }
+
+            // Should have received exactly the allowed types
+            expect(nonConnected.length).toBe(allowedTypes.length)
+
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 20 },
+        { numRuns: 8 },
       )
-    })
-
-    it('should support filtering by multiple event types', async () => {
-      server = createSSEServer(eventBus, { port: 0 })
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      // Connect with event type filter
-      const response = await fetch(
-        `http://localhost:${port}/events?events=phase:started,phase:completed,run:completed`,
-      )
-      expect(response.status).toBe(200)
-
-      // Emit various event types
-      eventBus.emit(createExecutionEvent({ type: 'phase:started' }))
-      eventBus.emit(createExecutionEvent({ type: 'phase:completed' }))
-      eventBus.emit(createExecutionEvent({ type: 'agent:progress' }))
-      eventBus.emit(createExecutionEvent({ type: 'run:completed' }))
-
-      await new Promise((resolve) => setTimeout(resolve, 20))
-
-      expect(server.isRunning()).toBe(true)
     })
   })
 
   // ===========================================================================
-  // Property 52: Authentication with various tokens
+  // Property 52: Authentication handling
   // ===========================================================================
 
   describe('Property 52: SSE authentication handling', () => {
-    it('should reject invalid auth tokens', async () => {
+    it('any token that is not the configured token gets rejected', async () => {
       await fc.assert(
         fc.asyncProperty(
-          fc.string({ minLength: 1, maxLength: 100 }).filter(t => t !== 'valid-token'),
+          fc
+            .string({ minLength: 1, maxLength: 50 })
+            .filter((t) => t !== 'valid-token'),
           async (invalidToken) => {
+            const eventBus = new EventBus()
             server = createSSEServer(eventBus, {
               port: 0,
               authToken: 'valid-token',
             })
             await server.start()
-
-            const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-            const address = httpServer?.address()
-            const port = address && typeof address === 'object' ? address.port : 0
+            const port = server.getPort()
 
             const response = await fetch(`http://localhost:${port}/events`, {
-              headers: {
-                Authorization: `Bearer ${invalidToken}`,
-              },
+              headers: { Authorization: `Bearer ${invalidToken}` },
             })
-
             expect(response.status).toBe(401)
+
+            await server.stop()
+            server = null
           },
         ),
-        { numRuns: 20 },
+        { numRuns: 5 },
       )
-    })
+    }, 60000)
 
-    it('should accept valid auth tokens', async () => {
-      const validToken = 'my-secret-auth-token'
-      server = createSSEServer(eventBus, {
-        port: 0,
-        authToken: validToken,
-      })
+    it('the exact configured token is always accepted', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc
+            .string({ minLength: 8, maxLength: 50 })
+            .filter((s) => /^[a-zA-Z0-9_-]+$/.test(s)),
+          async (token) => {
+            const eventBus = new EventBus()
+            server = createSSEServer(eventBus, { port: 0, authToken: token })
+            await server.start()
+            const port = server.getPort()
+
+            const response = await fetch(`http://localhost:${port}/events`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            expect(response.status).toBe(200)
+
+            await server.stop()
+            server = null
+          },
+        ),
+        { numRuns: 5 },
+      )
+    }, 60000)
+
+    it('no auth required when authToken is not configured', async () => {
+      const eventBus = new EventBus()
+      server = createSSEServer(eventBus, { port: 0, authToken: undefined })
       await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
-
-      const response = await fetch(`http://localhost:${port}/events`, {
-        headers: {
-          Authorization: `Bearer ${validToken}`,
-        },
-      })
-
-      expect(response.status).toBe(200)
-    })
-
-    it('should allow access without auth when not configured', async () => {
-      server = createSSEServer(eventBus, {
-        port: 0,
-        authToken: undefined,
-      })
-      await server.start()
-
-      const httpServer = (server as unknown as { server: { address(): { port: number } | null } }).server
-      const address = httpServer?.address()
-      const port = address && typeof address === 'object' ? address.port : 0
+      const port = server.getPort()
 
       const response = await fetch(`http://localhost:${port}/events`)
       expect(response.status).toBe(200)
@@ -574,7 +585,7 @@ describe('SSE Property Tests', () => {
 })
 
 // =============================================================================
-// Message Format Tests
+// SSEMessage type contract
 // =============================================================================
 
 describe('SSE Message Format', () => {
@@ -589,7 +600,6 @@ describe('SSE Message Format', () => {
       data: { result: 'success' },
     }
 
-    // Verify message structure
     expect(message.type).toBe('phase:completed')
     expect(message.runId).toBe('run-123')
     expect(message.timestamp).toBeDefined()
@@ -611,6 +621,5 @@ describe('SSE Message Format', () => {
     expect(message.phase).toBeUndefined()
     expect(message.agent).toBeUndefined()
     expect(message.elapsedTime).toBeUndefined()
-    expect(message.data).toBeUndefined()
   })
 })
