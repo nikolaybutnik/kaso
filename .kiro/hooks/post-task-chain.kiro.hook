@@ -2,26 +2,29 @@
   "enabled": true,
   "name": "Post-Task Chain: Docs → Review → Commit",
   "description": "Post-task hook: update docs if files changed, type-check, test, review on parent tasks, commit.",
-  "version": "3",
+  "version": "4",
   "when": {
     "type": "postTaskExecution"
   },
   "then": {
     "type": "askAgent",
     "prompt": [
-      "A spec task just completed. Execute these steps IN ORDER.",
+      "A spec task just completed. First, determine if this was a SUB-TASK (has a decimal like 25.1, 28.2) or a PARENT TASK (whole number like 25, 28).",
       "",
-      "## Step 1: Update Docs (only if files changed)",
+      "## If this is a SUB-TASK (e.g. 28.1, 28.2, 28.3):",
+      "Do NOTHING. Skip all steps. The parent task hook will handle docs, tests, review, and commit when the parent is marked complete.",
+      "STOP HERE for sub-tasks. Do not proceed to any steps below.",
+      "",
+      "## If this is a PARENT TASK (e.g. 28), execute these steps IN ORDER:",
+      "",
+      "### Step 1: Update Docs (only if files changed)",
       "Run `git diff --name-only HEAD` to see what changed. If no src/ or tests/ files changed, skip to Step 2.",
       "Otherwise update AGENTS.md: run `find src -name '*.ts' | wc -l` and `find tests -name '*.test.ts' | wc -l` to get file counts, update the Current Status line, project structure tree counts, and implementation status table. Add module reference sections for any new modules.",
       "",
-      "## Step 2: Type Check + Tests",
+      "### Step 2: Type Check + Tests",
       "Run `npx tsc --noEmit`, then `npm test`. Fix any failures before proceeding.",
       "",
-      "## Step 3: Parent Task Review (skip for sub-tasks)",
-      "Check tasks.md — if this was a sub-task (e.g. 25.1, 25.2), skip to Step 4.",
-      "If this was a parent task (e.g. 25), do a full review:",
-      "",
+      "### Step 3: Full Review",
       "1. **Requirements**: Read requirements.md and design.md. Verify every requirement mapped to this task is fully implemented, not partially. Fix gaps.",
       "2. **Test correctness**: Read all test files for this task. Every test must assert on actual output/behavior, not just 'did not crash'. Rewrite tests that only check stability without verifying data. If a config option exists but isn't enforced, implement it or remove it.",
       "3. **Imports**: All modified src/**/*.ts files must use `@/` aliases for cross-directory imports. Same-directory `./` is fine. Rewrite any `../../` paths.",
@@ -29,7 +32,7 @@
       "",
       "Fix issues and re-run tests if anything changed.",
       "",
-      "## Step 4: Git Commit (always last)",
+      "### Step 4: Git Commit (always last)",
       "Stage with `git add -A`. Commit using format `<type>(<scope>): <description>` per project conventions. Do NOT push."
     ]
   }

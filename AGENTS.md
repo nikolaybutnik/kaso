@@ -16,11 +16,12 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 34 source files across 48 test files with 671 passing tests including comprehensive property-based tests.
+The project has 36 source files across 51 test files with 735 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
-- **Phase 3 (Remaining Agents & CLI)**: 🔧 In Progress (Test Engineer, Review Council complete)
+- **Phase 3 (Remaining Agents & CLI)**: ✅ Complete
+- **Phase 4 (Extensibility)**: 🔧 In Progress (Plugin loader, phase injector complete)
 
 ## Technology Stack
 
@@ -101,7 +102,9 @@ src/
 │   ├── spec-writer.ts
 │   ├── webhook-dispatcher.ts
 │   └── worktree-manager.ts
-├── plugins/             # Plugin system (empty — planned)
+├── plugins/             # Plugin system (2 files)
+│   ├── plugin-loader.ts         # npm package discovery and loading
+│   └── phase-injector.ts        # Custom phase insertion logic
 └── streaming/           # Event streaming (1 file)
     └── sse-server.ts
 
@@ -111,7 +114,8 @@ tests/
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 9 test files
-├── property/            # 20 property-based test files
+├── plugins/             # 2 test files
+├── property/            # 22 property-based test files
 └── streaming/           # 1 test file
 ```
 
@@ -529,6 +533,40 @@ Server-Sent Events server for real-time streaming of execution events to connect
 
 Features: per-client runId and event type filtering via query params, Bearer token authentication, heartbeat/ping to keep connections alive, Last-Event-ID replay for reconnection, health check endpoint (`/health`), configurable endpoint path. Extracts elapsed time from event data (duration, elapsedTime, or startTime calculation).
 
+### `src/plugins/plugin-loader.ts`
+
+Discovers and loads custom agents from npm packages listed in config. Validates each plugin implements the Agent interface before registration.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `PluginLoader` | Class | Manages plugin lifecycle. `loadAndRegister()`, `getResults()`, `getSuccessfulLoads()`, `getFailedLoads()`, `allSuccessful()`. Loads plugins from config and registers valid agents with the AgentRegistry. |
+| `PluginLoadResult` | Interface | Result of loading a plugin: package, success, agent, phaseName, error |
+| `PluginMetadata` | Interface | Plugin metadata: name, version, description, kaso phase/agent hints |
+| `validateAgentInterface` | Function | Validates an object implements all 4 required Agent interface methods (execute, supportsRollback, estimatedDuration, requiredContext) |
+| `loadPlugin` | Function | Load a single plugin from an npm package via dynamic import |
+| `loadAllPlugins` | Function | Load all configured plugins sequentially |
+| `createPluginLoader` | Function | Factory function accepting AgentRegistry and PluginConfig array |
+
+Security note: plugins run with the same privileges as the host process — no sandboxing. Supports default export, `KasoAgent` named export, or `agent` named export. Disabled plugins are skipped with descriptive error.
+
+### `src/plugins/phase-injector.ts`
+
+Inserts custom phases at configurable positions in the 8-phase pipeline. Custom phases receive the same AgentContext passing and error handling as built-in phases.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `PhaseInjector` | Class | Manages custom phase injection. `buildPipeline()`, `getPipeline()`, `getPhaseOrder()`, `hasErrors()`, `getErrors()`, `validateAgents()`. |
+| `PipelinePhase` | Interface | Phase descriptor with name, type (built-in/custom), package, position |
+| `PhaseInjectionResult` | Interface | Result of injection: phases array, customPhases map, errors array |
+| `BUILTIN_PHASES` | Constant | Default 8-phase pipeline order |
+| `validateCustomPhaseName` | Function | Validates name matches `custom-[a-z0-9-]+` pattern |
+| `validatePosition` | Function | Validates position is within pipeline bounds (0 to 8) |
+| `injectCustomPhases` | Function | Core injection logic — sorts by position, validates, inserts into pipeline |
+| `getPhaseOrder` | Function | Extract ordered phase names from injection result |
+| `isCustomPhase` | Function | Check if a phase is custom |
+| `getCustomPhaseConfig` | Function | Get config for a custom phase |
+| `createPhaseInjector` | Function | Factory function accepting CustomPhaseConfig array |
+
 ---
 
 ## Configuration Reference
@@ -647,7 +685,7 @@ Features: per-client runId and event type filtering via query params, Bearer tok
 | 25 | SSE server for streaming | ✅ |
 | 26 | CLI interface | ✅ |
 | 27 | Checkpoint — Polish complete | 📋 Planned |
-| 28 | Plugin loader and custom phases | 📋 Planned |
+| 28 | Plugin loader and custom phases | ✅ |
 | 29 | MCP client integration | 📋 Planned |
 | 30 | Wire everything together | 📋 Planned |
 | 31 | Final checkpoint | 📋 Planned |

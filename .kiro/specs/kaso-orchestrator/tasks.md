@@ -462,24 +462,27 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Print pass/fail status for each check with actionable remediation hints
     - _Requirements: 28.1_
 
-- [ ] 27. Checkpoint — Polish complete
+- [x] 27. Checkpoint — Polish complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 28. Plugin loader and custom phase injection
-  - [ ] 28.1 Implement plugin loader in `src/plugins/plugin-loader.ts`
+- [x] 28. Plugin loader and custom phase injection
+  - [x] 28.1 Implement plugin loader in `src/plugins/plugin-loader.ts`
     - Discover and load custom agents from npm packages listed in config
     - Validate each plugin implements the Agent interface before registration
     - Reject invalid plugins with descriptive errors
-    - Security note: plugins run with the same privileges as the host process — there is no sandboxing. Document this clearly in plugin API docs
+    - Security note: plugins run with the same privileges as the host process — there is no sandboxing. Documented in plugin API docs
+    - Unit tests go into /tests/plugins (18 tests)
     - _Requirements: 22.1, 22.2, 22.3_
 
-  - [ ] 28.2 Implement phase injector in `src/plugins/phase-injector.ts`
+  - [x] 28.2 Implement phase injector in `src/plugins/phase-injector.ts`
     - Insert custom phases at configurable positions in the pipeline
     - Custom phases receive same AgentContext passing behavior as built-in phases
     - Custom phase failures follow same error handling as built-in phases
+    - Unit tests go into /tests/plugins (33 tests)
     - _Requirements: 23.1, 23.2, 23.3_
 
-  - [ ]* 28.3 Write property tests for plugins and custom phases
+  - [x] 28.3 Write property tests for plugins and custom phases
+    - Property tests go into /tests/property
     - **Property 43: Custom phase error handling matches built-in phases**
     - **Property 48: Plugin discovery loads configured plugins**
     - **Validates: Requirements 22.2, 22.3, 23.3**
