@@ -325,15 +325,15 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 20: Executor retries capped at 3**
     - **Validates: Requirements 11.1, 11.3**
 
-- [ ] 18. Test engineer agent (Phase 6 — Test & Verification)
-  - [ ] 18.1 Implement test engineer in `src/agents/test-engineer.ts`
+- [x] 18. Test engineer agent (Phase 6 — Test & Verification)
+  - [x] 18.1 Implement test engineer in `src/agents/test-engineer.ts`
     - Generate unit, integration, and edge-case tests for all modified files
     - Execute full project test suite within the worktree
     - Perform code coverage analysis on modified files
     - Produce `TestReport` with passed boolean, coverage percentage, test failures array
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
 
-  - [ ]* 18.2 Write property tests for test engineer
+  - [x] 18.2 Write property tests for test engineer
     - **Property 23: Test generation covers all modified files**
     - **Property 24: TestReport conforms to schema**
     - **Validates: Requirements 13.1, 13.4**

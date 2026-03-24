@@ -354,6 +354,7 @@ export interface TestReport extends PhaseOutput {
   }>
   testsRun: number
   duration: number
+  generatedTests?: string[]
 }
 
 /**

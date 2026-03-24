@@ -16,11 +16,11 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 25 source files (~9,150 lines of TypeScript) across 33 test files with 385 passing tests including comprehensive property-based tests.
+The project has 25 source files (~9,150 lines of TypeScript) across 35 test files with 407 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
-- **Phase 3 (Remaining Agents & CLI)**: 📋 Planned
+- **Phase 3 (Remaining Agents & CLI)**: 🔧 In Progress (Test Engineer complete)
 
 ## Technology Stack
 
@@ -64,13 +64,14 @@ npm run test:coverage
 
 ```
 src/
-├── agents/              # Agent implementations (6 files)
+├── agents/              # Agent implementations (7 files)
 │   ├── agent-interface.ts
 │   ├── agent-registry.ts
 │   ├── architecture-guardian.ts
 │   ├── executor.ts
 │   ├── spec-reader.ts
-│   └── spec-validator.ts
+│   ├── spec-validator.ts
+│   └── test-engineer.ts
 ├── backends/            # Executor backend adapters (3 files)
 │   ├── backend-adapter.ts
 │   ├── backend-process.ts
@@ -123,7 +124,7 @@ tests/
 3. **Architecture Analysis** (`architecture-guardian`): Map spec requirements to codebase modules, load ADRs, identify patterns and potential violations.
 4. **Implementation** (`executor`): Generate code changes via AI backend with self-correction retry loop (up to 3 internal retries).
 5. **Architecture Review** (`architecture-guardian`): Review modified files against architectural patterns, import boundaries, naming conventions, and state management.
-6. **Test & Verification** (`test-engineer`): Generate and execute tests. *Not yet implemented.*
+6. **Test & Verification** (`test-engineer`): Generate test stubs for modified files, run full test suite in worktree, collect coverage data.
 7. **UI/UX Validation** (`ui-validator`): Visual regression testing. *Not yet implemented.*
 8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review and PR creation. *Not yet implemented.*
 
@@ -298,6 +299,15 @@ Phase 4 (Implementation) agent — delegates code generation to AI backends with
 |--------|------|-------------|
 | `ExecutorAgent` | Class | Delegates to configured `ExecutorBackend` via `BackendRegistry`. Validates intake, validation, and architecture context. Self-correction retry loop (up to 3 retries) re-invokes backend with failure context. Streams NDJSON progress events via `EventBus`. Produces `ImplementationResult` with modifiedFiles, addedTests, duration, backend name, selfCorrectionAttempts. Supports `AbortSignal` for cooperative cancellation. |
 | `createExecutorAgent` | Function | Factory function accepting optional `EventBus` and `BackendRegistry` |
+
+### `src/agents/test-engineer.ts`
+
+Phase 6 (Test & Verification) agent — generates tests, runs the test suite, and collects coverage.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `TestEngineerAgent` | Class | Generates unit/integration/edge-case test stubs for modified source files that lack tests. Runs `npm test` in the worktree and parses Vitest/Jest output. Reads `coverage-summary.json` for line coverage on modified files. Produces `TestReport` with passed, testsRun, testFailures, coverage, duration, generatedTests. Supports `AbortSignal` for cooperative cancellation. |
+| `createTestEngineerAgent` | Function | Factory function accepting optional `EventBus` |
 
 ### `src/backends/backend-adapter.ts`
 
@@ -548,7 +558,7 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 | 15 | Checkpoint — Orchestrator complete | ✅ |
 | 16.1–16.2 | Architecture guardian (Phase 3 & 5) | ✅ |
 | 17 | Executor agent (Phase 4) | ✅ |
-| 18 | Test engineer agent (Phase 6) | 📋 Planned |
+| 18 | Test engineer agent (Phase 6) | ✅ |
 | 19 | Review council (Phase 8) | 📋 Planned |
 | 20 | Delivery agent (Phase 8) | 📋 Planned |
 | 21 | Checkpoint — Quality gates | 📋 Planned |
