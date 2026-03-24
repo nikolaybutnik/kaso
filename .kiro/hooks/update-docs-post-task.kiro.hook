@@ -8,6 +8,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A spec task just completed. Review the files that were created or modified during this task and update all relevant project documentation to reflect the changes. This includes:\n\n1. Update or create ARCHITECTURE.md if new modules, components, or architectural patterns were introduced\n2. Update README.md if setup steps, CLI commands, or usage instructions changed\n3. Update or create API documentation if new interfaces, types, or public APIs were added\n4. Keep documentation concise, accurate, and in sync with the actual code\n\nOnly update docs that are actually affected by the changes. Don't create documentation files that aren't needed yet."
+    "prompt": "A spec task just completed. Review the git diff or recently modified files to identify what changed, then update relevant project documentation:\n\n1. Update AGENTS.md if new modules, components, interfaces, or architectural patterns were introduced\n2. Update README.md if setup steps, CLI commands, or usage instructions changed\n3. Update or create API documentation if new public interfaces or types were added\n4. Keep documentation concise, accurate, and in sync with the actual code\n\nOnly update docs that are actually affected. Don't create files that aren't needed. If nothing meaningful changed for docs, do nothing."
   }
 }

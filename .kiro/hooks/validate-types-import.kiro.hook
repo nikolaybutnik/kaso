@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Validate New File Structure",
+  "description": "When a new source file is created, verify it follows project conventions: proper imports using @ aliases, correct folder placement, and exports matching the module pattern.",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": ["src/**/*.ts"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new source file was just created. Quickly verify it follows KASO project conventions:\n\n1. Uses @/ path aliases for imports (not relative paths like ../../)\n2. Is placed in the correct folder for its responsibility (agents/, backends/, core/, infrastructure/, config/, cli/, plugins/, streaming/)\n3. Exports follow the module's existing pattern (named exports, not default)\n4. Has proper type annotations — no implicit any\n\nIf anything is off, fix it. If it looks good, proceed without comment."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "TypeScript Build Check",
+  "description": "After source files are edited, run the TypeScript compiler to catch type errors early before they snowball.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["src/**/*.ts"]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "npx tsc --noEmit 2>&1 | head -30"
+  }
+}

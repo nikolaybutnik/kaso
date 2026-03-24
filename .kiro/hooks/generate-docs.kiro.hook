@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Generate Project Documentation",
+  "description": "Manually triggered hook that comprehensively audits the entire codebase and creates or updates all project documentation to reflect the current state.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Perform a comprehensive documentation audit and update for the entire KASO project. Read through the source files, tests, and configuration to understand the current state of the codebase, then create or update documentation accordingly.\n\nSteps:\n\n1. Scan all source files in src/ to catalog every module, class, interface, type, and public function\n2. Review tests/ to understand test coverage and testing patterns\n3. Check package.json for scripts, dependencies, and project metadata\n4. Read existing docs (AGENTS.md, README.md, any files in docs/) to identify what's outdated or missing\n\nThen update or create:\n\n- AGENTS.md — Full project overview, architecture, module descriptions, implementation status, build/test commands, configuration reference. This is the primary project doc. Keep it comprehensive but concise\n- README.md — Quick-start guide, prerequisites, installation, basic usage, and a pointer to AGENTS.md for details\n\nFor each source module, document:\n- Purpose and responsibility\n- Key exports (interfaces, classes, functions) with brief descriptions\n- Dependencies and how it fits into the overall architecture\n- Current implementation status\n\nRules:\n- Be accurate — only document what actually exists in the code right now\n- Don't invent features or capabilities that aren't implemented\n- Keep the tone concise and technical\n- Use the existing documentation structure and style as a guide\n- Update implementation status tables to match reality\n- Remove references to things that no longer exist"
+  }
+}

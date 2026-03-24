@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "name": "Auto-Commit After Task",
   "description": "After each spec task completes, automatically stage all changes and create a conventional commit with a descriptive message summarizing what the task accomplished.",
   "version": "1",
