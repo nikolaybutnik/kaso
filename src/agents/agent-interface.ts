@@ -93,19 +93,29 @@ import { TestEngineerAgent } from './test-engineer'
 import { UIValidatorAgent } from './ui-validator'
 import { ReviewCouncilAgent } from './review-council'
 
+/** Shared dependencies for agent creation */
+export interface AgentDependencies {
+  eventBus: EventBus
+  backendRegistry: BackendRegistry
+}
+
 /**
- * Create an agent instance for a given phase
- * @param phase - The phase name
- * @param config - The KASO configuration
- * @returns An agent instance for the phase
+ * Create an agent instance for a given phase.
+ * When `deps` is provided the shared application-level EventBus and
+ * BackendRegistry are injected so all agents participate in the same
+ * event stream. Without `deps` each agent gets its own isolated instances
+ * (useful for unit tests).
  */
-export function createAgent(phase: PhaseName, config: KASOConfig): Agent {
-  const eventBus = new EventBus()
-  const backendRegistry = new BackendRegistry(config)
+export function createAgent(
+  phase: PhaseName,
+  config: KASOConfig,
+  deps?: AgentDependencies,
+): Agent {
+  const eventBus = deps?.eventBus ?? new EventBus()
+  const backendRegistry = deps?.backendRegistry ?? new BackendRegistry(config)
 
   switch (phase) {
     case 'intake':
-      // SpecReaderAgent needs a spec path, will be set during execution
       return new SpecReaderAgent('.')
     case 'validation':
       return new SpecValidatorAgent()
@@ -120,10 +130,15 @@ export function createAgent(phase: PhaseName, config: KASOConfig): Agent {
     case 'ui-validation':
       return new UIValidatorAgent({ eventBus })
     case 'review-delivery':
-      return new ReviewCouncilAgent({ eventBus, backendResolver: () => undefined })
+      return new ReviewCouncilAgent({
+        eventBus,
+        backendResolver: () => undefined,
+      })
     default:
       if (phase.startsWith('custom-')) {
-        throw new Error(`Custom phase agents must be loaded via plugin system: ${phase}`)
+        throw new Error(
+          `Custom phase agents must be loaded via plugin system: ${phase}`,
+        )
       }
       throw new Error(`Unknown phase: ${phase}`)
   }

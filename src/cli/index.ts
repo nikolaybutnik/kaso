@@ -21,22 +21,8 @@ import { Command } from 'commander'
 import { readFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { cpus } from 'os'
 
-import { loadConfig } from '@/config/loader'
-import { createOrchestrator } from '@/core/orchestrator'
-import { EventBus } from '@/core/event-bus'
-import { StateMachine } from '@/core/state-machine'
-import { AgentRegistryImpl } from '@/agents/agent-registry'
-import { ExecutionStore } from '@/infrastructure/execution-store'
-import { CheckpointManager } from '@/infrastructure/checkpoint-manager'
-import { WorktreeManager } from '@/infrastructure/worktree-manager'
-import { CostTracker } from '@/infrastructure/cost-tracker'
-import { ConcurrencyManager } from '@/core/concurrency-manager'
-import { BackendRegistry } from '@/backends/backend-registry'
-import { SpecWriter } from '@/infrastructure/spec-writer'
-import { FileWatcher } from '@/infrastructure/file-watcher'
-import { createAgent } from '@/agents/agent-interface'
+import { initializeKASO, type ApplicationContext } from '@/index'
 
 import {
   startCommand,
@@ -95,70 +81,22 @@ program
 async function createContext(options: {
   config?: string
 }): Promise<CommandContext> {
-  // Load configuration
   const configPath = options.config ?? 'kaso.config.json'
-  const config = await loadConfig({ configPath })
 
-  // Initialize core components
-  const eventBus = new EventBus()
-  const stateMachine = new StateMachine()
-  const agentRegistry = new AgentRegistryImpl()
-
-  // Register default agents
-  for (const phase of [
-    'intake',
-    'validation',
-    'architecture-analysis',
-    'implementation',
-    'architecture-review',
-    'test-verification',
-    'ui-validation',
-    'review-delivery',
-  ] as const) {
-    const agent = createAgent(phase, config)
-    agentRegistry.register(phase, agent, phase)
-  }
-
-  // Initialize infrastructure
-  const executionStore = new ExecutionStore(config.executionStore)
-  const checkpointManager = new CheckpointManager(executionStore)
-  const worktreeManager = new WorktreeManager()
-  const costTracker = new CostTracker()
-  const concurrencyManager = new ConcurrencyManager(
-    config.maxConcurrentAgents === 'auto'
-      ? Math.max(1, cpus().length - 1)
-      : config.maxConcurrentAgents,
-  )
-  const backendRegistry = new BackendRegistry(config)
-  const specWriter = new SpecWriter()
-
-  // Create orchestrator
-  const orchestrator = createOrchestrator({
-    eventBus,
-    stateMachine,
-    agentRegistry,
-    executionStore,
-    checkpointManager,
-    worktreeManager,
-    costTracker,
-    concurrencyManager,
-    backendRegistry,
-    specWriter,
-    config,
+  const appContext: ApplicationContext = await initializeKASO({
+    configPath,
+    enableSSE: false,
+    enableWebhooks: false,
+    enableFileWatcher: false,
+    enableMCP: false,
   })
 
-  // Create file watcher if enabled
-  let fileWatcher: FileWatcher | undefined
-  if (config.fileWatcher?.enabled) {
-    fileWatcher = new FileWatcher(config.fileWatcher, eventBus)
-  }
-
   return {
-    orchestrator,
-    executionStore,
-    costTracker,
-    fileWatcher,
-    config,
+    orchestrator: appContext.orchestrator,
+    executionStore: appContext.executionStore,
+    costTracker: appContext.costTracker,
+    fileWatcher: appContext.fileWatcher,
+    config: appContext.config,
   }
 }
 

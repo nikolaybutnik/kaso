@@ -276,6 +276,7 @@ describe('WorktreeManager', () => {
       expect(mockGit.raw).toHaveBeenCalledWith([
         'worktree',
         'remove',
+        '--force',
         worktree.path,
       ])
       expect(manager.listWorktrees()).toHaveLength(0)

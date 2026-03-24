@@ -188,16 +188,16 @@ export class WorktreeManager {
 
   /**
    * Clean up a worktree
-   * If retain() was called, the worktree is kept
+   * If retain() was called and force is false, the worktree is kept
    */
-  async cleanup(runId: string): Promise<void> {
+  async cleanup(runId: string, force = false): Promise<void> {
     const worktree = this.worktrees.get(runId)
     if (!worktree) {
       throw new Error(`Worktree not found for run ${runId}`)
     }
 
-    // If marked for retention, don't delete
-    if (worktree.retained) {
+    // If marked for retention and not forced, don't delete
+    if (worktree.retained && !force) {
       return
     }
 
@@ -206,23 +206,32 @@ export class WorktreeManager {
       return
     }
 
-    try {
-      // Remove worktree using git
-      await this.git.raw(['worktree', 'remove', worktree.path])
+    const branchToDelete = worktree.branch
 
-      // Delete the worktree entry
-      this.worktrees.delete(runId)
+    try {
+      // Remove worktree using git (--force handles dirty worktrees)
+      await this.git.raw(['worktree', 'remove', '--force', worktree.path])
     } catch (error) {
       // If git remove fails, try manual directory removal as fallback
       try {
         rmSync(worktree.path, { recursive: true, force: true })
-        this.worktrees.delete(runId)
+        // Prune stale worktree references so git knows it's gone
+        await this.git.raw(['worktree', 'prune'])
       } catch (manualError) {
         throw new Error(
           `Failed to cleanup worktree ${runId}: ${error instanceof Error ? error.message : String(error)}`,
         )
       }
     }
+
+    // Always delete the branch after removing the worktree
+    try {
+      await this.git.raw(['branch', '-D', branchToDelete])
+    } catch {
+      // Branch may already be gone — that's fine
+    }
+
+    this.worktrees.delete(runId)
   }
 
   /**

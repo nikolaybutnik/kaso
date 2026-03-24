@@ -3,6 +3,7 @@
  * Implements hub-and-spoke architecture with state management, event streaming, and workflow control
  */
 
+import { existsSync } from 'fs'
 import { EventBus } from './event-bus'
 import { StateMachine } from './state-machine'
 import { ErrorHandler } from './error-handler'
@@ -1283,7 +1284,20 @@ export class Orchestrator {
     if (!specName) {
       return null
     }
-    return `.kiro/specs/${specName}`
+
+    // If specPath is already under .kiro/specs/, use it directly
+    if (specPath.includes('.kiro/specs/')) {
+      return `.kiro/specs/${specName}`
+    }
+
+    // For arbitrary paths, only return if the derived directory exists.
+    // Prevents SpecWriter from creating junk directories for paths like
+    // /tmp/some-test-path.
+    const dir = `.kiro/specs/${specName}`
+    if (!existsSync(dir)) {
+      return null
+    }
+    return dir
   }
 
   private extractPhaseOutputs(

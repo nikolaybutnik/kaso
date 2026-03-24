@@ -502,8 +502,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 46: MCP tools scoped to Executor_Backend during Implementation only**
     - **Validates: Requirements 25.2, 25.3**
 
-- [ ] 30. Wire everything together
-  - [ ] 30.1 Create main application entry point and smoke test
+- [x] 30. Wire everything together
+  - [x] 30.1 Create main application entry point and smoke test
     - Wire all components: config loader → credential manager → execution store → checkpoint manager → worktree manager → event bus → concurrency manager → agent registry → backend registry → cost tracker → orchestrator → file watcher → SSE server → webhook dispatcher → CLI
     - Register all built-in agents with the agent registry
     - Load plugins and register custom agents
@@ -512,7 +512,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Add explicit smoke test: run a simple spec end-to-end through the full pipeline with a mock backend to verify wiring
     - _Requirements: All_
 
-  - [ ] 30.2 Write integration tests
+  - [x] 30.2 Write integration tests
     - End-to-end pipeline test with mock backend — run a spec through all 8 phases and verify outputs
     - File watcher trigger test — verify spec status change triggers `startRun`
     - Git worktree isolation verification — confirm no writes to main working directory

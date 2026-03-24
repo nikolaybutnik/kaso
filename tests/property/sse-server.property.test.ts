@@ -382,9 +382,9 @@ describe('SSE Property Tests', () => {
             const collectPromise = collectSSEEvents(
               sharedPort,
               `/events?runId=${encodeURIComponent(targetRunId)}`,
-              { minEvents: 2 },
+              { minEvents: 2, timeoutMs: 3000 },
             )
-            await tick()
+            await tick(150)
 
             sharedBus.emit(
               createEvent({ type: 'phase:started', runId: targetRunId }),

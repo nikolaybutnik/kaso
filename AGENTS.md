@@ -16,12 +16,14 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 37 source files across 53 test files with 794 passing tests including comprehensive property-based tests.
+The project has 38 source files across 56 test files with 871 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
 - **Phase 3 (Remaining Agents & CLI)**: ✅ Complete
-- **Phase 4 (Extensibility)**: 🔧 In Progress (Plugin loader, phase injector, MCP client complete)
+- **Phase 4 (Extensibility)**: ✅ Complete
+- **Phase 5 (Integration)**: ✅ Complete
+- **Phase 6 (Wiring & Final Integration)**: ✅ Complete
 
 ## Technology Stack
 
@@ -117,6 +119,7 @@ tests/
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 10 test files
+├── integration/         # 3 test files
 ├── plugins/             # 2 test files
 ├── property/            # 23 property-based test files
 └── streaming/           # 1 test file
@@ -704,7 +707,7 @@ Inserts custom phases at configurable positions in the 8-phase pipeline. Custom 
 | 27 | Checkpoint — Polish complete | ✅ |
 | 28 | Plugin loader and custom phases | ✅ |
 | 29 | MCP client integration | ✅ |
-| 30 | Wire everything together | 📋 Planned |
+| 30 | Wire everything together | ✅ |
 | 31 | Final checkpoint | 📋 Planned |
 
 ## Commit Conventions
