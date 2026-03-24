@@ -338,8 +338,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 24: TestReport conforms to schema**
     - **Validates: Requirements 13.1, 13.4**
 
-- [ ] 19. Review council (Phase 8 — simplified)
-  - [ ] 19.1 Implement review council in `src/agents/review-council.ts`
+- [x] 19. Review council (Phase 8 — simplified)
+  - [x] 19.1 Implement review council in `src/agents/review-council.ts`
     - Spawn 3 reviewer instances: security, performance, maintainability
     - Collect approval/rejection votes from all 3
     - Consensus logic: 3/3 = passed, 2/3 = passed-with-warnings, <2/3 = rejected
@@ -349,7 +349,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Produce `ReviewCouncilResult` with consensus and individual votes
     - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 29.1, 29.2, 29.3_
 
-  - [ ]* 19.2 Write property tests for review council
+  - [x] 19.2 Write property tests for review council
     - **Property 27: Review Council spawns 3 perspective-specific reviewers and collects all votes**
     - **Property 28: Review consensus determined by approval count**
     - **Property 58: Review council cost control**

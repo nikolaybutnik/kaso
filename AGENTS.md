@@ -16,11 +16,11 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 25 source files (~9,150 lines of TypeScript) across 35 test files with 407 passing tests including comprehensive property-based tests.
+The project has 25 source files (~9,150 lines of TypeScript) across 37 test files with 434 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
-- **Phase 3 (Remaining Agents & CLI)**: 🔧 In Progress (Test Engineer complete)
+- **Phase 3 (Remaining Agents & CLI)**: 🔧 In Progress (Test Engineer, Review Council complete)
 
 ## Technology Stack
 
@@ -64,11 +64,12 @@ npm run test:coverage
 
 ```
 src/
-├── agents/              # Agent implementations (7 files)
+├── agents/              # Agent implementations (8 files)
 │   ├── agent-interface.ts
 │   ├── agent-registry.ts
 │   ├── architecture-guardian.ts
 │   ├── executor.ts
+│   ├── review-council.ts
 │   ├── spec-reader.ts
 │   ├── spec-validator.ts
 │   └── test-engineer.ts
@@ -100,12 +101,12 @@ src/
 └── streaming/           # Event streaming (empty — planned)
 
 tests/
-├── agents/              # 6 test files
+├── agents/              # 7 test files
 ├── backends/            # 2 test files
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 8 test files (includes 1 property test)
-└── property/            # 13 property-based test files
+└── property/            # 14 property-based test files
 ```
 
 ## Architecture
@@ -126,7 +127,7 @@ tests/
 5. **Architecture Review** (`architecture-guardian`): Review modified files against architectural patterns, import boundaries, naming conventions, and state management.
 6. **Test & Verification** (`test-engineer`): Generate test stubs for modified files, run full test suite in worktree, collect coverage data.
 7. **UI/UX Validation** (`ui-validator`): Visual regression testing. *Not yet implemented.*
-8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review and PR creation. *Not yet implemented.*
+8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review with consensus logic (review council implemented), and PR creation. *Delivery agent not yet implemented.*
 
 ---
 
@@ -309,7 +310,16 @@ Phase 6 (Test & Verification) agent — generates tests, runs the test suite, an
 | `TestEngineerAgent` | Class | Generates unit/integration/edge-case test stubs for modified source files that lack tests. Runs `npm test` in the worktree and parses Vitest/Jest output. Reads `coverage-summary.json` for line coverage on modified files. Produces `TestReport` with passed, testsRun, testFailures, coverage, duration, generatedTests. Supports `AbortSignal` for cooperative cancellation. |
 | `createTestEngineerAgent` | Function | Factory function accepting optional `EventBus` |
 
-### `src/backends/backend-adapter.ts`
+### `src/agents/review-council.ts`
+
+Phase 8 (Review & Delivery) agent — multi-perspective code review with consensus logic.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `ReviewCouncilAgent` | Class | Spawns 3 reviewer instances (security, performance, maintainability). Collects approval/rejection votes. Consensus: 3/3 = passed, 2/3 = passed-with-warnings, <2/3 = rejected. Enforces maxReviewRounds cap and reviewBudgetUsd cost cap. Supports parallel vs sequential execution toggle. Falls back to heuristic review when no backend is available. Supports `AbortSignal` for cooperative cancellation. |
+| `createReviewCouncilAgent` | Function | Factory function accepting optional `EventBus` and `backendResolver` |
+| `ReviewPerspective` | Type | `'security' \| 'performance' \| 'maintainability'` |
+| `ReviewVote` | Interface | Individual vote with perspective, approved, feedback, severity |
 
 Backend interface definition.
 
@@ -516,7 +526,7 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 2. **Credential Security**: API keys loaded from environment variables or OS keychain via keytar — never from git-tracked files
 3. **Log Redaction**: All known secrets automatically redacted from log output
 4. **Webhook Security**: HMAC-SHA256 payload signing (planned)
-5. **Review Council**: Multi-perspective security review for all changes (planned)
+5. **Review Council**: Multi-perspective security review for all changes
 6. **Audit Trail**: Complete execution logs and phase history persisted in SQLite
 
 ## Error Handling
@@ -559,7 +569,7 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 | 16.1–16.2 | Architecture guardian (Phase 3 & 5) | ✅ |
 | 17 | Executor agent (Phase 4) | ✅ |
 | 18 | Test engineer agent (Phase 6) | ✅ |
-| 19 | Review council (Phase 8) | 📋 Planned |
+| 19 | Review council (Phase 8) | ✅ |
 | 20 | Delivery agent (Phase 8) | 📋 Planned |
 | 21 | Checkpoint — Quality gates | 📋 Planned |
 | 22 | UI validator agent (Phase 7) | 📋 Planned |
