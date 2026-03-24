@@ -154,6 +154,8 @@ describe('Property 18: ADRs are loaded when present', () => {
       { minLength: 0, maxLength: 10 },
     ),
   ])('should load all ADRs from docs/adr directory', async (adrs) => {
+    // Deduplicate by filename — writing two files with the same name overwrites on disk
+    const uniqueAdrs = [...new Map(adrs.map((a) => [a.filename, a])).values()]
     const tempDir = await createTempDir('kaso-adr-test')
     try {
       // Create ADR directory
@@ -161,7 +163,7 @@ describe('Property 18: ADRs are loaded when present', () => {
       await fs.mkdir(adrDir, { recursive: true })
 
       // Create each ADR file
-      for (const adr of adrs) {
+      for (const adr of uniqueAdrs) {
         const dateLine = adr.hasDate ? `\nDate: 2024-01-15` : ''
         const content = `# ${adr.title}
 
@@ -199,11 +201,11 @@ The consequences.
 
       expect(result.success).toBe(true)
       const archContext = result.output as ArchitectureContext
-      expect(archContext.adrsFound).toBe(adrs.length)
-      expect(Object.keys(archContext.adrs).length).toBe(adrs.length)
+      expect(archContext.adrsFound).toBe(uniqueAdrs.length)
+      expect(Object.keys(archContext.adrs).length).toBe(uniqueAdrs.length)
 
       // Verify each ADR is present
-      for (const adr of adrs) {
+      for (const adr of uniqueAdrs) {
         const adrPath = `docs/adr/${adr.filename}`
         expect(archContext.adrs[adrPath]).toBeDefined()
         expect(archContext.adrs[adrPath]?.rawContent).toContain(adr.title)
