@@ -313,6 +313,7 @@ export interface ArchitectureContext extends PhaseOutput {
   }>
   adrs: Record<string, ParsedMarkdown>
   adrsFound: number
+  potentialViolations: string[]
 }
 
 /**

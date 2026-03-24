@@ -240,6 +240,7 @@ describe('SpecValidatorAgent', () => {
         ],
         adrs: {},
         adrsFound: 2,
+        potentialViolations: [],
       }
 
       mockContext.phaseOutputs['intake'] = assembledContext

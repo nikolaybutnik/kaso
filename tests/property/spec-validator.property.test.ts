@@ -91,6 +91,7 @@ const agentContextArbitrary = fc
             moduleBoundaries: [],
             adrs: {},
             adrsFound: archPatterns,
+            potentialViolations: [],
           }
         : undefined,
     }
