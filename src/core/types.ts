@@ -215,6 +215,7 @@ export interface AgentContext {
   config: KASOConfig
   worktreePath?: string
   backends: Record<string, ExecutorBackendConfig>
+  preferredBackend?: string // Override default backend on retry (Req 16.2)
   removedFiles?: string[] // Files removed during context capping
   abortSignal?: AbortSignal // For cooperative cancellation detection (Req 13.5)
 }

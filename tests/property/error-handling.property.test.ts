@@ -1,27 +1,19 @@
 /**
- * Property tests for Error Handling and Recovery (Task 14.2)
- * Validates: Requirements 16.1, 16.2, 16.3, 16.5
+ * Property tests for Error Handling and Recovery (Task 14.2, 14.4)
+ * Validates: Requirements 16.1, 16.2, 16.3, 16.5, 16.6
  */
 
 import { test, fc } from '@fast-check/vitest'
 import { describe, expect, vi } from 'vitest'
 import { ErrorHandler } from '@/core/error-handler'
 import type { BackendRegistry } from '@/backends/backend-registry'
-import type { AgentRegistry, Agent } from '@/agents/agent-interface'
+import type { Agent } from '@/agents/agent-interface'
 import type { KASOConfig } from '@/config/schema'
 import type { PhaseName, AgentError } from '@/core/types'
 
 // ============================================================================
 // Mock factories
 // ============================================================================
-
-function createMockAgentRegistry(): AgentRegistry {
-  return {
-    register: vi.fn(),
-    getAgentForPhase: vi.fn(),
-    listRegistered: vi.fn(() => []),
-  } as unknown as AgentRegistry
-}
 
 function createMockBackendRegistry(): BackendRegistry {
   return {
@@ -143,12 +135,7 @@ describe('Error Handling Properties', () => {
     (runId) => {
       const config = createTestConfig()
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const rollbackAgent = createRollbackAgent()
       const nonRollbackAgent = createNonRollbackAgent()
@@ -192,12 +179,7 @@ describe('Error Handling Properties', () => {
       const maxRetries = 2
       const config = createTestConfig({ maxPhaseRetries: maxRetries })
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const agent = createNonRollbackAgent()
       const phase: PhaseName = 'implementation'
@@ -242,12 +224,7 @@ describe('Error Handling Properties', () => {
     (runId) => {
       const config = createTestConfig({ maxPhaseRetries: 2 }) // 1 initial + 2 retries = 3 total
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const agent = createNonRollbackAgent()
       const phase: PhaseName = 'implementation'
@@ -293,12 +270,7 @@ describe('Error Handling Properties', () => {
     (runId) => {
       const config = createTestConfig({ maxPhaseRetries: 2 })
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const agent = createNonRollbackAgent()
       const phase: PhaseName = 'implementation'
@@ -329,12 +301,7 @@ describe('Error Handling Properties', () => {
     (runId) => {
       const config = createTestConfig({ maxPhaseRetries: 2 })
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const agent = createNonRollbackAgent()
       const phase: PhaseName = 'implementation'
@@ -357,12 +324,7 @@ describe('Error Classification Properties', () => {
     (baseMessage) => {
       const config = createTestConfig()
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const securityKeywords = [
         'security',
@@ -387,12 +349,7 @@ describe('Error Classification Properties', () => {
     (baseMessage) => {
       const config = createTestConfig()
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       // Strip out keywords that would trigger security/architectural/transient classification
       const keywordsToAvoid = [
@@ -429,12 +386,7 @@ describe('Retry Strategy Properties', () => {
     (runId) => {
       const config = createTestConfig()
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const agent = createNonRollbackAgent()
       const phase: PhaseName = 'implementation'
@@ -478,12 +430,7 @@ describe('Failure Report Properties', () => {
     (runId, errorMessage) => {
       const config = createTestConfig()
       const backendRegistry = createMockBackendRegistry()
-      const agentRegistry = createMockAgentRegistry()
-      const errorHandler = new ErrorHandler(
-        agentRegistry,
-        backendRegistry,
-        config,
-      )
+      const errorHandler = new ErrorHandler(backendRegistry, config)
 
       const phase: PhaseName = 'test-verification'
       const error: AgentError = { message: errorMessage, retryable: false }
@@ -502,6 +449,211 @@ describe('Failure Report Properties', () => {
       expect(report.severity).toBeDefined()
       expect(report.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/)
       expect(report.previousOutputs).toEqual(phaseOutputs)
+    },
+  )
+})
+
+describe('Phase Error Policy Properties (Task 14.4)', () => {
+  const HALT_PHASES: PhaseName[] = [
+    'intake',
+    'validation',
+    'architecture-analysis',
+    'review-delivery',
+  ]
+  const LOOPBACK_PHASES: PhaseName[] = [
+    'architecture-review',
+    'test-verification',
+  ]
+  const RETRY_PHASES: PhaseName[] = ['implementation', 'ui-validation']
+
+  /**
+   * Property 55: Halt-policy phases return halt on retryable failure
+   * Validates: Requirement 16.6
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 55: Halt-policy phases return halt instead of retry',
+    (runId) => {
+      const config = createTestConfig()
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+
+      for (const phase of HALT_PHASES) {
+        const result = errorHandler.handleFailure(
+          `${runId}-${phase}`,
+          phase,
+          createRetryableError(),
+          agent,
+        )
+        expect(result.action).toBe('halt')
+        expect(result.reason).toContain('policy requires halt')
+      }
+    },
+  )
+
+  /**
+   * Property 56: Loopback-policy phases return loopback on retryable failure
+   * Validates: Requirement 16.6
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 56: Loopback-policy phases return loopback on failure',
+    (runId) => {
+      const config = createTestConfig()
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+
+      for (const phase of LOOPBACK_PHASES) {
+        const result = errorHandler.handleFailure(
+          `${runId}-${phase}`,
+          phase,
+          createRetryableError(),
+          agent,
+        )
+        expect(result.action).toBe('loopback')
+        expect(result.reason).toContain('loopback')
+      }
+    },
+  )
+
+  /**
+   * Property 57: Retry-policy phases still retry normally
+   * Validates: Requirement 16.2
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 57: Retry-policy phases return retry on failure',
+    (runId) => {
+      const config = createTestConfig()
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+
+      for (const phase of RETRY_PHASES) {
+        const result = errorHandler.handleFailure(
+          `${runId}-${phase}`,
+          phase,
+          createRetryableError(),
+          agent,
+        )
+        expect(result.action).toBe('retry')
+      }
+    },
+  )
+
+  /**
+   * Property 58: Security errors override phase policy — always escalate
+   * Validates: Requirement 16.4
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 58: Security errors escalate regardless of phase policy',
+    (runId) => {
+      const config = createTestConfig()
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+
+      const allPhases: PhaseName[] = [
+        ...HALT_PHASES,
+        ...LOOPBACK_PHASES,
+        ...RETRY_PHASES,
+      ]
+      for (const phase of allPhases) {
+        const result = errorHandler.handleFailure(
+          `${runId}-${phase}`,
+          phase,
+          createSecurityError(),
+          agent,
+        )
+        expect(result.action).toBe('escalate')
+      }
+    },
+  )
+
+  /**
+   * Property 59: Phase-specific maxRetries respected over global config
+   * Validates: Requirement 16.6
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 59: Loopback phases use their own maxRetries (not global)',
+    (runId) => {
+      const config = createTestConfig({ maxPhaseRetries: 5 })
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+
+      // architecture-review has maxRetries: 1, so after 1 failure it should escalate
+      const phase: PhaseName = 'architecture-review'
+      const result1 = errorHandler.handleFailure(
+        runId,
+        phase,
+        createRetryableError(),
+        agent,
+      )
+      expect(result1.action).toBe('loopback')
+
+      // Second failure should escalate (maxRetries: 1 exceeded)
+      const result2 = errorHandler.handleFailure(
+        runId,
+        phase,
+        createRetryableError(),
+        agent,
+      )
+      expect(result2.action).toBe('escalate')
+    },
+  )
+})
+
+describe('Retry Context Application Properties (Task 14.4)', () => {
+  /**
+   * Property 60: Reduced context strategy produces reducedContext flag
+   * Validates: Requirement 16.2
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 60: First retry produces reducedContext in modifiedContext',
+    (runId) => {
+      const config = createTestConfig()
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+      const phase: PhaseName = 'implementation'
+
+      const result = errorHandler.handleFailure(
+        runId,
+        phase,
+        createRetryableError(),
+        agent,
+      )
+      expect(result.action).toBe('retry')
+      expect(result.modifiedContext?.reducedContext).toBe(true)
+      expect(result.modifiedContext?.alternativeBackend).toBeUndefined()
+    },
+  )
+
+  /**
+   * Property 61: Second retry produces alternativeBackend in modifiedContext
+   * Validates: Requirement 16.2
+   */
+  test.prop([fc.string({ minLength: 5, maxLength: 20 })], { numRuns: 10 })(
+    'Property 61: Second retry produces alternativeBackend in modifiedContext',
+    (runId) => {
+      const config = createTestConfig()
+      const backendRegistry = createMockBackendRegistry()
+      const errorHandler = new ErrorHandler(backendRegistry, config)
+      const agent = createNonRollbackAgent()
+      const phase: PhaseName = 'implementation'
+
+      // First retry
+      errorHandler.handleFailure(runId, phase, createRetryableError(), agent)
+
+      // Second retry should suggest alternative backend
+      const result = errorHandler.handleFailure(
+        runId,
+        phase,
+        createRetryableError(),
+        agent,
+      )
+      expect(result.action).toBe('retry')
+      expect(result.modifiedContext?.alternativeBackend).toBe('backend-2')
     },
   )
 })

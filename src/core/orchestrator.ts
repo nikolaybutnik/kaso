@@ -96,6 +96,11 @@ interface RunningRunInfo {
   cancelRequested: boolean
   /** Current phase's AbortController — replaced per phase, aborted on cancel (Req 13.5) */
   phaseAbortController?: AbortController
+  /** Retry context from ErrorHandler — applied in buildAgentContext on next attempt (Req 16.2) */
+  retryContext?: {
+    reducedContext?: boolean
+    alternativeBackend?: string
+  }
 }
 
 function generateRunId(specPath: string): string {
@@ -163,7 +168,7 @@ export class Orchestrator {
     this.backendRegistry = backendRegistry
     this.specWriter = specWriter
     this.config = config
-    this.errorHandler = new ErrorHandler(agentRegistry, backendRegistry, config)
+    this.errorHandler = new ErrorHandler(backendRegistry, config)
 
     // _stateMachine param kept for API compat — each run creates its own instance
     this.validatePhaseAgentsRegistered()
@@ -574,6 +579,11 @@ export class Orchestrator {
         runInfo.phaseOutputs[phase] = phaseResult.output
       }
 
+      // Clear retry context on success — no longer needed (Req 16.2)
+      if (phaseResult.status === 'success') {
+        runInfo.retryContext = undefined
+      }
+
       // Timestamped log on phase transition (Req 3.1)
       this.appendLog(
         runInfo,
@@ -872,8 +882,7 @@ export class Orchestrator {
 
     switch (errorResult.action) {
       case 'escalate':
-      case 'halt':
-        // Mark as non-retryable to force halt through state machine
+        // Mark as escalated to trigger the escalation path in executePipelineFrom
         return {
           phase,
           status: 'failure',
@@ -881,6 +890,20 @@ export class Orchestrator {
             message: errorResult.reason,
             retryable: false,
             data: { escalated: true },
+          },
+          startedAt,
+          completedAt,
+          duration,
+        }
+
+      case 'halt':
+        // Non-retryable failure — flows through state machine to terminal halt
+        return {
+          phase,
+          status: 'failure',
+          error: {
+            message: errorResult.reason,
+            retryable: false,
           },
           startedAt,
           completedAt,
@@ -899,6 +922,8 @@ export class Orchestrator {
           // Note: Actual rollback implementation would call agent.rollback()
           // if that method existed on the Agent interface
         }
+        // Store retry context so buildAgentContext applies it on next attempt (Req 16.2)
+        this.storeRetryContext(runInfo, errorResult.modifiedContext)
         return {
           phase,
           status: 'failure',
@@ -910,6 +935,8 @@ export class Orchestrator {
 
       case 'retry':
       case 'loopback':
+        // Store retry context so buildAgentContext applies it on next attempt (Req 16.2)
+        this.storeRetryContext(runInfo, errorResult.modifiedContext)
         return {
           phase,
           status: 'failure',
@@ -1015,7 +1042,7 @@ export class Orchestrator {
       }
     }
 
-    return {
+    const context: AgentContext = {
       runId: runInfo.runId,
       spec: this.buildEmptySpec(runInfo.specPath),
       steering: this.buildEmptySteering(),
@@ -1025,6 +1052,43 @@ export class Orchestrator {
       backends,
       abortSignal: runInfo.phaseAbortController?.signal,
     }
+
+    // Apply retry context from ErrorHandler (Req 16.2)
+    if (runInfo.retryContext) {
+      if (runInfo.retryContext.reducedContext) {
+        context.phaseOutputs = this.trimPhaseOutputs(runInfo.phaseOutputs)
+      }
+      if (runInfo.retryContext.alternativeBackend) {
+        context.preferredBackend = runInfo.retryContext.alternativeBackend
+      }
+    }
+
+    return context
+  }
+
+  /** Store ErrorHandler's modified context for the next retry attempt */
+  private storeRetryContext(
+    runInfo: RunningRunInfo,
+    modifiedContext?: { reducedContext?: boolean; alternativeBackend?: string },
+  ): void {
+    if (!modifiedContext) return
+    runInfo.retryContext = {
+      reducedContext: modifiedContext.reducedContext,
+      alternativeBackend: modifiedContext.alternativeBackend,
+    }
+  }
+
+  /** Strip non-essential phase outputs to reduce context size on retry */
+  private trimPhaseOutputs(
+    outputs: Partial<Record<PhaseName, PhaseOutput>>,
+  ): Partial<Record<PhaseName, PhaseOutput>> {
+    const trimmed: Partial<Record<PhaseName, PhaseOutput>> = {}
+    for (const [phase, output] of Object.entries(outputs)) {
+      if (output) {
+        trimmed[phase as PhaseName] = { _trimmed: true }
+      }
+    }
+    return trimmed
   }
 
   private buildEmptySpec(specPath: string): ParsedSpec {

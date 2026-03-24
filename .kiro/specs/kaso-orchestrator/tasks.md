@@ -288,14 +288,14 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 52: Crash recovery validates worktree integrity**
     - **Validates: Requirements 27.4, 27.5**
 
-  - [ ] 14.4 Wire remaining error handling gaps
+  - [x] 14.4 Wire remaining error handling gaps
     - Apply `retryContext` from ErrorHandler in `buildAgentContext` — when `modifiedContext.reducedContext` is true, trim context; when `alternativeBackend` is set, route to that backend
     - Wire `getPhaseErrorPolicy` into `handlePhaseFailure` so phase-specific policies (halt/loopback/retry) influence the error handler's decision instead of relying solely on the state machine
     - Remove `_agentRegistry` from ErrorHandler constructor once policy wiring is complete (it was reserved for phase→agent lookups in error policies)
     - Add property tests verifying reduced context and alternative backend are actually applied on retry
     - _Requirements: 16.2, 16.6_
 
-- [ ] 15. Checkpoint — Orchestrator and error handling complete
+- [x] 15. Checkpoint — Orchestrator and error handling complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 16. Architecture guardian agent (Phase 3 & 5)
