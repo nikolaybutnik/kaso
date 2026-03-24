@@ -755,6 +755,9 @@ export class Orchestrator {
       const duration = Date.now() - new Date(startedAt).getTime()
       const isTimeout = errorMessage(error).includes('timed out')
 
+      // Abort the phase controller so cooperative agents can clean up (Req 16.8)
+      runInfo.phaseAbortController?.abort()
+
       this.eventBus.emit({
         type: isTimeout ? 'phase:timeout' : 'phase:failed',
         runId: runInfo.runId,

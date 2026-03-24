@@ -253,7 +253,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Agents that respect the signal can exit early; agents that don't will complete naturally (graceful degradation)
     - _Requirements: 18.3_
 
-  - [ ]* 13.3 Write property tests for orchestrator behavior
+  - [x]* 13.3 Write property tests for orchestrator behavior
     - **Property 4: No concurrent runs for the same spec**
     - **Property 5: Run outcome updates spec status**
     - **Property 6: Phase transitions produce timestamped logs and status updates**
