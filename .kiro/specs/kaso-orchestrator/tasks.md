@@ -355,8 +355,8 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Property 58: Review council cost control**
     - **Validates: Requirements 15.1, 15.2, 15.3, 15.4, 15.5, 29.1, 29.2, 29.3**
 
-- [ ] 20. Delivery agent (Phase 8 — PR delivery)
-  - [ ] 20.1 Implement delivery agent in `src/agents/delivery.ts`
+- [x] 20. Delivery agent (Phase 8 — PR delivery)
+  - [x] 20.1 Implement delivery agent in `src/agents/delivery.ts`
     - Create feature branch from worktree with descriptive name
     - Create commits following conventional commit format (feat:, fix:, refactor:, test:, docs:)
     - Open pull request with execution summary, test results, review council outcome
@@ -364,7 +364,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - Append execution summary to Kiro spec directory
     - _Requirements: 15.6, 15.7, 15.8, 15.9_
 
-  - [ ]* 20.2 Write property tests for delivery agent
+  - [x] 20.2 Write property tests for delivery agent
     - **Property 29: Conventional commit format**
     - **Property 30: PR contains required sections**
     - **Validates: Requirements 15.7, 15.8**

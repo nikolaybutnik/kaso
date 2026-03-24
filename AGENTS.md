@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 25 source files (~9,150 lines of TypeScript) across 37 test files with 434 passing tests including comprehensive property-based tests.
+The project has 26 source files across 39 test files with 468 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -64,10 +64,11 @@ npm run test:coverage
 
 ```
 src/
-├── agents/              # Agent implementations (8 files)
+├── agents/              # Agent implementations (9 files)
 │   ├── agent-interface.ts
 │   ├── agent-registry.ts
 │   ├── architecture-guardian.ts
+│   ├── delivery.ts
 │   ├── executor.ts
 │   ├── review-council.ts
 │   ├── spec-reader.ts
@@ -101,12 +102,12 @@ src/
 └── streaming/           # Event streaming (empty — planned)
 
 tests/
-├── agents/              # 7 test files
+├── agents/              # 9 test files
 ├── backends/            # 2 test files
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 8 test files (includes 1 property test)
-└── property/            # 14 property-based test files
+└── property/            # 16 property-based test files
 ```
 
 ## Architecture
@@ -127,7 +128,7 @@ tests/
 5. **Architecture Review** (`architecture-guardian`): Review modified files against architectural patterns, import boundaries, naming conventions, and state management.
 6. **Test & Verification** (`test-engineer`): Generate test stubs for modified files, run full test suite in worktree, collect coverage data.
 7. **UI/UX Validation** (`ui-validator`): Visual regression testing. *Not yet implemented.*
-8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review with consensus logic (review council implemented), and PR creation. *Delivery agent not yet implemented.*
+8. **Review & Delivery** (`review-council`, `delivery`): Multi-perspective code review with consensus logic, conventional commits, and automated PR creation.
 
 ---
 
@@ -320,6 +321,17 @@ Phase 8 (Review & Delivery) agent — multi-perspective code review with consens
 | `createReviewCouncilAgent` | Function | Factory function accepting optional `EventBus` and `backendResolver` |
 | `ReviewPerspective` | Type | `'security' \| 'performance' \| 'maintainability'` |
 | `ReviewVote` | Interface | Individual vote with perspective, approved, feedback, severity |
+
+### `src/agents/delivery.ts`
+
+Phase 8 (PR Delivery) agent — creates feature branch, commits with conventional format, opens PR, and appends execution summary.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `DeliveryAgent` | Class | Creates feature branch from worktree (`kaso/[feature]-delivery-[timestamp]`). Analyzes modified files and creates categorized conventional commits (feat, test, docs, chore). Opens PR via GitHub CLI (`gh`) with graceful fallback. Builds PR body with execution summary, test results, and review council outcome. Appends execution summary to spec directory. Supports `AbortSignal` for cooperative cancellation. |
+| `createDeliveryAgent` | Function | Factory function accepting optional `EventBus` and `CommandRunner` |
+| `ConventionalCommitType` | Type | `'feat' \| 'fix' \| 'refactor' \| 'test' \| 'docs' \| 'chore' \| 'style' \| 'perf' \| 'ci' \| 'build'` |
+| `CommitInfo` | Interface | Commit metadata with type, scope, description, body, breaking flag |
 
 Backend interface definition.
 
@@ -570,7 +582,7 @@ Writes `execution-log.md` and `status.json` to spec directories. Gracefully degr
 | 17 | Executor agent (Phase 4) | ✅ |
 | 18 | Test engineer agent (Phase 6) | ✅ |
 | 19 | Review council (Phase 8) | ✅ |
-| 20 | Delivery agent (Phase 8) | 📋 Planned |
+| 20 | Delivery agent (Phase 8) | ✅ |
 | 21 | Checkpoint — Quality gates | 📋 Planned |
 | 22 | UI validator agent (Phase 7) | 📋 Planned |
 | 23 | File watcher for spec monitoring | 📋 Planned |

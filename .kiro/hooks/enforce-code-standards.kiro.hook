@@ -11,6 +11,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "If the file being written is inside .kiro/, skip all checks and proceed immediately.\n\nOtherwise, quickly verify the code being written follows project standards: no `any` types, no magic strings/numbers, guard clauses over nesting, composition over inheritance, meaningful names. Fix violations before writing. If clean, proceed."
+    "prompt": "If the file being written is inside .kiro/, skip all checks and proceed immediately.\n\nOtherwise, quickly verify the code being written follows project standards: no `any` types, no magic strings/numbers, guard clauses over nesting, composition over inheritance, meaningful names. Fix violations before writing.\n\nFor test files: property-based tests (using fast-check/fc.* arbitraries or test.prop) MUST go in tests/property/*.property.test.ts — never in tests/agents/ or other unit test directories. Unit tests go in tests/<module>/*.test.ts. If the file mixes both, split them.\n\nIf clean, proceed."
   }
 }
