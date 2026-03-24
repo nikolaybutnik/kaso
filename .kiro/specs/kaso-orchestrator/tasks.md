@@ -311,7 +311,7 @@ Incremental build of the KASO orchestration system in TypeScript, organized into
     - **Validates: Requirements 10.3, 12.1**
 
 - [-] 17. Executor agent (Phase 4 — Implementation)
-  - [ ] 17.1 Implement executor agent in `src/agents/executor.ts`
+  - [x] 17.1 Implement executor agent in `src/agents/executor.ts`
     - Receive spec, ArchitectureContext, and ValidationReport as combined input
     - Delegate to configured ExecutorBackend via backend process manager
     - Self-correct on test failures: re-invoke backend with failure context, up to 3 retries (self-correction retries are handled internally by the executor agent, not the orchestrator)
