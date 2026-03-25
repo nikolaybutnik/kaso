@@ -28,6 +28,7 @@
     "better-sqlite3": "^9.2.2",
     "chokidar": "^3.5.3",
     "commander": "^11.1.0",
+    "dotenv": "^16.6.1",
     "keytar": "^7.9.0",
     "simple-git": "^3.20.0",
     "zod": "^3.22.4"

@@ -17,6 +17,9 @@
  * Requirements: 28.1, 28.2, 28.3, 28.4, 28.5, 28.6, 28.7, 28.8, 28.9
  */
 
+import { config as loadDotenv } from 'dotenv'
+loadDotenv()
+
 import { Command } from 'commander'
 import { readFileSync, realpathSync } from 'fs'
 import { join, dirname } from 'path'
@@ -310,7 +313,10 @@ process.on('unhandledRejection', (error) => {
 // Parse CLI arguments
 // ============================================================================
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
+if (
+  process.argv[1] &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
+) {
   try {
     await program.parseAsync(process.argv)
   } catch (error) {
