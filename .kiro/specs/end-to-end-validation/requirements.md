@@ -2,9 +2,9 @@
 
 ## Introduction
 
-KASO (Kiro-Enabled Agent Swarm Orchestrator) has 871 passing unit and property-based tests but has never been validated as a complete working system. This feature creates a comprehensive end-to-end validation test project that exercises the full 8-phase pipeline from project setup through every subsystem, proving KASO works as a real orchestration system — not just that individual components pass isolated tests.
+KASO (Kiro-Enabled Agent Swarm Orchestrator) has 937 passing unit and property-based tests but has never been validated as a complete working system. This feature creates a comprehensive end-to-end validation test project that exercises the full 8-phase pipeline from project setup through every subsystem, proving KASO works as a real orchestration system — not just that individual components pass isolated tests.
 
-The test project starts from complete zero: project scaffolding, configuration, mock backends, mock Kiro spec files, and runs the full pipeline end-to-end. It validates every phase transition, crash recovery, cost enforcement, concurrency rejection, worktree lifecycle, event streaming, webhook delivery, CLI operations, plugin loading, MCP tool invocation, file watcher triggers, review council consensus, delivery agent output, backend selection strategies, context capping, phase timeouts, and abort signal propagation.
+The test project starts from complete zero: project scaffolding, configuration, mock backends, mock Kiro spec files, and runs the full pipeline end-to-end. It validates every phase transition, crash recovery, cost enforcement, concurrency rejection, worktree lifecycle, event streaming, webhook delivery, CLI operations, plugin loading, MCP tool invocation, file watcher triggers, review council consensus, delivery agent output, backend selection strategies, per-phase backend overrides, configurable review council composition, context capping, phase timeouts, and abort signal propagation.
 
 ### Test Execution Tier Strategy
 
@@ -13,7 +13,7 @@ Tests are organized into tiers to balance CI speed with comprehensive coverage:
 - **Tier 1: Core Pipeline (Req 1–4, 19)** — Always run on every commit. Validates project scaffolding, mock backends, full 8-phase pipeline execution, phase output shapes, and execution store persistence.
 - **Tier 2: Error Handling & Recovery (Req 5–7, 17–18)** — Run on PR. Validates crash recovery, cost budget enforcement, concurrent run rejection, pause/resume, and error handling with retries.
 - **Tier 3: Integration Features (Req 8–14)** — Run on PR. Validates worktree lifecycle, SSE streaming, webhook delivery, CLI commands, plugin loading, MCP tool invocation, and file watcher triggers.
-- **Tier 4: Advanced Scenarios (Req 20–24)** — Run nightly. Validates backend selection strategies, context capping, phase timeouts, spec writer output, and abort signal propagation.
+- **Tier 4: Advanced Scenarios (Req 20–25)** — Run nightly. Validates backend selection strategies, per-phase backend overrides, configurable review council, context capping, phase timeouts, spec writer output, and abort signal propagation.
 
 ## Glossary
 
@@ -28,6 +28,9 @@ Tests are organized into tiers to balance CI speed with comprehensive coverage:
 - **Phase_Validator**: A test utility that inspects PhaseResultRecords from the ExecutionStore to verify correct phase ordering, status, timing, and output shapes
 - **Orchestrator**: The central `Orchestrator` class from `src/core/orchestrator.ts` that drives the 8-phase pipeline
 - **ApplicationContext**: The `ApplicationContext` interface from `src/index.ts` containing all wired KASO components
+- **Phase_Backend_Map**: A `phaseBackends` config object mapping phase names to backend names, providing per-phase backend overrides
+- **Reviewer_Config**: An object specifying a single reviewer's `role` string and optional `backend` name, used in the `reviewCouncil.reviewers` array
+- **Backend_Selection_Event**: An `agent:backend-selected` event emitted by the Orchestrator or ReviewCouncilAgent whenever a backend is resolved for a phase or reviewer, containing the backend name and selection reason
 
 ## Requirements
 
@@ -218,15 +221,21 @@ Tests are organized into tiers to balance CI speed with comprehensive coverage:
 
 ### Requirement 15: Review Council Consensus Logic
 
-**User Story:** As a KASO developer, I want to verify the review council's multi-perspective consensus logic with mock reviewers, so that the code review gate works correctly.
+**User Story:** As a KASO developer, I want to verify the review council's configurable multi-perspective consensus logic with mock reviewers, so that the code review gate works correctly with both default and custom reviewer configurations.
 
 #### Acceptance Criteria
 
-1. WHEN all 3 reviewer perspectives (security, performance, maintainability) approve, THE ReviewCouncilAgent SHALL produce a `ReviewCouncilResult` with `consensus: "passed"`
+1. WHEN all 3 default reviewer perspectives (security, performance, maintainability) approve, THE ReviewCouncilAgent SHALL produce a `ReviewCouncilResult` with `consensus: "passed"`
 2. WHEN exactly 2 of 3 reviewer perspectives approve, THE ReviewCouncilAgent SHALL produce a `ReviewCouncilResult` with `consensus: "passed-with-warnings"`
 3. WHEN fewer than 2 of 3 reviewer perspectives approve, THE ReviewCouncilAgent SHALL produce a `ReviewCouncilResult` with `consensus: "rejected"`
-4. THE ReviewCouncilResult SHALL contain a `votes` array with one entry per configured perspective, each containing `perspective`, `approved`, `feedback`, and `severity` fields
+4. THE ReviewCouncilResult SHALL contain a `votes` array with one entry per configured reviewer, each containing `perspective` (typed as `string`), `approved`, `feedback`, and `severity` fields
 5. WHEN the `reviewBudgetUsd` is configured, THE ReviewCouncilAgent SHALL respect the budget cap and stop additional review rounds when the budget is exhausted
+6. WHEN the `reviewCouncil.reviewers` array is configured with custom roles (e.g., `"accessibility"`, `"compliance"`), THE ReviewCouncilAgent SHALL spawn one reviewer per entry and the `votes[].perspective` values SHALL match the configured `role` strings
+7. WHEN both `reviewers` and `perspectives` are provided in the config, THE ReviewCouncilAgent SHALL use `reviewers` and ignore `perspectives`
+8. WHEN only the legacy `perspectives` array is provided (no `reviewers`), THE ReviewCouncilAgent SHALL convert each perspective to a reviewer and produce votes matching the perspective strings
+9. WHEN a single reviewer is configured and approves, THE ReviewCouncilAgent SHALL produce `consensus: "passed"`, and WHEN that single reviewer rejects, THE result SHALL be `consensus: "rejected"`
+10. WHEN 4 reviewers are configured and exactly 2 approve, THE ReviewCouncilAgent SHALL produce `consensus: "passed-with-warnings"` (since `Math.floor(4 * 2 / 3)` equals 2)
+11. WHEN a custom role reviewer has no backend available, THE ReviewCouncilAgent SHALL fall back to a heuristic review and the vote feedback SHALL contain an indication that heuristic review was used
 
 ### Requirement 16: Delivery Agent Output Validation
 
@@ -278,7 +287,7 @@ Tests are organized into tiers to balance CI speed with comprehensive coverage:
 
 ### Requirement 20: Backend Selection Strategy Testing
 
-**User Story:** As a KASO developer, I want to verify that the backend selection strategy correctly picks backends based on context size and cost, so that the context-aware selection logic works end-to-end.
+**User Story:** As a KASO developer, I want to verify that the backend selection strategy correctly picks backends based on context size, cost, and per-phase overrides, so that all backend resolution paths work end-to-end.
 
 #### Acceptance Criteria
 
@@ -288,6 +297,12 @@ Tests are organized into tiers to balance CI speed with comprehensive coverage:
 4. WHEN the estimated context size is one token over a backend's `maxContextWindow`, THE BackendRegistry SHALL exclude that backend from selection (boundary: just over)
 5. WHEN the estimated context size is one token under a backend's `maxContextWindow`, THE BackendRegistry SHALL include that backend in selection (boundary: just under)
 6. WHEN no registered backend has a `maxContextWindow` sufficient for the estimated context size, THE BackendRegistry SHALL throw an error containing the text "No backend available for context size"
+7. WHEN the `phaseBackends` map assigns a specific Mock_Backend to the `implementation` phase, THE Orchestrator SHALL use that backend for the implementation phase regardless of the `backendSelectionStrategy`
+8. WHEN a phase has a `phaseBackends` override and `AgentContext.preferredBackend` is also set (e.g., from retry logic), THE Orchestrator SHALL use the `preferredBackend` value, not the phase override
+9. WHEN a phase has no `phaseBackends` entry, THE Orchestrator SHALL fall back to the configured `backendSelectionStrategy` for that phase
+10. WHEN a backend is selected for any phase, THE Orchestrator SHALL emit an `agent:backend-selected` event whose `data.reason` field is one of `"phase-override"`, `"context-aware"`, `"default"`, or `"retry-override"`
+11. WHEN a `phaseBackends` entry references a backend name that does not exist in `executorBackends`, THE `validateConfig()` call SHALL throw a `ZodError` identifying the invalid backend name and the phase it was assigned to
+12. WHEN a `phaseBackends` entry references a backend that exists but has `enabled: false`, THE `validateConfig()` call SHALL throw a `ZodError` identifying the disabled backend
 
 ### Requirement 21: Context Capping Validation
 
@@ -331,3 +346,18 @@ Tests are organized into tiers to balance CI speed with comprehensive coverage:
 1. WHEN `cancelRun(runId)` is called on an active run, THE Orchestrator SHALL abort the `phaseAbortController` for the current phase, propagating an `AbortSignal` to the active agent
 2. WHEN the Mock_Backend receives an aborted `AbortSignal` via the `AgentContext`, THE Mock_Backend SHALL stop execution and return a result with `success: false`
 3. WHEN a run is cancelled, THE `AgentContext.abortSignal.aborted` property SHALL be `true` for the cancelled phase's context
+
+### Requirement 25: Configurable Backend and Review Council Integration
+
+**User Story:** As a KASO developer, I want to verify that per-reviewer backend assignment, cross-field config validation, and backend selection event observability work end-to-end, so that the configurable backends feature is fully validated as a system.
+
+#### Acceptance Criteria
+
+1. WHEN a `reviewCouncil.reviewers` entry includes a `backend` field, THE ReviewCouncilAgent SHALL use the specified Mock_Backend for that reviewer's execution, and THE Event_Collector SHALL receive an `agent:backend-selected` event with `data.reason` equal to `"reviewer-override"` and `data.reviewerRole` matching the reviewer's role
+2. WHEN a `reviewCouncil.reviewers` entry omits the `backend` field and `phaseBackends['review-delivery']` is configured, THE ReviewCouncilAgent SHALL use the `review-delivery` phase backend for that reviewer
+3. WHEN a `reviewCouncil.reviewers` entry omits the `backend` field and no `phaseBackends['review-delivery']` is configured, THE ReviewCouncilAgent SHALL fall back to the `defaultBackend`
+4. WHEN a `reviewCouncil.reviewers[].backend` references a backend name that does not exist in `executorBackends`, THE `validateConfig()` call SHALL throw a `ZodError` identifying the invalid backend name and the reviewer role it was assigned to
+5. WHEN a `reviewCouncil.reviewers[].backend` references a backend that exists but has `enabled: false`, THE `validateConfig()` call SHALL throw a `ZodError` identifying the disabled backend
+6. WHEN a `reviewCouncil.reviewers` array contains duplicate `role` strings, THE `validateConfig()` call SHALL throw a `ZodError` with a message mentioning uniqueness
+7. WHEN a full pipeline run executes with `phaseBackends` configured for multiple phases, THE Event_Collector SHALL receive one `agent:backend-selected` event per phase, and each event's `data.backend` field SHALL match the expected backend name for that phase
+8. WHEN a full pipeline run executes with both `phaseBackends` and per-reviewer `backend` overrides, THE CostTracker SHALL accurately attribute costs to the correct backend for each phase and reviewer invocation
