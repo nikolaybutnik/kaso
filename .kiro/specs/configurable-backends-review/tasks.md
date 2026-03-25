@@ -99,7 +99,7 @@ Incremental implementation of per-phase backend selection and configurable revie
 - [x] 6. Checkpoint — Backend selection pipeline complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 7. Refactor ReviewCouncilAgent for configurable reviewers
+- [x] 7. Refactor ReviewCouncilAgent for configurable reviewers
   - [x] 7.1 Update constructor dependencies and add `getEffectiveReviewers()` in `src/agents/review-council.ts`
     - Replace `backendResolver` dependency with `backendRegistry: BackendRegistry` (required)
     - Add `getEffectiveReviewers(config)`: returns `reviewers` array if present, else converts `perspectives` to `ReviewerConfig[]`
@@ -134,17 +134,17 @@ Incremental implementation of per-phase backend selection and configurable revie
     - **Property 13: Custom role heuristic fallback includes warning**
     - **Validates: Requirement 8.3**
 
-- [ ] 8. Checkpoint — Review council refactoring complete
+- [x] 8. Checkpoint — Review council refactoring complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Integration tests (strongly recommended)
-  - [ ]* 9.1 Write backend selection integration test in `tests/integration/backend-selection.integration.test.ts` (new file)
+- [x] 9. Integration tests (strongly recommended)
+  - [x] 9.1 Write backend selection integration test in `tests/integration/backend-selection.integration.test.ts` (new file)
     - Full pipeline run with `phaseBackends` configuration
     - Verify correct backend used per phase via `agent:backend-selected` events
     - Strongly recommended — validates end-to-end backend resolution chain
     - _Requirements: 2.1, 2.2, 3.1, 3.3, 11.1_
 
-  - [ ]* 9.2 Write review council custom reviewers integration test in `tests/integration/review-council-custom.integration.test.ts` (new file)
+  - [x] 9.2 Write review council custom reviewers integration test in `tests/integration/review-council-custom.integration.test.ts` (new file)
     - Review council execution with custom `reviewers` and per-reviewer backends
     - Verify consensus determination and `agent:backend-selected` event emission with correct reasons
     - Strongly recommended — validates configurable review council end-to-end
