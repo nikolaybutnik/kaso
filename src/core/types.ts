@@ -74,6 +74,7 @@ export type EventType =
   | 'mcp:tool:invoking'
   | 'mcp:tool:success'
   | 'mcp:tool:error'
+  | 'agent:backend-selected'
 
 /**
  * Backend protocols supported by executor backends
@@ -399,7 +400,7 @@ export interface UIReview extends PhaseOutput {
 export interface ReviewCouncilResult extends PhaseOutput {
   consensus: 'passed' | 'passed-with-warnings' | 'rejected'
   votes: Array<{
-    perspective: 'security' | 'performance' | 'maintainability'
+    perspective: string
     approved: boolean
     feedback: string
     severity: 'high' | 'medium' | 'low'

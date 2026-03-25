@@ -6,17 +6,17 @@ Incremental implementation of per-phase backend selection and configurable revie
 
 ## Tasks
 
-- [ ] 1. Update core types and add new event type
-  - [ ] 1.1 Add `agent:backend-selected` to `EventType` union in `src/core/types.ts`
+- [x] 1. Update core types and add new event type
+  - [x] 1.1 Add `agent:backend-selected` to `EventType` union in `src/core/types.ts`
     - Add `'agent:backend-selected'` to the `EventType` union type
     - Verify `ExecutionEvent` interface automatically includes new type (uses `EventType` union — no changes needed to event payload interface)
     - _Requirements: 11.1, 11.2_
 
-  - [ ] 1.2 Widen `ReviewCouncilResult.votes[].perspective` to `string` in `src/core/types.ts`
+  - [x] 1.2 Widen `ReviewCouncilResult.votes[].perspective` to `string` in `src/core/types.ts`
     - Change `perspective: 'security' | 'performance' | 'maintainability'` to `perspective: string` in the `ReviewCouncilResult` interface
     - _Requirements: 9.1, 9.2, 9.3_
 
-  - [ ] 1.3 Deprecate `ReviewPerspective` type and widen `ReviewVote` in `src/agents/review-council.ts`
+  - [x] 1.3 Deprecate `ReviewPerspective` type and widen `ReviewVote` in `src/agents/review-council.ts`
     - Add `@deprecated` JSDoc annotation to the `ReviewPerspective` type export
     - Widen `ReviewVote.perspective` from `ReviewPerspective` to `string` (internal agent interface)
     - Note: This is separate from 1.2 which updates the public `ReviewCouncilResult` output type in `types.ts`

@@ -35,12 +35,15 @@ const ESTIMATED_DURATION_MS = 30_000
 /** Default cost per review round in USD (for estimation) */
 const DEFAULT_COST_PER_ROUND_USD = 0.05
 
-/** Perspective types for review council */
+/**
+ * Perspective types for review council
+ * @deprecated Use `string` for custom perspectives. Kept for backward compatibility.
+ */
 export type ReviewPerspective = 'security' | 'performance' | 'maintainability'
 
 /** Individual vote from a perspective reviewer */
 export interface ReviewVote {
-  perspective: ReviewPerspective
+  perspective: string
   approved: boolean
   feedback: string
   severity: 'high' | 'medium' | 'low'
@@ -281,7 +284,7 @@ export class ReviewCouncilAgent implements Agent {
    */
   private async executeRound(
     reviewContext: ReviewContext,
-    perspectives: ReviewPerspective[],
+    perspectives: string[],
     parallel: boolean,
     agentContext: AgentContext,
     roundNum: number,
@@ -322,7 +325,7 @@ export class ReviewCouncilAgent implements Agent {
    * Delegates to the executor backend if available, otherwise uses heuristic.
    */
   private async executePerspectiveReview(
-    perspective: ReviewPerspective,
+    perspective: string,
     reviewContext: ReviewContext,
     agentContext: AgentContext,
   ): Promise<PerspectiveReviewResult> {
@@ -340,7 +343,7 @@ export class ReviewCouncilAgent implements Agent {
    */
   private async executeBackendReview(
     backend: ExecutorBackend,
-    perspective: ReviewPerspective,
+    perspective: string,
     reviewContext: ReviewContext,
     agentContext: AgentContext,
   ): Promise<PerspectiveReviewResult> {
@@ -410,7 +413,7 @@ export class ReviewCouncilAgent implements Agent {
    * Performs basic checks based on perspective type.
    */
   private executeHeuristicReview(
-    perspective: ReviewPerspective,
+    perspective: string,
     reviewContext: ReviewContext,
   ): PerspectiveReviewResult {
     const tokensUsed = this.estimateTokens(JSON.stringify(reviewContext))
@@ -576,7 +579,7 @@ export class ReviewCouncilAgent implements Agent {
     votes: ReviewVote[],
   ): 'passed' | 'passed-with-warnings' | 'rejected' {
     // Group by perspective and take the latest vote for each
-    const latestVotes = new Map<ReviewPerspective, ReviewVote>()
+    const latestVotes = new Map<string, ReviewVote>()
     for (const vote of votes) {
       latestVotes.set(vote.perspective, vote)
     }
@@ -610,7 +613,7 @@ export class ReviewCouncilAgent implements Agent {
   }
 
   private buildReviewPrompt(
-    perspective: ReviewPerspective,
+    perspective: string,
     context: ReviewContext,
   ): string {
     return `You are a ${perspective} reviewer. Review the following code changes and provide your assessment.
