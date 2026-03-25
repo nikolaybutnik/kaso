@@ -11,11 +11,9 @@
 
 import { describe, expect, it } from 'vitest'
 import { test, fc } from '@fast-check/vitest'
-import {
-  createWebhookDispatcher,
-} from '../../src/infrastructure/webhook-dispatcher'
-import type { WebhookConfig } from '../../src/config/schema'
-import type { ExecutionEvent, EventType } from '../../src/core/types'
+import { createWebhookDispatcher } from '@/infrastructure/webhook-dispatcher'
+import type { WebhookConfig } from '@/config/schema'
+import type { ExecutionEvent, EventType } from '@/core/types'
 
 // =============================================================================
 // Test Fixtures
@@ -61,7 +59,12 @@ describe('Webhook Properties', () => {
   test.prop([
     fc.string({ minLength: 5, maxLength: 30 }),
     fc.string({ minLength: 5, maxLength: 30 }),
-    fc.constantFrom('run:started', 'run:completed', 'run:failed', 'phase:started'),
+    fc.constantFrom(
+      'run:started',
+      'run:completed',
+      'run:failed',
+      'phase:started',
+    ),
   ])(
     'Property 44: Webhook payload contains required fields and auth headers',
     (runId, specName, eventType) => {
@@ -98,7 +101,7 @@ describe('Webhook Properties', () => {
         url: `https://example.com/${url.replace(/[^a-z0-9]/g, '')}`,
         headers: {
           'X-Custom-Header': headerValue,
-          'Authorization': 'Bearer token123',
+          Authorization: 'Bearer token123',
         },
       })
 
@@ -214,32 +217,29 @@ describe('Webhook Properties', () => {
   test.prop([
     fc.string({ minLength: 1, maxLength: 1000 }),
     fc.string({ minLength: 10, maxLength: 50 }),
-  ])(
-    'Property 59: Signatures can be verified',
-    (payload, secret) => {
-      const dispatcher = createWebhookDispatcher()
+  ])('Property 59: Signatures can be verified', (payload, secret) => {
+    const dispatcher = createWebhookDispatcher()
 
-      const signature = dispatcher.signPayload(payload, secret)
+    const signature = dispatcher.signPayload(payload, secret)
 
-      // Should verify correctly
-      expect(dispatcher.verifySignature(payload, secret, signature)).toBe(true)
+    // Should verify correctly
+    expect(dispatcher.verifySignature(payload, secret, signature)).toBe(true)
 
-      // Wrong secret should fail verification
-      expect(
-        dispatcher.verifySignature(payload, secret + 'wrong', signature),
-      ).toBe(false)
+    // Wrong secret should fail verification
+    expect(
+      dispatcher.verifySignature(payload, secret + 'wrong', signature),
+    ).toBe(false)
 
-      // Wrong payload should fail verification
-      expect(
-        dispatcher.verifySignature(payload + 'tampered', secret, signature),
-      ).toBe(false)
+    // Wrong payload should fail verification
+    expect(
+      dispatcher.verifySignature(payload + 'tampered', secret, signature),
+    ).toBe(false)
 
-      // Wrong signature should fail verification
-      expect(
-        dispatcher.verifySignature(payload, secret, signature + '00'),
-      ).toBe(false)
-    },
-  )
+    // Wrong signature should fail verification
+    expect(dispatcher.verifySignature(payload, secret, signature + '00')).toBe(
+      false,
+    )
+  })
 
   test.prop([
     fc.string({ minLength: 1, maxLength: 500 }),
@@ -312,14 +312,8 @@ describe('WebhookDispatcher Integration', () => {
 
     // Manually trigger dispatch
     const payload = dispatcher.buildPayload(event)
-    await dispatcher.dispatchToWebhook(
-      dispatcher.getWebhooks()[0]!,
-      payload,
-    )
-    await dispatcher.dispatchToWebhook(
-      dispatcher.getWebhooks()[2]!,
-      payload,
-    )
+    await dispatcher.dispatchToWebhook(dispatcher.getWebhooks()[0]!, payload)
+    await dispatcher.dispatchToWebhook(dispatcher.getWebhooks()[2]!, payload)
 
     expect(deliveries).toContain('https://example.com/webhook1')
     expect(deliveries).toContain('https://example.com/webhook3')

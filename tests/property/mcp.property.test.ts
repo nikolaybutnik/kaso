@@ -8,13 +8,10 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import * as fc from 'fast-check'
-import { createMCPClient } from '../../src/infrastructure/mcp-client'
-import { EventBus } from '../../src/core/event-bus'
-import type {
-  MCPServerConfig,
-  MCPToolDefinition,
-} from '../../src/config/schema'
-import type { PhaseName } from '../../src/core/types'
+import { createMCPClient } from '@/infrastructure/mcp-client'
+import { EventBus } from '@/core/event-bus'
+import type { MCPServerConfig, MCPToolDefinition } from '@/config/schema'
+import type { PhaseName } from '@/core/types'
 
 // =============================================================================
 // Property 46: MCP tools scoped to Executor_Backend during Implementation only
@@ -210,7 +207,7 @@ describe('Property 46: MCP tools scoped to Executor_Backend during Implementatio
           )
           await client.initialize()
 
-          const tools: import('../../src/config/schema').MCPToolDefinition[] =
+          const tools: import('@/config/schema').MCPToolDefinition[] =
             toolDefs.map((t) => ({
               name: t.name,
               description: t.description,

@@ -24,9 +24,9 @@ import type {
   TestReport,
   ReviewCouncilResult,
   ParsedSpec,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
-import { EventBus } from '../core/event-bus'
+import { EventBus } from '@/core/event-bus'
 
 /** Estimated duration for delivery agent in milliseconds */
 const ESTIMATED_DURATION_MS = 15_000
@@ -72,7 +72,11 @@ interface DeliveryDependencies {
 
 /** Command runner interface for testability */
 interface CommandRunner {
-  run(command: string, args: string[], cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>
+  run(
+    command: string,
+    args: string[],
+    cwd: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>
 }
 
 /** Default command runner using child_process */
@@ -152,7 +156,10 @@ export class DeliveryAgent implements Agent {
 
       // Step 2: Stage and commit changes with conventional format (Req 15.7)
       this.emitProgress(context.runId, 'Creating commits...')
-      const commits = await this.createConventionalCommits(worktreePath, context)
+      const commits = await this.createConventionalCommits(
+        worktreePath,
+        context,
+      )
 
       // Step 3: Push branch to remote
       this.emitProgress(context.runId, 'Pushing branch to remote...')
@@ -160,17 +167,32 @@ export class DeliveryAgent implements Agent {
 
       // Step 4: Create pull request (Req 15.8)
       this.emitProgress(context.runId, 'Creating pull request...')
-      const prResult = await this.createPullRequest(worktreePath, context, branchName)
+      const prResult = await this.createPullRequest(
+        worktreePath,
+        context,
+        branchName,
+      )
 
       // Step 5: Append execution summary to spec directory (Req 15.9)
       this.emitProgress(context.runId, 'Appending execution summary...')
-      await this.appendExecutionSummary(spec, context, branchName, commits, prResult)
+      await this.appendExecutionSummary(
+        spec,
+        context,
+        branchName,
+        commits,
+        prResult,
+      )
 
       const result: DeliveryResult = {
         branch: branchName,
         commits,
         prUrl: prResult.prUrl,
-        summary: this.buildExecutionSummary(context, branchName, commits, prResult),
+        summary: this.buildExecutionSummary(
+          context,
+          branchName,
+          commits,
+          prResult,
+        ),
       }
 
       return {
@@ -246,7 +268,11 @@ export class DeliveryAgent implements Agent {
       .toISOString()
       .replace(/[:\-]/g, '')
       .replace(/\.\d{3}Z$/, '')
-    const featureName = spec.featureName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-')
+    const featureName = spec.featureName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-+/g, '-')
     const branchName = `kaso/${featureName}-delivery-${timestamp}`
 
     // Create and checkout branch
@@ -407,7 +433,9 @@ export class DeliveryAgent implements Agent {
     // Extract common directory or module name
     const dirs = files
       .map((f) => f.split('/')[0])
-      .filter((d): d is string => typeof d === 'string' && d !== '' && d !== '.')
+      .filter(
+        (d): d is string => typeof d === 'string' && d !== '' && d !== '.',
+      )
 
     if (dirs.length === 0) return undefined
 
@@ -587,7 +615,11 @@ export class DeliveryAgent implements Agent {
     _branchName: string,
   ): Promise<PRCreationResult> {
     // Check if gh is available
-    const ghCheck = await this.commandRunner.run('gh', ['--version'], worktreePath)
+    const ghCheck = await this.commandRunner.run(
+      'gh',
+      ['--version'],
+      worktreePath,
+    )
     if (ghCheck.exitCode !== 0) {
       return { success: false, error: 'GitHub CLI not available' }
     }
@@ -617,7 +649,9 @@ export class DeliveryAgent implements Agent {
     // Extract PR URL from output
     const prUrl = result.stdout.trim()
     const prNumberMatch = prUrl.match(/\/pull\/(\d+)$/)
-    const prNumber = prNumberMatch?.[1] ? parseInt(prNumberMatch[1], 10) : undefined
+    const prNumber = prNumberMatch?.[1]
+      ? parseInt(prNumberMatch[1], 10)
+      : undefined
 
     return { success: true, prUrl, prNumber }
   }
@@ -633,7 +667,7 @@ export class DeliveryAgent implements Agent {
     // Without gh CLI, we can't easily create PR via API without auth
     // Return partial success with manual instructions
     const title = this.buildPRTitle(context)
-    
+
     // Use branchName to ensure it's referenced
     const _referenceBranch = branchName
 
@@ -689,7 +723,9 @@ export class DeliveryAgent implements Agent {
     if (testReport) {
       lines.push('### Test Results')
       lines.push('')
-      lines.push(`- **Status**: ${testReport.passed ? '✅ Passed' : '❌ Failed'}`)
+      lines.push(
+        `- **Status**: ${testReport.passed ? '✅ Passed' : '❌ Failed'}`,
+      )
       lines.push(`- **Coverage**: ${testReport.coverage.toFixed(1)}%`)
       lines.push(`- **Tests Run**: ${testReport.testsRun}`)
       lines.push('')
@@ -705,7 +741,9 @@ export class DeliveryAgent implements Agent {
           : reviewCouncil.consensus === 'passed-with-warnings'
             ? '⚠️'
             : '❌'
-      lines.push(`- **Consensus**: ${consensusEmoji} ${reviewCouncil.consensus}`)
+      lines.push(
+        `- **Consensus**: ${consensusEmoji} ${reviewCouncil.consensus}`,
+      )
       lines.push(`- **Rounds**: ${reviewCouncil.rounds}`)
       lines.push(`- **Cost**: $${reviewCouncil.cost.toFixed(4)}`)
       lines.push('')
@@ -746,7 +784,10 @@ export class DeliveryAgent implements Agent {
   ): Promise<void> {
     const specDir = spec.specPath
     if (!specDir) {
-      this.emitProgress(context.runId, 'No spec directory, skipping summary append')
+      this.emitProgress(
+        context.runId,
+        'No spec directory, skipping summary append',
+      )
       return
     }
 
@@ -917,6 +958,8 @@ function formatError(error: unknown): AgentError {
  * Create a new DeliveryAgent instance.
  * @param deps Optional dependencies (eventBus, commandRunner)
  */
-export function createDeliveryAgent(deps?: DeliveryDependencies): DeliveryAgent {
+export function createDeliveryAgent(
+  deps?: DeliveryDependencies,
+): DeliveryAgent {
   return new DeliveryAgent(deps)
 }

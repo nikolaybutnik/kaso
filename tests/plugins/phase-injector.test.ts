@@ -15,15 +15,17 @@ import {
   getCustomPhaseConfig,
   createPhaseInjector,
   BUILTIN_PHASES,
-} from '../../src/plugins/phase-injector'
-import type { CustomPhaseConfig } from '../../src/config/schema'
-import type { PhaseName } from '../../src/core/types'
+} from '@/plugins/phase-injector'
+import type { CustomPhaseConfig } from '@/config/schema'
+import type { PhaseName } from '@/core/types'
 
 // =============================================================================
 // Test Fixtures
 // =============================================================================
 
-function createCustomPhaseConfig(overrides: Partial<CustomPhaseConfig> = {}): CustomPhaseConfig {
+function createCustomPhaseConfig(
+  overrides: Partial<CustomPhaseConfig> = {},
+): CustomPhaseConfig {
   return {
     name: 'custom-test',
     package: 'test-package',
@@ -122,7 +124,9 @@ describe('injectCustomPhases', () => {
   })
 
   it('should inject custom phase at beginning', () => {
-    const configs = [createCustomPhaseConfig({ name: 'custom-first', position: 0 })]
+    const configs = [
+      createCustomPhaseConfig({ name: 'custom-first', position: 0 }),
+    ]
     const result = injectCustomPhases(configs)
 
     expect(result.phases).toHaveLength(BUILTIN_PHASES.length + 1)
@@ -134,7 +138,10 @@ describe('injectCustomPhases', () => {
 
   it('should inject custom phase at end', () => {
     const configs = [
-      createCustomPhaseConfig({ name: 'custom-last', position: BUILTIN_PHASES.length }),
+      createCustomPhaseConfig({
+        name: 'custom-last',
+        position: BUILTIN_PHASES.length,
+      }),
     ]
     const result = injectCustomPhases(configs)
 
@@ -144,7 +151,9 @@ describe('injectCustomPhases', () => {
   })
 
   it('should inject custom phase in middle', () => {
-    const configs = [createCustomPhaseConfig({ name: 'custom-middle', position: 3 })]
+    const configs = [
+      createCustomPhaseConfig({ name: 'custom-middle', position: 3 }),
+    ]
     const result = injectCustomPhases(configs)
 
     expect(result.phases).toHaveLength(BUILTIN_PHASES.length + 1)
@@ -169,8 +178,12 @@ describe('injectCustomPhases', () => {
     expect(phaseNames).toContain('custom-b')
     expect(phaseNames).toContain('custom-c')
     // Verify they're in the correct relative order
-    expect(phaseNames.indexOf('custom-a')).toBeLessThan(phaseNames.indexOf('custom-b'))
-    expect(phaseNames.indexOf('custom-b')).toBeLessThan(phaseNames.indexOf('custom-c'))
+    expect(phaseNames.indexOf('custom-a')).toBeLessThan(
+      phaseNames.indexOf('custom-b'),
+    )
+    expect(phaseNames.indexOf('custom-b')).toBeLessThan(
+      phaseNames.indexOf('custom-c'),
+    )
   })
 
   it('should reject invalid phase name', () => {
@@ -214,10 +227,16 @@ describe('injectCustomPhases', () => {
   })
 
   it('should store custom phase config', () => {
-    const config = createCustomPhaseConfig({ name: 'custom-config', config: { key: 'value' } })
+    const config = createCustomPhaseConfig({
+      name: 'custom-config',
+      config: { key: 'value' },
+    })
     const result = injectCustomPhases([config])
 
-    const storedConfig = getCustomPhaseConfig(result, 'custom-config' as PhaseName)
+    const storedConfig = getCustomPhaseConfig(
+      result,
+      'custom-config' as PhaseName,
+    )
     expect(storedConfig).toBeDefined()
     expect(storedConfig?.config).toEqual({ key: 'value' })
   })
@@ -263,7 +282,9 @@ describe('PhaseInjector', () => {
   })
 
   it('should report errors after build', () => {
-    injector = createPhaseInjector([createCustomPhaseConfig({ name: 'invalid' })])
+    injector = createPhaseInjector([
+      createCustomPhaseConfig({ name: 'invalid' }),
+    ])
     injector.buildPipeline()
 
     expect(injector.hasErrors()).toBe(true)
@@ -271,7 +292,9 @@ describe('PhaseInjector', () => {
   })
 
   it('should validate all agents present', () => {
-    injector = createPhaseInjector([createCustomPhaseConfig({ name: 'custom-valid' })])
+    injector = createPhaseInjector([
+      createCustomPhaseConfig({ name: 'custom-valid' }),
+    ])
     injector.buildPipeline()
 
     // All built-in phases are present
@@ -283,10 +306,15 @@ describe('PhaseInjector', () => {
   })
 
   it('should validate agents when all present', () => {
-    injector = createPhaseInjector([createCustomPhaseConfig({ name: 'custom-valid' })])
+    injector = createPhaseInjector([
+      createCustomPhaseConfig({ name: 'custom-valid' }),
+    ])
     injector.buildPipeline()
 
-    const registeredPhases = new Set<PhaseName>([...BUILTIN_PHASES, 'custom-valid' as PhaseName])
+    const registeredPhases = new Set<PhaseName>([
+      ...BUILTIN_PHASES,
+      'custom-valid' as PhaseName,
+    ])
     const validation = injector.validateAgents(registeredPhases)
 
     expect(validation.valid).toBe(true)
@@ -300,14 +328,18 @@ describe('PhaseInjector', () => {
 
 describe('Helper Functions', () => {
   it('isCustomPhase should return true for custom phases', () => {
-    const result = injectCustomPhases([createCustomPhaseConfig({ name: 'custom-check' })])
+    const result = injectCustomPhases([
+      createCustomPhaseConfig({ name: 'custom-check' }),
+    ])
 
     expect(isCustomPhase(result, 'custom-check' as PhaseName)).toBe(true)
     expect(isCustomPhase(result, 'intake')).toBe(false)
   })
 
   it('getPhaseOrder should return ordered phase names', () => {
-    const result = injectCustomPhases([createCustomPhaseConfig({ name: 'custom-ordered', position: 2 })])
+    const result = injectCustomPhases([
+      createCustomPhaseConfig({ name: 'custom-ordered', position: 2 }),
+    ])
     const order = getPhaseOrder(result)
 
     expect(order).toHaveLength(BUILTIN_PHASES.length + 1)
@@ -328,7 +360,12 @@ describe('Helper Functions', () => {
 describe('Phase Injector Integration', () => {
   it('should create valid pipeline with custom phases', () => {
     const configs: CustomPhaseConfig[] = [
-      { name: 'custom-pre-validation', package: 'pkg1', position: 1, config: {} },
+      {
+        name: 'custom-pre-validation',
+        package: 'pkg1',
+        position: 1,
+        config: {},
+      },
       { name: 'custom-post-impl', package: 'pkg2', position: 4, config: {} },
     ]
 
@@ -347,7 +384,9 @@ describe('Phase Injector Integration', () => {
   })
 
   it('should preserve built-in phases after custom injection', () => {
-    const configs = [createCustomPhaseConfig({ name: 'custom-insert', position: 4 })]
+    const configs = [
+      createCustomPhaseConfig({ name: 'custom-insert', position: 4 }),
+    ]
     const result = injectCustomPhases(configs)
 
     // All built-in phases should still be present

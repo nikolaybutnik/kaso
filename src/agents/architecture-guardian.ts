@@ -16,9 +16,9 @@ import type {
   AssembledContext,
   ImplementationResult,
   ParsedMarkdown,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
-import { parseMarkdown } from '../core/markdown-parser'
+import { parseMarkdown } from '@/core/markdown-parser'
 
 const ESTIMATED_DURATION_MS_PHASE3 = 8000
 const ESTIMATED_DURATION_MS_PHASE5 = 5000

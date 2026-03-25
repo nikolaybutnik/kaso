@@ -2,7 +2,7 @@ import { describe, expect, vi, afterEach } from 'vitest'
 import { test, fc } from '@fast-check/vitest'
 import { join } from 'path'
 import { existsSync, mkdirSync, rmSync } from 'fs'
-import { WorktreeManager } from '../../src/infrastructure/worktree-manager'
+import { WorktreeManager } from '@/infrastructure/worktree-manager'
 import { simpleGit } from 'simple-git'
 import type { SimpleGit } from 'simple-git'
 

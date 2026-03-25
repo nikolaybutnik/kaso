@@ -10,7 +10,7 @@ import type {
   AssembledContext,
   ArchitectureContext,
   ParsedMarkdown,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
 
 /**

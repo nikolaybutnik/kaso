@@ -3,7 +3,7 @@ import { join } from 'path'
 import { existsSync, mkdirSync, rmSync } from 'fs'
 import { simpleGit } from 'simple-git'
 import type { SimpleGit } from 'simple-git'
-import { WorktreeManager } from '../../src/infrastructure/worktree-manager'
+import { WorktreeManager } from '@/infrastructure/worktree-manager'
 
 /** Partial mock of SimpleGit — only the methods WorktreeManager actually uses */
 interface MockGit {

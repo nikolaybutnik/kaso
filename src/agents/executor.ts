@@ -12,12 +12,12 @@ import type {
   ValidationReport,
   BackendProgressEvent,
   PhaseOutput,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
-import { BackendRegistry } from '../backends/backend-registry'
-import type { ExecutorBackend } from '../backends/backend-adapter'
-import { BackendExecutionError } from '../backends/backend-process'
-import { EventBus } from '../core/event-bus'
+import { BackendRegistry } from '@/backends/backend-registry'
+import type { ExecutorBackend } from '@/backends/backend-adapter'
+import { BackendExecutionError } from '@/backends/backend-process'
+import { EventBus } from '@/core/event-bus'
 
 /** Estimated duration for executor agent in milliseconds */
 const ESTIMATED_DURATION_MS = 60000
@@ -26,7 +26,9 @@ const ESTIMATED_DURATION_MS = 60000
 const MAX_SELF_CORRECTION_RETRIES = 3
 
 /** Phase name type for error tracking */
-interface ExtendedPhaseOutputs extends Partial<Record<import('../core/types').PhaseName, PhaseOutput>> {
+interface ExtendedPhaseOutputs extends Partial<
+  Record<import('@/core/types').PhaseName, PhaseOutput>
+> {
   implementation_error?: PhaseOutput
 }
 
@@ -87,7 +89,9 @@ export class ExecutorAgent implements Agent {
           return {
             success: false,
             error: {
-              message: 'Execution aborted during attempt ' + (selfCorrectionAttempts + 1),
+              message:
+                'Execution aborted during attempt ' +
+                (selfCorrectionAttempts + 1),
               retryable: false,
             },
             duration: Date.now() - startTime,
@@ -98,7 +102,10 @@ export class ExecutorAgent implements Agent {
         const attemptNumber = selfCorrectionAttempts + 1
 
         // Emit progress event for new attempt
-        this.emitProgress(context.runId, `Starting implementation attempt ${attemptNumber}/${MAX_SELF_CORRECTION_RETRIES + 1}`)
+        this.emitProgress(
+          context.runId,
+          `Starting implementation attempt ${attemptNumber}/${MAX_SELF_CORRECTION_RETRIES + 1}`,
+        )
 
         try {
           const result = await this.executeAttempt(
@@ -110,7 +117,8 @@ export class ExecutorAgent implements Agent {
           if (result.success) {
             // Add self-correction attempts to result
             if (result.output) {
-              (result.output as ImplementationResult).selfCorrectionAttempts = selfCorrectionAttempts
+              ;(result.output as ImplementationResult).selfCorrectionAttempts =
+                selfCorrectionAttempts
             }
             return result
           }
@@ -231,19 +239,19 @@ export class ExecutorAgent implements Agent {
   private buildBackendRequest(
     context: AgentContext,
     previousError?: string,
-  ): import('../core/types').BackendRequest {
+  ): import('@/core/types').BackendRequest {
     // Build comprehensive context for the backend
     const requestContext: AgentContext = {
       ...context,
       // Include previous error for self-correction context
       phaseOutputs: previousError
-        ? {
+        ? ({
             ...context.phaseOutputs,
             implementation_error: {
               error: previousError,
               attempt: 'self-correction',
             },
-          } as ExtendedPhaseOutputs
+          } as ExtendedPhaseOutputs)
         : context.phaseOutputs,
     }
 
@@ -258,9 +266,7 @@ export class ExecutorAgent implements Agent {
   /**
    * Select the appropriate backend
    */
-  private selectBackend(
-    context: AgentContext,
-  ): ExecutorBackend {
+  private selectBackend(context: AgentContext): ExecutorBackend {
     if (!this.backendRegistry) {
       throw new Error('Backend registry not initialized')
     }
@@ -278,18 +284,24 @@ export class ExecutorAgent implements Agent {
    * Validate that all required context is present
    */
   private validateContext(context: AgentContext): void {
-    const assembledContext = context.phaseOutputs['intake'] as AssembledContext | undefined
+    const assembledContext = context.phaseOutputs['intake'] as
+      | AssembledContext
+      | undefined
     if (!assembledContext) {
       throw new Error('Missing intake phase output (assembled context)')
     }
 
-    const validationReport = context.phaseOutputs['validation'] as ValidationReport | undefined
+    const validationReport = context.phaseOutputs['validation'] as
+      | ValidationReport
+      | undefined
     if (!validationReport) {
       throw new Error('Missing validation phase output (validation report)')
     }
 
     if (!validationReport.approved) {
-      throw new Error('Spec validation failed - cannot proceed with implementation')
+      throw new Error(
+        'Spec validation failed - cannot proceed with implementation',
+      )
     }
 
     if (!context.architecture) {
@@ -297,7 +309,9 @@ export class ExecutorAgent implements Agent {
     }
 
     if (!context.worktreePath) {
-      throw new Error('Missing worktree path - file operations require isolated worktree')
+      throw new Error(
+        'Missing worktree path - file operations require isolated worktree',
+      )
     }
   }
 
@@ -318,7 +332,7 @@ export class ExecutorAgent implements Agent {
   /**
    * Format an error for agent result
    */
-  private formatError(error: unknown): import('../core/types').AgentError {
+  private formatError(error: unknown): import('@/core/types').AgentError {
     if (error instanceof BackendExecutionError) {
       return {
         message: `Backend execution failed: ${error.message}`,

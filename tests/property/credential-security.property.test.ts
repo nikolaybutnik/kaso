@@ -6,8 +6,8 @@
 
 import { test, fc } from '@fast-check/vitest'
 import { describe, expect, vi } from 'vitest'
-import { CredentialManager } from '../../src/infrastructure/credential-manager'
-import { redactSecrets } from '../../src/infrastructure/log-redactor'
+import { CredentialManager } from '@/infrastructure/credential-manager'
+import { redactSecrets } from '@/infrastructure/log-redactor'
 import keytar from 'keytar'
 
 // Spy on keytar for property tests

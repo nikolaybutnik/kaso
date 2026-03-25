@@ -24,7 +24,7 @@ import type {
   ImplementationResult,
   BackendProgressEvent,
   PhaseOutput,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
 import type { ExecutorBackend } from '@/backends/backend-adapter'
 import type { BackendRegistry } from '@/backends/backend-registry'

@@ -4,9 +4,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { promises as fs } from 'fs'
-import { SpecReaderAgent } from '../../src/agents/spec-reader'
-import type { AgentContext, AssembledContext } from '../../src/core/types'
-import { getDefaultConfig } from '../../src/config/schema'
+import { SpecReaderAgent } from '@/agents/spec-reader'
+import type { AgentContext, AssembledContext } from '@/core/types'
+import { getDefaultConfig } from '@/config/schema'
 
 // Mock fs
 vi.mock('fs', () => ({

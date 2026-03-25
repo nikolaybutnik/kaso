@@ -14,17 +14,17 @@ import {
   validateAgentInterface,
   loadAllPlugins,
   createPluginLoader,
-} from '../../src/plugins/plugin-loader'
+} from '@/plugins/plugin-loader'
 import {
   injectCustomPhases,
   validateCustomPhaseName,
   validatePosition,
   BUILTIN_PHASES,
   createPhaseInjector,
-} from '../../src/plugins/phase-injector'
-import type { PluginConfig } from '../../src/config/schema'
-import type { CustomPhaseConfig } from '../../src/config/schema'
-import { AgentRegistryImpl } from '../../src/agents/agent-registry'
+} from '@/plugins/phase-injector'
+import type { PluginConfig } from '@/config/schema'
+import type { CustomPhaseConfig } from '@/config/schema'
+import { AgentRegistryImpl } from '@/agents/agent-registry'
 
 // =============================================================================
 // Property 48: Plugin discovery loads configured plugins
@@ -87,23 +87,20 @@ describe('Property 48: Plugin discovery loads configured plugins', () => {
 
   it('should validate agent interface for any object structure', async () => {
     await fc.assert(
-      fc.property(
-        fc.object(),
-        (obj) => {
-          const result = validateAgentInterface(obj)
+      fc.property(fc.object(), (obj) => {
+        const result = validateAgentInterface(obj)
 
-          // Result should always be a boolean with error array
-          expect(typeof result.valid).toBe('boolean')
-          expect(Array.isArray(result.errors)).toBe(true)
+        // Result should always be a boolean with error array
+        expect(typeof result.valid).toBe('boolean')
+        expect(Array.isArray(result.errors)).toBe(true)
 
-          // If not valid, should have at least one error
-          if (!result.valid) {
-            expect(result.errors.length).toBeGreaterThan(0)
-          }
+        // If not valid, should have at least one error
+        if (!result.valid) {
+          expect(result.errors.length).toBeGreaterThan(0)
+        }
 
-          return true
-        },
-      ),
+        return true
+      }),
       { numRuns: 100 },
     )
   })
@@ -155,7 +152,9 @@ describe('Property 43: Custom phase error handling matches built-in phases', () 
   it('should accept valid custom phase names', async () => {
     await fc.assert(
       fc.property(
-        fc.string({ minLength: 1, maxLength: 30 }).filter((s) => /^[a-z0-9-]+$/.test(s)),
+        fc
+          .string({ minLength: 1, maxLength: 30 })
+          .filter((s) => /^[a-z0-9-]+$/.test(s)),
         (suffix) => {
           const name = `custom-${suffix}`
           const result = validateCustomPhaseName(name)
@@ -174,19 +173,16 @@ describe('Property 43: Custom phase error handling matches built-in phases', () 
 
   it('should reject invalid custom phase names', async () => {
     await fc.assert(
-      fc.property(
-        fc.string({ minLength: 1, maxLength: 30 }),
-        (name) => {
-          const result = validateCustomPhaseName(name)
+      fc.property(fc.string({ minLength: 1, maxLength: 30 }), (name) => {
+        const result = validateCustomPhaseName(name)
 
-          // Should be invalid if doesn't start with custom- or has invalid chars
-          if (!name.startsWith('custom-') || !/^custom-[a-z0-9-]+$/.test(name)) {
-            expect(result.valid).toBe(false)
-          }
+        // Should be invalid if doesn't start with custom- or has invalid chars
+        if (!name.startsWith('custom-') || !/^custom-[a-z0-9-]+$/.test(name)) {
+          expect(result.valid).toBe(false)
+        }
 
-          return true
-        },
-      ),
+        return true
+      }),
       { numRuns: 100 },
     )
   })
@@ -224,17 +220,23 @@ describe('Property 43: Custom phase error handling matches built-in phases', () 
       fc.property(
         fc.array(
           fc.record({
-            name: fc.string({ minLength: 5, maxLength: 30 }).map((s) => `custom-${s.replace(/[^a-z0-9-]/g, '-')}`),
+            name: fc
+              .string({ minLength: 5, maxLength: 30 })
+              .map((s) => `custom-${s.replace(/[^a-z0-9-]/g, '-')}`),
             position: fc.integer({ min: 0, max: 8 }),
           }),
           { minLength: 0, maxLength: 5 },
         ),
         (customPhases) => {
           // Filter for valid phase names
-          const validPhases = customPhases.filter((p) => /^custom-[a-z0-9-]+$/.test(p.name))
+          const validPhases = customPhases.filter((p) =>
+            /^custom-[a-z0-9-]+$/.test(p.name),
+          )
 
           // Remove duplicates
-          const uniquePhases = Array.from(new Map(validPhases.map((p) => [p.name, p])).values())
+          const uniquePhases = Array.from(
+            new Map(validPhases.map((p) => [p.name, p])).values(),
+          )
 
           const configs: CustomPhaseConfig[] = uniquePhases.map((p) => ({
             name: p.name as `custom-${string}`,
@@ -279,11 +281,14 @@ describe('Property 43: Custom phase error handling matches built-in phases', () 
           const result = injectCustomPhases(configs)
 
           // Should have some phases (valid or invalid)
-          expect(result.phases.length).toBeGreaterThanOrEqual(BUILTIN_PHASES.length)
+          expect(result.phases.length).toBeGreaterThanOrEqual(
+            BUILTIN_PHASES.length,
+          )
 
           // If there are invalid configs, should have errors
           const hasInvalid = phases.some(
-            (p) => !p.name.startsWith('custom-') || p.position < 0 || p.position > 8,
+            (p) =>
+              !p.name.startsWith('custom-') || p.position < 0 || p.position > 8,
           )
 
           if (hasInvalid) {
@@ -300,15 +305,27 @@ describe('Property 43: Custom phase error handling matches built-in phases', () 
   it('should handle duplicate phase names gracefully', async () => {
     await fc.assert(
       fc.property(
-        fc.string({ minLength: 5, maxLength: 20 }).map((s) => `custom-${s.replace(/[^a-z0-9]/g, '-')}`),
+        fc
+          .string({ minLength: 5, maxLength: 20 })
+          .map((s) => `custom-${s.replace(/[^a-z0-9]/g, '-')}`),
         fc.integer({ min: 0, max: 8 }),
         fc.integer({ min: 0, max: 8 }),
         (name, pos1, pos2) => {
           if (pos1 === pos2) return true
 
           const configs: CustomPhaseConfig[] = [
-            { name: name as `custom-${string}`, package: 'pkg1', position: pos1, config: {} },
-            { name: name as `custom-${string}`, package: 'pkg2', position: pos2, config: {} },
+            {
+              name: name as `custom-${string}`,
+              package: 'pkg1',
+              position: pos1,
+              config: {},
+            },
+            {
+              name: name as `custom-${string}`,
+              package: 'pkg2',
+              position: pos2,
+              config: {},
+            },
           ]
 
           const result = injectCustomPhases(configs)
@@ -342,7 +359,9 @@ describe('Plugin and Phase Integration Properties', () => {
       fc.property(
         fc.array(
           fc.record({
-            name: fc.string({ minLength: 5, maxLength: 15 }).map((s) => `custom-${s.replace(/[^a-z0-9-]/g, '-')}`),
+            name: fc
+              .string({ minLength: 5, maxLength: 15 })
+              .map((s) => `custom-${s.replace(/[^a-z0-9-]/g, '-')}`),
             position: fc.integer({ min: 0, max: 8 }),
           }),
           { minLength: 0, maxLength: 10 },
@@ -351,7 +370,9 @@ describe('Plugin and Phase Integration Properties', () => {
           // Filter valid and unique
           const validPhases = phases
             .filter((p) => /^custom-[a-z0-9-]+$/.test(p.name))
-            .filter((p, i, arr) => arr.findIndex((q) => q.name === p.name) === i)
+            .filter(
+              (p, i, arr) => arr.findIndex((q) => q.name === p.name) === i,
+            )
 
           const configs: CustomPhaseConfig[] = validPhases.map((p) => ({
             name: p.name as `custom-${string}`,
@@ -363,10 +384,16 @@ describe('Plugin and Phase Integration Properties', () => {
           const result = injectCustomPhases(configs)
 
           // Total phases should be built-in + successful custom
-          expect(result.phases.length).toBeGreaterThanOrEqual(BUILTIN_PHASES.length)
+          expect(result.phases.length).toBeGreaterThanOrEqual(
+            BUILTIN_PHASES.length,
+          )
 
           // All phases should have valid types
-          expect(result.phases.every((p) => p.type === 'built-in' || p.type === 'custom')).toBe(true)
+          expect(
+            result.phases.every(
+              (p) => p.type === 'built-in' || p.type === 'custom',
+            ),
+          ).toBe(true)
 
           return true
         },

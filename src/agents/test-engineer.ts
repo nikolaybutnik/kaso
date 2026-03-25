@@ -20,9 +20,9 @@ import type {
   AgentError,
   TestReport,
   ImplementationResult,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
-import { EventBus } from '../core/event-bus'
+import { EventBus } from '@/core/event-bus'
 
 /** Estimated duration for test engineer agent in milliseconds */
 const ESTIMATED_DURATION_MS = 45_000

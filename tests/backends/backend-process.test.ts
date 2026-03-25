@@ -3,13 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import {
-  CLIProcessBackend,
-  MockBackend,
-} from '../../src/backends/backend-process'
-import type { ExecutorBackendConfig } from '../../src/config/schema'
-import type { BackendRequest, BackendProgressEvent } from '../../src/core/types'
-import { getDefaultConfig } from '../../src/config/schema'
+import { CLIProcessBackend, MockBackend } from '@/backends/backend-process'
+import type { ExecutorBackendConfig } from '@/config/schema'
+import type { BackendRequest, BackendProgressEvent } from '@/core/types'
+import { getDefaultConfig } from '@/config/schema'
 
 /** Creates a minimal BackendRequest for testing */
 function createTestRequest(id = 'test-request'): BackendRequest {

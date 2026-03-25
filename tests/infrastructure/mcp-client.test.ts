@@ -9,12 +9,9 @@ import {
   MCPClient,
   createMCPClient,
   type MCPConnection,
-} from '../../src/infrastructure/mcp-client'
-import { EventBus } from '../../src/core/event-bus'
-import type {
-  MCPServerConfig,
-  MCPToolDefinition,
-} from '../../src/config/schema'
+} from '@/infrastructure/mcp-client'
+import { EventBus } from '@/core/event-bus'
+import type { MCPServerConfig, MCPToolDefinition } from '@/config/schema'
 
 // =============================================================================
 // Test Fixtures

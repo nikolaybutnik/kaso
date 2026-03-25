@@ -3,8 +3,8 @@
  * Contains all type definitions for phases, agents, execution state, and configuration
  */
 
-import type { KASOConfig } from '../config/schema'
-import type { ExecutorBackendConfig } from '../config/schema'
+import type { KASOConfig } from '@/config/schema'
+import type { ExecutorBackendConfig } from '@/config/schema'
 
 // ============================================================================
 // Phase and System Enums/Types
@@ -231,7 +231,7 @@ export interface AgentContext {
   config: KASOConfig
   worktreePath?: string
   backends: Record<string, ExecutorBackendConfig>
-  mcpTools?: import('../config/schema').MCPToolDefinition[] // MCP tools available for this phase (Req 25.2)
+  mcpTools?: import('@/config/schema').MCPToolDefinition[] // MCP tools available for this phase (Req 25.2)
   preferredBackend?: string // Override default backend on retry (Req 16.2)
   removedFiles?: string[] // Files removed during context capping
   abortSignal?: AbortSignal // For cooperative cancellation detection (Req 13.5)

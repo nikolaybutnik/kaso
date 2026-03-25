@@ -4,13 +4,13 @@
 
 import { test, fc } from '@fast-check/vitest'
 import { expect } from 'vitest'
-import { SpecValidatorAgent } from '../../src/agents/spec-validator'
+import { SpecValidatorAgent } from '@/agents/spec-validator'
 import type {
   AgentContext,
   AssembledContext,
   ValidationReport,
-} from '../../src/core/types'
-import { getDefaultConfig } from '../../src/config/schema'
+} from '@/core/types'
+import { getDefaultConfig } from '@/config/schema'
 
 /**
  * Arbitrary for generating markdown content with potential validation issues

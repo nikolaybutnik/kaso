@@ -9,7 +9,7 @@ import {
   redactMultiple,
   redactObject,
   redactError,
-} from '../../src/infrastructure/log-redactor'
+} from '@/infrastructure/log-redactor'
 
 describe('redactSecrets', () => {
   it('should redact secrets from text', () => {

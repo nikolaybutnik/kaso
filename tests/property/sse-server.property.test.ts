@@ -145,8 +145,6 @@ function collectSSEEvents(
   })
 }
 
-const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms))
-
 /**
  * Connect to the SSE server and return a handle that lets you emit events
  * only after the connection is fully established (connected event received).

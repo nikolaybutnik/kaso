@@ -8,7 +8,7 @@ import type {
   BackendResponse,
   BackendProgressEvent,
   BackendProtocol,
-} from '../core/types'
+} from '@/core/types'
 
 /**
  * Executor backend interface

@@ -6,13 +6,13 @@
 import { spawn } from 'child_process'
 import { createInterface } from 'readline'
 import type { ExecutorBackend } from './backend-adapter'
-import type { ExecutorBackendConfig } from '../config/schema'
+import type { ExecutorBackendConfig } from '@/config/schema'
 import type {
   BackendRequest,
   BackendResponse,
   BackendProgressEvent,
   BackendProtocol,
-} from '../core/types'
+} from '@/core/types'
 
 /** Timeout before escalating SIGTERM to SIGKILL (ms) */
 const SIGKILL_ESCALATION_DELAY = 5000

@@ -8,10 +8,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { SSEServer, createSSEServer } from '../../src/streaming/sse-server'
-import { EventBus } from '../../src/core/event-bus'
-import type { SSEConfig } from '../../src/config/schema'
-import type { ExecutionEvent } from '../../src/core/types'
+import { SSEServer, createSSEServer } from '@/streaming/sse-server'
+import { EventBus } from '@/core/event-bus'
+import type { SSEConfig } from '@/config/schema'
+import type { ExecutionEvent } from '@/core/types'
 import http from 'http'
 
 // =============================================================================

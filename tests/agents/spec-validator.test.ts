@@ -3,14 +3,14 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { SpecValidatorAgent } from '../../src/agents/spec-validator'
+import { SpecValidatorAgent } from '@/agents/spec-validator'
 import type {
   AgentContext,
   AssembledContext,
   ArchitectureContext,
   ValidationReport,
-} from '../../src/core/types'
-import { getDefaultConfig } from '../../src/config/schema'
+} from '@/core/types'
+import { getDefaultConfig } from '@/config/schema'
 
 describe('SpecValidatorAgent', () => {
   let agent: SpecValidatorAgent

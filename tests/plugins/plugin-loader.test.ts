@@ -10,10 +10,10 @@ import {
   validateAgentInterface,
   loadAllPlugins,
   createPluginLoader,
-} from '../../src/plugins/plugin-loader'
-import type { Agent } from '../../src/agents/agent-interface'
-import { AgentRegistryImpl } from '../../src/agents/agent-registry'
-import type { PluginConfig } from '../../src/config/schema'
+} from '@/plugins/plugin-loader'
+import type { Agent } from '@/agents/agent-interface'
+import { AgentRegistryImpl } from '@/agents/agent-registry'
+import type { PluginConfig } from '@/config/schema'
 
 // =============================================================================
 // Test Fixtures
@@ -31,10 +31,17 @@ function createValidAgent(): Agent {
   }
 }
 
-function createInvalidAgent(missingMethods: string[] = []): Record<string, unknown> {
+function createInvalidAgent(
+  missingMethods: string[] = [],
+): Record<string, unknown> {
   const agent: Record<string, unknown> = {}
 
-  const allMethods = ['execute', 'supportsRollback', 'estimatedDuration', 'requiredContext']
+  const allMethods = [
+    'execute',
+    'supportsRollback',
+    'estimatedDuration',
+    'requiredContext',
+  ]
   for (const method of allMethods) {
     if (!missingMethods.includes(method)) {
       agent[method] = vi.fn()
@@ -44,7 +51,9 @@ function createInvalidAgent(missingMethods: string[] = []): Record<string, unkno
   return agent
 }
 
-function createPluginConfig(overrides: Partial<PluginConfig> = {}): PluginConfig {
+function createPluginConfig(
+  overrides: Partial<PluginConfig> = {},
+): PluginConfig {
   return {
     package: 'test-plugin',
     enabled: true,
@@ -101,7 +110,9 @@ describe('validateAgentInterface', () => {
     const result = validateAgentInterface(agent)
 
     expect(result.valid).toBe(false)
-    expect(result.errors).toContain('Missing required method: estimatedDuration')
+    expect(result.errors).toContain(
+      'Missing required method: estimatedDuration',
+    )
   })
 
   it('should reject agent missing requiredContext method', () => {
@@ -158,7 +169,9 @@ describe('loadAllPlugins', () => {
   })
 
   it('should handle non-existent packages', async () => {
-    const configs = [createPluginConfig({ package: 'non-existent-package-12345' })]
+    const configs = [
+      createPluginConfig({ package: 'non-existent-package-12345' }),
+    ]
     const results = await loadAllPlugins(configs)
 
     expect(results).toHaveLength(1)

@@ -13,9 +13,9 @@ import type {
   TaskItem,
   AssembledContext,
   SteeringFiles,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
-import { parseMarkdown } from '../core/markdown-parser'
+import { parseMarkdown } from '@/core/markdown-parser'
 
 const DEFAULT_CHARS_PER_TOKEN = 4
 const DEFAULT_MAX_CONTEXT_WINDOW = 128000

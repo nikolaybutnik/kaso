@@ -8,10 +8,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   WebhookDispatcher,
   createWebhookDispatcher,
-} from '../../src/infrastructure/webhook-dispatcher'
-import type { WebhookConfig } from '../../src/config/schema'
-import { EventBus } from '../../src/core/event-bus'
-import type { ExecutionEvent } from '../../src/core/types'
+} from '@/infrastructure/webhook-dispatcher'
+import type { WebhookConfig } from '@/config/schema'
+import { EventBus } from '@/core/event-bus'
+import type { ExecutionEvent } from '@/core/types'
 
 // =============================================================================
 // Test Fixtures
@@ -91,7 +91,11 @@ describe('WebhookDispatcher', () => {
     it('should create dispatcher with custom config', () => {
       const customDispatcher = createWebhookDispatcher({
         webhooks: [
-          { url: 'https://test.com/webhook', events: ['run:started'], headers: {} },
+          {
+            url: 'https://test.com/webhook',
+            events: ['run:started'],
+            headers: {},
+          },
         ],
         maxRetries: 5,
         baseDelayMs: 2000,
@@ -161,7 +165,9 @@ describe('WebhookDispatcher', () => {
     })
 
     it('should return false when removing non-existent webhook', () => {
-      const removed = dispatcher.removeWebhook('https://nonexistent.com/webhook')
+      const removed = dispatcher.removeWebhook(
+        'https://nonexistent.com/webhook',
+      )
       expect(removed).toBe(false)
     })
 
@@ -291,7 +297,7 @@ describe('WebhookDispatcher', () => {
       const webhook = createMockWebhookConfig({
         headers: {
           'X-Custom-Header': 'custom-value',
-          'Authorization': 'Bearer token123',
+          Authorization: 'Bearer token123',
         },
       })
 
@@ -385,7 +391,11 @@ describe('WebhookDispatcher', () => {
       const secret = 'my-secret'
 
       const signature = dispatcher.signPayload(payload, secret)
-      const isValid = dispatcher.verifySignature(payload, 'wrong-secret', signature)
+      const isValid = dispatcher.verifySignature(
+        payload,
+        'wrong-secret',
+        signature,
+      )
 
       expect(isValid).toBe(false)
     })

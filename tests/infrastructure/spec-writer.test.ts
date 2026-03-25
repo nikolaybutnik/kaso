@@ -5,8 +5,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { promises as fs } from 'fs'
 import { join } from 'path'
-import { SpecWriter } from '../../src/infrastructure/spec-writer'
-import type { PhaseName } from '../../src/core/types'
+import { SpecWriter } from '@/infrastructure/spec-writer'
+import type { PhaseName } from '@/core/types'
 
 describe('SpecWriter', () => {
   let specWriter: SpecWriter

@@ -24,9 +24,9 @@ import type {
   UIReview,
   ImplementationResult,
   ParsedSpec,
-} from '../core/types'
+} from '@/core/types'
 import type { Agent } from './agent-interface'
-import { EventBus } from '../core/event-bus'
+import { EventBus } from '@/core/event-bus'
 
 /** Estimated duration for UI validator agent in milliseconds */
 const ESTIMATED_DURATION_MS = 60_000

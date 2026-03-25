@@ -9,9 +9,9 @@
  */
 
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
-import { EventBus } from '../core/event-bus'
-import type { ExecutionEvent, PhaseName } from '../core/types'
-import type { SSEConfig } from '../config/schema'
+import { EventBus } from '@/core/event-bus'
+import type { ExecutionEvent, PhaseName } from '@/core/types'
+import type { SSEConfig } from '@/config/schema'
 
 /**
  * Client connection metadata

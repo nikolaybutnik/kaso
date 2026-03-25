@@ -5,9 +5,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { FileWatcher, createFileWatcher, FileWatcherConfig } from '../../src/infrastructure/file-watcher'
-import { EventBus } from '../../src/core/event-bus'
-import type { EventType } from '../../src/core/types'
+import {
+  FileWatcher,
+  createFileWatcher,
+  FileWatcherConfig,
+} from '@/infrastructure/file-watcher'
+import { EventBus } from '@/core/event-bus'
+import type { EventType } from '@/core/types'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -32,7 +36,10 @@ async function cleanupDir(dir: string): Promise<void> {
   }
 }
 
-async function createSpecDir(parentDir: string, specName: string): Promise<string> {
+async function createSpecDir(
+  parentDir: string,
+  specName: string,
+): Promise<string> {
   const specDir = join(parentDir, specName)
   await fs.mkdir(specDir, { recursive: true })
   return specDir
@@ -384,7 +391,9 @@ describe('FileWatcher', () => {
     it('should handle missing status.json gracefully', async () => {
       watcher = createFileWatcher(createMockConfig(tempDir), eventBus)
 
-      const isReady = await watcher.checkSpecStatus(join(tempDir, 'nonexistent'))
+      const isReady = await watcher.checkSpecStatus(
+        join(tempDir, 'nonexistent'),
+      )
       expect(isReady).toBe(false)
     })
 
@@ -457,7 +466,10 @@ describe('FileWatcher', () => {
       expect(triggerCount).toBe(1)
 
       // Make spec not ready
-      await writeStatusFile(specDir, { runStatus: 'running', currentPhase: 'impl' })
+      await writeStatusFile(specDir, {
+        runStatus: 'running',
+        currentPhase: 'impl',
+      })
       await new Promise((resolve) => setTimeout(resolve, 500))
 
       // Make ready again
