@@ -1,0 +1,129 @@
+direction: right
+
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+# ── External ─────────────────────────────────────────────────────────────────
+
+user: User {shape: person}
+specs: Spec Files\n.kiro/specs/ {shape: cylinder}
+git: Git Repo {shape: cylinder}
+ai: AI Backend\n(Kimi · Claude · etc) {shape: hexagon}
+mcp_servers: MCP Servers {shape: hexagon}
+consumers: SSE Clients\n& Webhooks {shape: hexagon}
+
+# ── Entry ─────────────────────────────────────────────────────────────────────
+
+entry: Entry {
+  cli: CLI\nstart · pause · resume\ncancel · status · logs
+
+  filewatcher: FileWatcher\nwatches .kiro/specs/\nfor ready status
+}
+
+# ── Orchestrator ──────────────────────────────────────────────────────────────
+
+orc: Orchestrator\ndrives the 8-phase pipeline\nmanages run lifecycle {
+  shape: rectangle
+  style: {
+    font-size: 14
+    bold: true
+    fill: "#d0e8d0"
+    stroke: "#2d6a4f"
+    stroke-width: 2
+  }
+}
+
+# ── Per-run ───────────────────────────────────────────────────────────────────
+
+per_run: Per-run State {
+  style.stroke-dash: 4
+
+  sm: StateMachine\nphase transitions\npause · loopback · cancel
+
+  eh: ErrorHandler\nclassify error severity\napply phase policy\n→ retry / loopback / halt
+}
+
+# ── Execution ─────────────────────────────────────────────────────────────────
+
+execution: Execution {
+  agents: Phase Agents {
+    shape: rectangle
+    style.fill: "#ede0f0"
+    label: |md
+      **SpecReader** → **SpecValidator** → **ArchGuardian** →
+      **Executor** → **ArchGuardian** → **TestEngineer** →
+      **UIValidator** → **ReviewCouncil** + **Delivery**
+    |
+  }
+
+  backend: BackendProcess\nspawns CLI subprocess\nNDJSON over stdio
+}
+
+# ── Persistence ───────────────────────────────────────────────────────────────
+
+persistence: Persistence {
+  store: ExecutionStore\nSQLite · JSONL fallback\nruns · phase results · logs
+
+  checkpoint: CheckpointMgr\nwrite-ahead before each phase\nenables crash recovery
+
+  cost: CostTracker\ntoken usage × rate\nper-run budget cap
+}
+
+# ── I/O ───────────────────────────────────────────────────────────────────────
+
+io: I/O {
+  worktree: WorktreeMgr\nisolated git worktree\nper run in .kaso/worktrees/
+
+  specwriter: SpecWriter\nwrites status.json\n& execution-log.md
+
+  mcpclient: MCPClient\nconnects to MCP servers\ntools injected into\nImplementation phase only
+}
+
+# ── Observability ─────────────────────────────────────────────────────────────
+
+observability: Observability {
+  eb: EventBus\ntyped pub/sub\n30+ event types
+
+  sse: SSEServer\nHTTP Server-Sent Events\nrealtime event stream
+
+  webhooks: WebhookDispatcher\nHMAC-signed HTTP POST\nexponential backoff retry
+}
+
+# ── Connections ───────────────────────────────────────────────────────────────
+
+user -> entry.cli
+specs -> entry.filewatcher: status.json change
+
+entry.cli -> orc: startRun()
+entry.filewatcher -> orc: spec:ready → startRun()
+
+orc -> per_run.sm: new instance per run
+orc -> per_run.eh: new instance per run
+orc -> execution.agents: invoke agent for current phase
+orc -> observability.eb: emit events
+orc -> persistence.store: save runs & phase results
+orc -> persistence.checkpoint: checkpoint before each phase
+orc -> persistence.cost: track token spend
+orc -> io.worktree: create isolated branch
+orc -> io.specwriter: update spec status
+orc -> io.mcpclient: set client ref
+
+persistence.checkpoint -> persistence.store: reads/writes
+
+execution.agents -> execution.backend: select & call backend
+execution.backend -> ai: NDJSON over stdio
+
+io.mcpclient -> mcp_servers: tool calls
+io.mcpclient -> execution.agents: inject tools into context
+
+io.worktree -> git: checkout branch
+
+io.specwriter -> specs: status.json · execution-log.md
+
+observability.eb -> observability.sse
+observability.eb -> observability.webhooks
+observability.sse -> consumers: HTTP/SSE stream
+observability.webhooks -> consumers: signed POST
