@@ -28,6 +28,10 @@ Kiro-Enabled Agent Swarm Orchestrator — a locally-run TypeScript system that r
 # Install dependencies
 npm install
 
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
 # Compile TypeScript
 npm run build
 
@@ -69,7 +73,7 @@ Create a `kaso.config.json` in the project root. Minimal example:
 
 MCP tools are automatically scoped to the Implementation phase — other phases don't receive them.
 
-Set API keys as environment variables (e.g., `KIMI_API_KEY`) or store them in your OS keychain via keytar.
+Set API keys in a `.env` file at the project root (loaded automatically via dotenv), as environment variables, or store them in your OS keychain via keytar.
 
 See [AGENTS.md](AGENTS.md) for the full configuration reference and all available options.
 

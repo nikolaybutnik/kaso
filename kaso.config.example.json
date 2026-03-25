@@ -1,6 +1,6 @@
 {
   "_comment": "KASO Configuration File - Example with all options documented",
-  
+
   "executorBackends": [
     {
       "name": "kimi-code",
@@ -33,33 +33,32 @@
       "_comment": "Codex CLI via npx - example of npm-based backend"
     }
   ],
-  
+
   "defaultBackend": "kimi-code",
   "_comment_defaultBackend": "Which backend to use when context-aware selection isn't triggered",
-  
+
   "maxConcurrentAgents": "auto",
   "_comment_maxConcurrentAgents": "Number or 'auto' (CPU cores - 1). Limits parallel agent execution.",
-  
+
   "maxPhaseRetries": 2,
   "_comment_maxPhaseRetries": "Additional retry attempts per phase after initial failure",
-  
+
   "defaultPhaseTimeout": 300,
   "_comment_defaultPhaseTimeout": "Seconds before phase times out (5 minutes default)",
-  
+
   "contextCapping": {
     "enabled": true,
     "charsPerToken": 4,
     "relevanceRanking": [
+      "requirements.md",
       "design.md",
-      "tech-spec.md", 
-      "task.md",
+      "tasks.md",
       "ARCHITECTURE.md",
-      ".cursorrules",
-      "README.md"
+      "package.json"
     ],
     "_comment": "Files at end of list removed first when context exceeds backend limit"
   },
-  
+
   "uiBaseline": {
     "baselineDir": ".kiro/ui-baselines",
     "captureOnPass": true,
@@ -70,32 +69,28 @@
     },
     "_comment": "Visual regression testing configuration using Playwright"
   },
-  
+
   "executionStore": {
     "type": "sqlite",
     "path": ".kaso/execution-store.db",
     "_comment": "Use 'jsonl' for file-based fallback instead of SQLite"
   },
-  
+
   "costBudget": {
     "enabled": true,
     "maxUsdPerRun": 10.0,
     "maxUsdPerMonth": 100.0,
     "_comment": "Halt execution when budget exceeded"
   },
-  
+
   "reviewCouncil": {
     "maxReviewRounds": 2,
     "reviewBudgetUsd": 1.0,
     "enableParallelReview": true,
-    "perspectives": [
-      "security",
-      "performance", 
-      "maintainability"
-    ],
+    "perspectives": ["security", "performance", "maintainability"],
     "_comment": "Multi-perspective code review configuration"
   },
-  
+
   "webhooks": [
     {
       "url": "https://hooks.example.com/kaso-events",
@@ -107,7 +102,7 @@
       "_comment": "HMAC-SHA256 signature sent in X-KASO-Signature header when secret configured"
     }
   ],
-  
+
   "mcpServers": [
     {
       "name": "filesystem",
@@ -117,7 +112,7 @@
       "_comment": "MCP (Model Context Protocol) servers provide tools to executor agents"
     }
   ],
-  
+
   "plugins": [
     {
       "package": "kaso-plugin-custom-agents",
@@ -125,7 +120,7 @@
       "_comment": "npm packages that register custom agents"
     }
   ],
-  
+
   "customPhases": [
     {
       "name": "security-scan",
@@ -134,21 +129,21 @@
       "_comment": "Inject custom phases into the pipeline"
     }
   ],
-  
+
   "sse": {
     "enabled": true,
     "port": 0,
     "authToken": "${KASO_SSE_AUTH_TOKEN}",
     "_comment": "Port 0 = auto-assign. SSE server streams real-time execution events"
   },
-  
+
   "fileWatcher": {
     "enabled": true,
     "specDir": ".kiro/specs",
     "debounceMs": 1000,
     "_comment": "Auto-detect specs with 'ready-for-dev' status and trigger runs"
   },
-  
+
   "logLevel": "info",
   "_comment_logLevel": "debug | info | warn | error - controls CLI output verbosity"
 }

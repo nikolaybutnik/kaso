@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 38 source files across 59 test files with 937 passing tests including comprehensive property-based tests.
+The project has 38 source files across 62 test files with 970 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -39,7 +39,7 @@ The project has 38 source files across 59 test files with 937 passing tests incl
 | UI Testing | Playwright |
 | CLI | Commander.js |
 | Configuration | Zod for runtime schema validation |
-| Build | TypeScript compiler (tsc) |
+| Build | esbuild (bundled ESM output) |
 
 ## Build and Test Commands
 
@@ -290,7 +290,7 @@ Phase 1 (Intake) agent — parses Kiro spec files and assembles execution contex
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `SpecReaderAgent` | Class | Parses design.md, tech-spec.md, task.md. Loads architecture docs (ARCHITECTURE.md, .cursorrules, ADRs). Extracts dependencies from package.json. Loads steering files. Applies context capping with relevance-ranked file removal. |
+| `SpecReaderAgent` | Class | Parses requirements.md, design.md, tasks.md (with legacy fallbacks to design.md, tech-spec.md, task.md). Loads architecture docs (ARCHITECTURE.md, ADRs). Extracts dependencies from package.json. Loads steering files. Applies context capping with relevance-ranked file removal. |
 
 ### `src/agents/spec-validator.ts`
 
@@ -618,7 +618,7 @@ Inserts custom phases at configurable positions in the 8-phase pipeline. Custom 
   "contextCapping": {
     "enabled": true,
     "charsPerToken": 4,
-    "relevanceRanking": ["design.md", "tech-spec.md", "task.md", "ARCHITECTURE.md", ".cursorrules", "package.json"]
+    "relevanceRanking": ["requirements.md", "design.md", "tasks.md", "ARCHITECTURE.md", "package.json"]
   },
   "reviewCouncil": {
     "maxReviewRounds": 2,
@@ -645,7 +645,7 @@ Inserts custom phases at configurable positions in the 8-phase pipeline. Custom 
 ```
 
 ### Required Environment Variables
-- API keys for configured AI backends (e.g., `KIMI_API_KEY`, `ANTHROPIC_API_KEY`)
+- API keys for configured AI backends (e.g., `KIMI_API_KEY`, `ANTHROPIC_API_KEY`) — set via `.env` file, environment variables, or OS keychain
 - Git credentials (if using remote operations)
 - Webhook secrets (for signed webhook payloads)
 

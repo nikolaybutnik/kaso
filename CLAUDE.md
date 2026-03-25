@@ -69,7 +69,7 @@ All types are in `src/core/types.ts`. No `any` types — ever.
 
 - **`kaso.config.json`** — main config (backends, concurrency, budgets, MCP servers, plugins, webhooks, SSE, file watcher)
 - **`.env`** — secrets (`KIMI_API_KEY`, `ANTHROPIC_API_KEY`, `KASO_WEBHOOK_SECRET`, `KASO_SSE_AUTH_TOKEN`)
-- **`.kiro/specs/<name>/`** — spec input dirs with `design.md`, `tech-spec.md`, `task.md`; auto-generate `status.json` + `execution-log.md`
+- **`.kiro/specs/<name>/`** — spec input dirs with `requirements.md`, `design.md`, `tasks.md`; auto-generate `status.json` + `execution-log.md`
 - **`.kiro/steering/`** — agent steering guides (personality, coding practices, commit conventions)
 
 ## Commit Convention
