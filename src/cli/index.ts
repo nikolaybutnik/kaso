@@ -50,8 +50,8 @@ const __dirname = dirname(__filename)
 
 let packageJson: { version: string; name: string; description: string }
 try {
-  // Try to read from dist directory first (compiled)
-  const packagePath = join(__dirname, '..', '..', 'package.json')
+  // dist/kaso.js -> ../package.json
+  const packagePath = join(__dirname, '..', 'package.json')
   packageJson = JSON.parse(
     readFileSync(packagePath, 'utf8'),
   ) as typeof packageJson
