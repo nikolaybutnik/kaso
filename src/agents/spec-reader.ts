@@ -234,8 +234,6 @@ export class SpecReaderAgent implements Agent {
     const docs: Record<string, ParsedMarkdown> = {}
     const archFiles = [
       'ARCHITECTURE.md',
-      '.cursorrules',
-      '.github/copilot-instructions.md',
       'docs/ARCHITECTURE.md',
       'architecture/README.md',
     ]

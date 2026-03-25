@@ -62,7 +62,6 @@ export const ContextCappingStrategySchema = z.object({
       'design.md',
       'tasks.md',
       'ARCHITECTURE.md',
-      '.cursorrules',
       'package.json',
     ]),
 })
