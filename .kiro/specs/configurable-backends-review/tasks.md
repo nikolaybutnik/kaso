@@ -79,7 +79,7 @@ Incremental implementation of per-phase backend selection and configurable revie
     - **Property 6: Phase override map consistency**
     - **Validates: Requirements 3.4, 3.6, 3.7**
 
-- [ ] 5. Integrate phase-aware backend selection into Orchestrator
+- [x] 5. Integrate phase-aware backend selection into Orchestrator
   - [x] 5.1 Update `executePhase()` in `src/core/orchestrator.ts` to use `selectBackendForPhase()`
     - Replace direct `selectBackend()` call with `selectBackendForPhase(phase, context)` when no `preferredBackend` override
     - Record the resolved backend name in the cost tracking invocation so per-backend cost breakdowns remain accurate (Req 2.5)
@@ -99,28 +99,28 @@ Incremental implementation of per-phase backend selection and configurable revie
 - [x] 6. Checkpoint — Backend selection pipeline complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Refactor ReviewCouncilAgent for configurable reviewers
-  - [ ] 7.1 Update constructor dependencies and add `getEffectiveReviewers()` in `src/agents/review-council.ts`
+- [-] 7. Refactor ReviewCouncilAgent for configurable reviewers
+  - [x] 7.1 Update constructor dependencies and add `getEffectiveReviewers()` in `src/agents/review-council.ts`
     - Replace `backendResolver` dependency with `backendRegistry: BackendRegistry` (required)
     - Add `getEffectiveReviewers(config)`: returns `reviewers` array if present, else converts `perspectives` to `ReviewerConfig[]`
     - Update `createReviewCouncilAgent` factory function signature
     - Verify and update all call sites that create ReviewCouncilAgent (orchestrator wiring in `src/index.ts`, any CLI wiring, existing tests) to pass the required `BackendRegistry`
     - _Requirements: 4.2, 4.3, 4.4, 5.1, 5.2, 6.5_
 
-  - [ ] 7.2 Implement per-reviewer backend resolution and event emission in `src/agents/review-council.ts`
+  - [x] 7.2 Implement per-reviewer backend resolution and event emission in `src/agents/review-council.ts`
     - Add `resolveReviewerBackend(reviewer, context)`: follows chain `reviewer.backend` → `phaseBackends['review-delivery']` → `defaultBackend`
     - Emit `agent:backend-selected` event with `reviewer-override` reason when reviewer has explicit backend
     - Update `executePerspectiveReview()` to accept `ReviewerConfig` instead of `ReviewPerspective`
     - _Requirements: 6.1, 6.2, 6.5, 6.6, 11.3_
 
-  - [ ] 7.3 Generalize consensus logic and add heuristic fallback in `src/agents/review-council.ts`
+  - [x] 7.3 Generalize consensus logic and add heuristic fallback in `src/agents/review-council.ts`
     - Replace hardcoded 2/3 threshold with `Math.floor(totalCount * 2 / 3)` formula
     - Verify edge cases: 1 reviewer approve/reject (Req 7.4, 7.5), 2 reviewers with 1 approve (Req 7.7) and 0 approve (Req 7.8), 4 reviewers with 2 approve (Req 7.9)
     - Add `executeGenericHeuristicReview(role, reviewContext)` for custom roles without backend
     - Include warning in heuristic feedback indicating heuristic review was used
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.2, 8.3_
 
-  - [ ]* 7.4 Write property tests for review council in `tests/property/review-council.property.test.ts`
+  - [x] 7.4 Write property tests for review council in `tests/property/review-council.property.test.ts`
     - **Property 7: Reviewer count matches votes with correct perspectives**
     - **Validates: Requirements 4.2, 8.2, 8.4, 9.1**
     - **Property 8: Legacy perspectives conversion**

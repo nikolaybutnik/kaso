@@ -132,7 +132,7 @@ export function createAgent(
     case 'review-delivery':
       return new ReviewCouncilAgent({
         eventBus,
-        backendResolver: () => undefined,
+        backendRegistry,
       })
     default:
       if (phase.startsWith('custom-')) {

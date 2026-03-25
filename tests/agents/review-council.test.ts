@@ -114,7 +114,7 @@ describe('ReviewCouncilAgent', () => {
 
   beforeEach(() => {
     eventBus = new EventBus()
-    agent = createReviewCouncilAgent({ eventBus })
+    agent = createReviewCouncilAgent({ eventBus } as import('../../src/agents/review-council').ReviewCouncilDependencies)
   })
 
   describe('interface compliance', () => {
@@ -472,7 +472,7 @@ describe('ReviewCouncilAgent', () => {
 
 describe('Review Council Edge Cases', () => {
   it('should handle empty modified files list', async () => {
-    const agent = createReviewCouncilAgent()
+    const agent = createReviewCouncilAgent({} as import('../../src/agents/review-council').ReviewCouncilDependencies)
     const context = createMockContext({
       config: {
         ...createMockContext().config,
@@ -514,7 +514,7 @@ describe('Review Council Edge Cases', () => {
   })
 
   it('should handle custom perspective configuration', async () => {
-    const agent = createReviewCouncilAgent()
+    const agent = createReviewCouncilAgent({} as import('../../src/agents/review-council').ReviewCouncilDependencies)
     const context = createMockContext({
       config: {
         ...createMockContext().config,
@@ -559,7 +559,7 @@ describe('Review Council Edge Cases', () => {
   })
 
   it('should handle abort during execution', async () => {
-    const agent = createReviewCouncilAgent()
+    const agent = createReviewCouncilAgent({} as import('../../src/agents/review-council').ReviewCouncilDependencies)
     const abortController = new AbortController()
 
     // Abort after a short delay

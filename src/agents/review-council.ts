@@ -1,17 +1,18 @@
 /**
  * Review Council Agent (Phase 8 — Review & Delivery)
- * Multi-perspective code review with consensus logic.
+ * Configurable multi-perspective code review with consensus logic.
  *
  * Responsibilities:
- * - Spawn 3 reviewer instances: security, performance, maintainability
- * - Collect approval/rejection votes from all 3 perspectives
- * - Apply consensus logic: 3/3 = passed, 2/3 = passed-with-warnings, <2/3 = rejected
- * - Enforce maxReviewRounds cap (default 2)
- * - Enforce reviewBudgetUsd cost cap — stop further rounds when exceeded
+ * - Spawn configurable reviewer instances from `reviewers` array or legacy `perspectives`
+ * - Support custom review perspectives (e.g., accessibility, compliance)
+ * - Per-reviewer backend assignment with fallback chain: reviewer.backend → phaseBackends['review-delivery'] → defaultBackend
+ * - Generalized consensus: all approve → passed, ≥ Math.floor(N*2/3) → passed-with-warnings, else rejected
+ * - Enforce maxReviewRounds cap (default 2) and reviewBudgetUsd cost cap
  * - Support parallel vs sequential execution toggle
- * - Produce ReviewCouncilResult with consensus and individual votes
+ * - Emit agent:backend-selected events for per-reviewer backend overrides
+ * - Heuristic fallback for custom roles without backend
  *
- * Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 29.1, 29.2, 29.3
+ * Requirements: 4.2–4.4, 5.1–5.2, 6.1–6.6, 7.1–7.9, 8.1–8.4, 9.1–9.3, 11.3, 15.1–15.5, 29.1–29.3
  */
 
 import type {
@@ -25,9 +26,10 @@ import type {
   PhaseOutput,
 } from '../core/types'
 import type { Agent } from './agent-interface'
-import type { ExecutorBackend } from '../backends/backend-adapter'
-import type { ReviewCouncilConfig } from '../config/schema'
-import { EventBus } from '../core/event-bus'
+import type { ExecutorBackend } from '@/backends/backend-adapter'
+import type { BackendRegistry } from '@/backends/backend-registry'
+import type { ReviewCouncilConfig, ReviewerConfig } from '@/config/schema'
+import { EventBus } from '@/core/event-bus'
 
 /** Estimated duration for review council agent in milliseconds */
 const ESTIMATED_DURATION_MS = 30_000
@@ -57,9 +59,9 @@ interface PerspectiveReviewResult {
 }
 
 /** Review council dependencies */
-interface ReviewCouncilDependencies {
+export interface ReviewCouncilDependencies {
   eventBus?: EventBus
-  backendResolver?: (name?: string) => ExecutorBackend | undefined
+  backendRegistry: BackendRegistry
 }
 
 /**
@@ -70,12 +72,13 @@ interface ReviewCouncilDependencies {
  */
 export class ReviewCouncilAgent implements Agent {
   private readonly eventBus: EventBus
-  private readonly backendResolver: (name?: string) => ExecutorBackend | undefined
+  private readonly backendRegistry: BackendRegistry
 
-  constructor(deps: ReviewCouncilDependencies = {}) {
+  constructor(
+    deps: ReviewCouncilDependencies = {} as ReviewCouncilDependencies,
+  ) {
     this.eventBus = deps.eventBus ?? new EventBus()
-    this.backendResolver =
-      deps.backendResolver ?? (() => undefined)
+    this.backendRegistry = deps.backendRegistry
   }
 
   // ---------------------------------------------------------------------------
@@ -147,11 +150,30 @@ export class ReviewCouncilAgent implements Agent {
   }
 
   private getReviewConfig(context: AgentContext): ReviewCouncilConfig {
-    return context.config.reviewCouncil ?? {
-      maxReviewRounds: 2,
-      enableParallelReview: false,
-      perspectives: ['security', 'performance', 'maintainability'],
+    return (
+      context.config.reviewCouncil ?? {
+        maxReviewRounds: 2,
+        enableParallelReview: false,
+        perspectives: ['security', 'performance', 'maintainability'],
+      }
+    )
+  }
+
+  /**
+   * Get effective reviewers from config.
+   * Uses reviewers array if present, otherwise converts perspectives to ReviewerConfig.
+   */
+  private getEffectiveReviewers(config: ReviewCouncilConfig): ReviewerConfig[] {
+    if (config.reviewers && config.reviewers.length > 0) {
+      return config.reviewers
     }
+    // Legacy: convert perspectives to ReviewerConfig
+    const perspectives = config.perspectives ?? [
+      'security',
+      'performance',
+      'maintainability',
+    ]
+    return perspectives.map((p) => ({ role: p }))
   }
 
   private buildReviewContext(context: AgentContext): ReviewContext {
@@ -196,11 +218,7 @@ export class ReviewCouncilAgent implements Agent {
     config: ReviewCouncilConfig,
     agentContext: AgentContext,
   ): Promise<ReviewCouncilResult> {
-    const perspectives = config.perspectives ?? [
-      'security',
-      'performance',
-      'maintainability',
-    ]
+    const reviewers = this.getEffectiveReviewers(config)
     const maxRounds = config.maxReviewRounds ?? 2
     const budgetUsd = config.reviewBudgetUsd
     const parallel = config.enableParallelReview ?? false
@@ -221,8 +239,11 @@ export class ReviewCouncilAgent implements Agent {
       )
 
       // Check budget before starting round
-      const estimatedRoundCost = this.estimateRoundCost(perspectives.length)
-      if (budgetUsd !== undefined && totalCost + estimatedRoundCost > budgetUsd) {
+      const estimatedRoundCost = this.estimateRoundCost(reviewers.length)
+      if (
+        budgetUsd !== undefined &&
+        totalCost + estimatedRoundCost > budgetUsd
+      ) {
         this.emitProgress(
           agentContext.runId,
           `Budget limit reached ($${totalCost.toFixed(2)} / $${budgetUsd}), stopping reviews`,
@@ -233,7 +254,7 @@ export class ReviewCouncilAgent implements Agent {
       // Execute reviews for this round
       const roundResults = await this.executeRound(
         reviewContext,
-        perspectives,
+        reviewers,
         parallel,
         agentContext,
         currentRound,
@@ -245,14 +266,14 @@ export class ReviewCouncilAgent implements Agent {
         allVotes.push(result.vote)
       }
 
-      // Check if we've reached consensus (all perspectives approved)
+      // Check if we've reached consensus (all reviewers approved)
       const roundVotes = roundResults.map((r) => r.vote)
       const allApproved = roundVotes.every((v) => v.approved)
 
       if (allApproved) {
         this.emitProgress(
           agentContext.runId,
-          `All perspectives approved in round ${currentRound}`,
+          `All reviewers approved in round ${currentRound}`,
         )
         break
       }
@@ -262,7 +283,7 @@ export class ReviewCouncilAgent implements Agent {
         const rejections = roundVotes.filter((v) => !v.approved)
         this.emitProgress(
           agentContext.runId,
-          `${rejections.length} perspective(s) rejected, proceeding to round ${currentRound + 1}`,
+          `${rejections.length} reviewer(s) rejected, proceeding to round ${currentRound + 1}`,
         )
       }
     }
@@ -284,33 +305,33 @@ export class ReviewCouncilAgent implements Agent {
    */
   private async executeRound(
     reviewContext: ReviewContext,
-    perspectives: string[],
+    reviewers: ReviewerConfig[],
     parallel: boolean,
     agentContext: AgentContext,
     roundNum: number,
   ): Promise<PerspectiveReviewResult[]> {
     if (parallel) {
-      // Parallel execution: all perspectives review simultaneously
+      // Parallel execution: all reviewers review simultaneously
       this.emitProgress(
         agentContext.runId,
         `Round ${roundNum}: Executing parallel reviews`,
       )
       const results = await Promise.all(
-        perspectives.map((p) =>
-          this.executePerspectiveReview(p, reviewContext, agentContext),
+        reviewers.map((r) =>
+          this.executePerspectiveReview(r, reviewContext, agentContext),
         ),
       )
       return results
     } else {
-      // Sequential execution: one perspective at a time
+      // Sequential execution: one reviewer at a time
       const results: PerspectiveReviewResult[] = []
-      for (const perspective of perspectives) {
+      for (const reviewer of reviewers) {
         this.emitProgress(
           agentContext.runId,
-          `Round ${roundNum}: Executing ${perspective} review`,
+          `Round ${roundNum}: Executing ${reviewer.role} review`,
         )
         const result = await this.executePerspectiveReview(
-          perspective,
+          reviewer,
           reviewContext,
           agentContext,
         )
@@ -325,16 +346,21 @@ export class ReviewCouncilAgent implements Agent {
    * Delegates to the executor backend if available, otherwise uses heuristic.
    */
   private async executePerspectiveReview(
-    perspective: string,
+    reviewer: ReviewerConfig,
     reviewContext: ReviewContext,
     agentContext: AgentContext,
   ): Promise<PerspectiveReviewResult> {
-    const backend = this.resolveBackend(agentContext)
+    const backend = this.resolveReviewerBackend(reviewer, agentContext)
 
     if (backend) {
-      return this.executeBackendReview(backend, perspective, reviewContext, agentContext)
+      return this.executeBackendReview(
+        backend,
+        reviewer,
+        reviewContext,
+        agentContext,
+      )
     } else {
-      return this.executeHeuristicReview(perspective, reviewContext)
+      return this.executeHeuristicReview(reviewer.role, reviewContext)
     }
   }
 
@@ -343,11 +369,27 @@ export class ReviewCouncilAgent implements Agent {
    */
   private async executeBackendReview(
     backend: ExecutorBackend,
-    perspective: string,
+    reviewer: ReviewerConfig,
     reviewContext: ReviewContext,
     agentContext: AgentContext,
   ): Promise<PerspectiveReviewResult> {
+    const perspective = reviewer.role
     const prompt = this.buildReviewPrompt(perspective, reviewContext)
+
+    // Emit backend selection event when reviewer has explicit backend
+    if (reviewer.backend) {
+      this.eventBus.emit({
+        type: 'agent:backend-selected',
+        runId: agentContext.runId,
+        timestamp: new Date().toISOString(),
+        phase: 'review-delivery',
+        data: {
+          backend: backend.name,
+          reason: 'reviewer-override',
+          reviewerRole: reviewer.role,
+        },
+      })
+    }
 
     let tokensUsed = 0
 
@@ -439,16 +481,43 @@ export class ReviewCouncilAgent implements Agent {
           cost,
         }
       default:
-        return {
-          vote: {
-            perspective,
-            approved: true,
-            feedback: 'Unknown perspective, defaulting to approved',
-            severity: 'low',
-          },
-          tokensUsed,
-          cost,
-        }
+        return this.executeGenericHeuristicReview(perspective, reviewContext)
+    }
+  }
+
+  /**
+   * Execute generic heuristic review for custom roles without backend.
+   * Performs generic checks (architecture violations, test pass/fail).
+   */
+  private executeGenericHeuristicReview(
+    role: string,
+    reviewContext: ReviewContext,
+  ): PerspectiveReviewResult {
+    const tokensUsed = this.estimateTokens(JSON.stringify(reviewContext))
+    const cost = this.estimateCost(tokensUsed)
+
+    const issues: string[] = []
+    if (reviewContext.architectureViolations.length > 0) {
+      issues.push(
+        `${reviewContext.architectureViolations.length} architecture violations`,
+      )
+    }
+    if (!reviewContext.testPassed) {
+      issues.push('Tests are failing')
+    }
+
+    return {
+      vote: {
+        perspective: role,
+        approved: issues.length === 0,
+        feedback:
+          issues.length === 0
+            ? `Generic heuristic review passed for '${role}'`
+            : `Heuristic review for '${role}': ${issues.join('; ')} (heuristic — no backend available)`,
+        severity: issues.length > 0 ? 'medium' : 'low',
+      },
+      tokensUsed,
+      cost,
     }
   }
 
@@ -493,7 +562,8 @@ export class ReviewCouncilAgent implements Agent {
       feedback: approved
         ? 'No obvious security concerns detected'
         : `Security concerns: ${issues.join('; ')}`,
-      severity: issues.length > 1 ? 'high' : issues.length === 1 ? 'medium' : 'low',
+      severity:
+        issues.length > 1 ? 'high' : issues.length === 1 ? 'medium' : 'low',
     }
   }
 
@@ -527,7 +597,8 @@ export class ReviewCouncilAgent implements Agent {
       feedback: approved
         ? 'No obvious performance concerns detected'
         : `Performance concerns: ${issues.join('; ')}`,
-      severity: issues.length > 1 ? 'high' : issues.length === 1 ? 'medium' : 'low',
+      severity:
+        issues.length > 1 ? 'high' : issues.length === 1 ? 'medium' : 'low',
     }
   }
 
@@ -561,7 +632,8 @@ export class ReviewCouncilAgent implements Agent {
       feedback: approved
         ? 'Code meets maintainability standards'
         : `Maintainability concerns: ${issues.join('; ')}`,
-      severity: issues.length > 2 ? 'high' : issues.length > 0 ? 'medium' : 'low',
+      severity:
+        issues.length > 2 ? 'high' : issues.length > 0 ? 'medium' : 'low',
     }
   }
 
@@ -570,15 +642,18 @@ export class ReviewCouncilAgent implements Agent {
   // ---------------------------------------------------------------------------
 
   /**
-   * Determine consensus from all votes.
-   * - 3/3 approvals = passed
-   * - 2/3 approvals = passed-with-warnings
-   * - <2/3 approvals = rejected
+   * Determine consensus from all votes using generalized 2/3 threshold.
+   * - All approve → 'passed'
+   * - ≥ threshold approve → 'passed-with-warnings'
+   * - < threshold → 'rejected'
+   *
+   * Threshold is Math.floor(N * 2 / 3) with a minimum of 1 so that
+   * 0 approvals always produces 'rejected' (Req 7.5, 7.8).
    */
   private determineConsensus(
     votes: ReviewVote[],
   ): 'passed' | 'passed-with-warnings' | 'rejected' {
-    // Group by perspective and take the latest vote for each
+    // Deduplicate by perspective — latest vote per reviewer wins
     const latestVotes = new Map<string, ReviewVote>()
     for (const vote of votes) {
       latestVotes.set(vote.perspective, vote)
@@ -588,28 +663,46 @@ export class ReviewCouncilAgent implements Agent {
     const approvalCount = uniqueVotes.filter((v) => v.approved).length
     const totalCount = uniqueVotes.length
 
-    if (totalCount === 0) {
-      return 'rejected'
-    }
+    if (totalCount === 0) return 'rejected'
+    if (approvalCount === totalCount) return 'passed'
 
-    if (approvalCount === totalCount) {
-      return 'passed'
-    } else if (approvalCount >= 2) {
-      return 'passed-with-warnings'
-    } else {
-      return 'rejected'
-    }
+    // Min 1 ensures 0 approvals → rejected for any reviewer count
+    const threshold = Math.max(1, Math.floor((totalCount * 2) / 3))
+    if (approvalCount >= threshold) return 'passed-with-warnings'
+    return 'rejected'
   }
 
   // ---------------------------------------------------------------------------
   // Backend and cost helpers
   // ---------------------------------------------------------------------------
 
-  private resolveBackend(context: AgentContext): ExecutorBackend | undefined {
-    const backendName = context.preferredBackend ?? context.config.defaultBackend
-    // Note: In actual implementation, this would resolve from a backend registry
-    // For now, we rely on the backendResolver injected at construction
-    return this.backendResolver(backendName)
+  /**
+   * Resolve backend for a specific reviewer following the fallback chain:
+   * 1. reviewer.backend (if specified)
+   * 2. phaseBackends['review-delivery'] (if set)
+   * 3. defaultBackend (ultimate fallback)
+   */
+  private resolveReviewerBackend(
+    reviewer: ReviewerConfig,
+    context: AgentContext,
+  ): ExecutorBackend | undefined {
+    // If no backend registry available, return undefined to use heuristic
+    if (!this.backendRegistry) {
+      return undefined
+    }
+
+    // 1. Reviewer-specific backend
+    if (reviewer.backend) {
+      return this.backendRegistry.getBackend(reviewer.backend)
+    }
+    // 2. Phase backend for review-delivery
+    if (this.backendRegistry.hasPhaseOverride('review-delivery')) {
+      const phaseOverride =
+        this.backendRegistry.getPhaseOverride('review-delivery')!
+      return this.backendRegistry.getBackend(phaseOverride)
+    }
+    // 3. Default backend
+    return this.backendRegistry.getBackend(context.config.defaultBackend)
   }
 
   private buildReviewPrompt(
@@ -646,7 +739,8 @@ Provide your review in JSON format:
   }
 
   private calculateCost(tokensUsed: number, context: AgentContext): number {
-    const backendName = context.preferredBackend ?? context.config.defaultBackend
+    const backendName =
+      context.preferredBackend ?? context.config.defaultBackend
     const backend = context.config.executorBackends.find(
       (b) => b.name === backendName,
     )
@@ -718,10 +812,10 @@ function formatError(error: unknown): {
 
 /**
  * Create a new ReviewCouncilAgent instance.
- * @param deps Optional dependencies (eventBus, backendResolver)
+ * @param deps Dependencies (eventBus optional, backendRegistry required for per-reviewer backend selection)
  */
 export function createReviewCouncilAgent(
-  deps?: ReviewCouncilDependencies,
+  deps: ReviewCouncilDependencies = {} as ReviewCouncilDependencies,
 ): ReviewCouncilAgent {
   return new ReviewCouncilAgent(deps)
 }

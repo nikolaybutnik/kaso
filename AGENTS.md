@@ -328,14 +328,14 @@ Phase 6 (Test & Verification) agent — generates tests, runs the test suite, an
 
 ### `src/agents/review-council.ts`
 
-Phase 8 (Review & Delivery) agent — multi-perspective code review with consensus logic.
+Phase 8 (Review & Delivery) agent — configurable multi-perspective code review with consensus logic.
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `ReviewCouncilAgent` | Class | Spawns 3 reviewer instances (security, performance, maintainability). Collects approval/rejection votes. Consensus: 3/3 = passed, 2/3 = passed-with-warnings, <2/3 = rejected. Enforces maxReviewRounds cap and reviewBudgetUsd cost cap. Supports parallel vs sequential execution toggle. Falls back to heuristic review when no backend is available. Supports `AbortSignal` for cooperative cancellation. |
-| `createReviewCouncilAgent` | Function | Factory function accepting optional `EventBus` and `backendResolver` |
-| `ReviewPerspective` | Type | `'security' \| 'performance' \| 'maintainability'` |
-| `ReviewVote` | Interface | Individual vote with perspective, approved, feedback, severity |
+| `ReviewCouncilAgent` | Class | Spawns configurable reviewer instances from `reviewers` array or legacy `perspectives`. Supports custom review perspectives and per-reviewer backend assignment with fallback chain (reviewer.backend → phaseBackends['review-delivery'] → defaultBackend). Generalized consensus: all approve → passed, ≥ Math.max(1, Math.floor(N*2/3)) → passed-with-warnings, else rejected. Enforces maxReviewRounds cap and reviewBudgetUsd cost cap. Supports parallel vs sequential execution toggle. Falls back to heuristic review when no backend is available. Emits `agent:backend-selected` events for per-reviewer backend overrides. Supports `AbortSignal` for cooperative cancellation. |
+| `createReviewCouncilAgent` | Function | Factory function accepting `ReviewCouncilDependencies` (eventBus optional, backendRegistry required) |
+| `ReviewPerspective` | Type | `'security' \| 'performance' \| 'maintainability'` (deprecated — use `string` for custom perspectives) |
+| `ReviewVote` | Interface | Individual vote with perspective (string), approved, feedback, severity |
 
 ### `src/agents/ui-validator.ts`
 
