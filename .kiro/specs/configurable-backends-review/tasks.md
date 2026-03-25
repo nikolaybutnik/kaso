@@ -175,7 +175,7 @@ Incremental implementation of per-phase backend selection and configurable revie
     - Verify EventBus accepts and emits the new event type
     - _Requirements: 11.1_
 
-- [ ] 11. Final checkpoint — All tests pass
+- [x] 11. Final checkpoint — All tests pass
   - Ensure all tests pass, ask the user if questions arise.
   - Update documentation where relevant.
 

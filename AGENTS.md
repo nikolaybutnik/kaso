@@ -119,7 +119,7 @@ tests/
 ├── config/              # 1 test file
 ├── core/                # 3 test files
 ├── infrastructure/      # 10 test files
-├── integration/         # 3 test files
+├── integration/         # 5 test files
 ├── plugins/             # 2 test files
 ├── property/            # 24 property-based test files
 └── streaming/           # 1 test file

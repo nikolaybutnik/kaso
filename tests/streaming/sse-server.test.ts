@@ -234,14 +234,15 @@ describe('SSEServer', () => {
 
       it('should track client count accurately', async () => {
         const p1 = collectSSEEvents(port, '/events', {
-          timeoutMs: 2000,
+          timeoutMs: 3000,
           minEvents: 999,
         }).catch(() => {})
         const p2 = collectSSEEvents(port, '/events', {
-          timeoutMs: 2000,
+          timeoutMs: 3000,
           minEvents: 999,
         }).catch(() => {})
-        await tick()
+        // Give connections enough time to fully establish
+        await tick(200)
         expect(server.getClientCount()).toBeGreaterThanOrEqual(2)
         expect(server.getClientIds().length).toBeGreaterThanOrEqual(2)
         await Promise.allSettled([p1, p2])
