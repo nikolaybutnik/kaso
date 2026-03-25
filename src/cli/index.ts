@@ -18,7 +18,7 @@
  */
 
 import { Command } from 'commander'
-import { readFileSync } from 'fs'
+import { readFileSync, realpathSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -282,7 +282,7 @@ program
 program
   .command('doctor')
   .description('Verify system health and dependencies')
-  .action(async (_options: unknown, cmd: Command) => {
+  .action((_options: unknown, cmd: Command) => {
     const globalOpts = cmd.optsWithGlobals<{
       config?: string
       color?: boolean
@@ -291,8 +291,7 @@ program
       process.env.NO_COLOR = '1'
     }
 
-    const context = await createContext(globalOpts)
-    doctorCommand(context)
+    doctorCommand()
   })
 
 // ============================================================================
@@ -311,7 +310,7 @@ process.on('unhandledRejection', (error) => {
 // Parse CLI arguments
 // ============================================================================
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
   try {
     await program.parseAsync(process.argv)
   } catch (error) {

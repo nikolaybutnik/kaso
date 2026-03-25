@@ -3,9 +3,12 @@
   "version": "0.2.0",
   "description": "Kiro-Enabled Agent Swarm Orchestrator - locally-run modular orchestration system for AI-assisted engineering",
   "main": "dist/index.js",
+  "bin": {
+    "kaso": "dist/kaso.js"
+  },
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --noEmit && esbuild src/cli/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/kaso.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:property": "vitest run --reporter=verbose tests/**/*property*.test.ts",
@@ -34,7 +37,9 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.10.6",
     "@vitest/coverage-v8": "^1.1.0",
+    "esbuild": "^0.27.4",
     "playwright": "^1.40.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.3.3",
     "vitest": "^1.1.0"
   },

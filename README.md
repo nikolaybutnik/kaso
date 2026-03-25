@@ -30,7 +30,12 @@ npm install
 
 # Compile TypeScript
 npm run build
+
+# Register the kaso command globally
+npm link
 ```
+
+To unlink later: `npm unlink -g kaso`
 
 ## Configuration
 
