@@ -33,6 +33,7 @@ const MOCK_CONFIG: KASOConfig = {
   maxPhaseRetries: 2,
   defaultPhaseTimeout: 300,
   phaseTimeouts: {},
+  phaseBackends: {},
   contextCapping: {
     enabled: true,
     charsPerToken: 4,

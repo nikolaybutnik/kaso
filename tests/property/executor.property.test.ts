@@ -56,6 +56,7 @@ describe('Property 19: Implementation context includes spec, architecture, and v
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,
       phaseTimeouts: {},
+      phaseBackends: {},
       contextCapping: {
         enabled: true,
         charsPerToken: 4,
@@ -266,6 +267,7 @@ describe('Property 20: Executor retries capped at 3', () => {
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,
       phaseTimeouts: {},
+      phaseBackends: {},
       contextCapping: {
         enabled: true,
         charsPerToken: 4,
@@ -440,6 +442,7 @@ describe('Additional Executor Properties', () => {
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,
       phaseTimeouts: {},
+      phaseBackends: {},
       contextCapping: {
         enabled: true,
         charsPerToken: 4,

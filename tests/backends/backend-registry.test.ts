@@ -3,15 +3,16 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { BackendRegistry } from '../../src/backends/backend-registry'
-import type { KASOConfig } from '../../src/config/schema'
-import type { AgentContext } from '../../src/core/types'
+import { BackendRegistry } from '@/backends/backend-registry'
+import type { KASOConfig } from '@/config/schema'
+import type { AgentContext } from '@/core/types'
 
 /**
  * Creates a test configuration with multiple backends
  */
 function createTestConfig(): KASOConfig {
   return {
+    phaseBackends: {},
     executorBackends: [
       {
         name: 'kimi-code',

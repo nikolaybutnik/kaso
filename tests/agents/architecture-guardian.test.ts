@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { ArchitectureGuardianAgent } from '../../src/agents/architecture-guardian'
+import { ArchitectureGuardianAgent } from '@/agents/architecture-guardian'
 import type {
   AgentContext,
   AssembledContext,
@@ -15,8 +15,8 @@ import type {
   ArchitectureContext,
   ParsedMarkdown,
   SteeringFiles,
-} from '../../src/core/types'
-import type { KASOConfig } from '../../src/config/schema'
+} from '@/core/types'
+import type { KASOConfig } from '@/config/schema'
 
 // Helper to create minimal AgentContext
 function createMockContext(
@@ -29,6 +29,7 @@ function createMockContext(
 
   const mockConfig: KASOConfig = {
     executorBackends: [],
+    phaseBackends: {},
     defaultBackend: 'test',
     backendSelectionStrategy: 'default',
     maxConcurrentAgents: 1,

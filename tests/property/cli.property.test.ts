@@ -44,6 +44,7 @@ const limitArb = fc.integer({ min: 1, max: 1000 })
 
 function createMockConfig(): KASOConfig {
   return {
+    phaseBackends: {},
     executorBackends: [
       {
         name: 'test-backend',

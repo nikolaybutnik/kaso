@@ -10,15 +10,15 @@
 
 import { test, fc } from '@fast-check/vitest'
 import { describe, expect } from 'vitest'
-import { createReviewCouncilAgent } from '../../src/agents/review-council'
+import { createReviewCouncilAgent } from '@/agents/review-council'
 import type {
   AgentContext,
   ImplementationResult,
   ArchitectureReview,
   TestReport,
   ReviewCouncilResult,
-} from '../../src/core/types'
-import { EventBus } from '../../src/core/event-bus'
+} from '@/core/types'
+import { EventBus } from '@/core/event-bus'
 
 // =============================================================================
 // Shared Fixtures
@@ -72,6 +72,8 @@ function createMockContext(
       maxConcurrentAgents: 4,
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,
+      phaseTimeouts: {},
+      phaseBackends: {},
       backendSelectionStrategy: 'default',
       contextCapping: {
         enabled: true,
@@ -93,7 +95,6 @@ function createMockContext(
       mcpServers: [],
       plugins: [],
       customPhases: [],
-      phaseTimeouts: {},
       executionStore: {
         type: 'sqlite',
         path: '.kaso/execution-store.db',

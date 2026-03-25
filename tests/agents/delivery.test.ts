@@ -10,15 +10,15 @@ import {
   DeliveryAgent,
   createDeliveryAgent,
   CommitInfo,
-} from '../../src/agents/delivery'
+} from '@/agents/delivery'
 import type {
   AgentContext,
   ImplementationResult,
   TestReport,
   ReviewCouncilResult,
   DeliveryResult,
-} from '../../src/core/types'
-import { EventBus } from '../../src/core/event-bus'
+} from '@/core/types'
+import { EventBus } from '@/core/event-bus'
 
 // =============================================================================
 // Test Fixtures
@@ -120,6 +120,7 @@ function createMockContext(
           enabled: true,
         },
       ],
+      phaseBackends: {},
       defaultBackend: 'kimi-code',
       maxConcurrentAgents: 4,
       maxPhaseRetries: 2,

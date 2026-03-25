@@ -9,15 +9,15 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   ReviewCouncilAgent,
   createReviewCouncilAgent,
-} from '../../src/agents/review-council'
+} from '@/agents/review-council'
 import type {
   AgentContext,
   ImplementationResult,
   ArchitectureReview,
   TestReport,
   ReviewCouncilResult,
-} from '../../src/core/types'
-import { EventBus } from '../../src/core/event-bus'
+} from '@/core/types'
+import { EventBus } from '@/core/event-bus'
 
 // =============================================================================
 // Test Fixtures
@@ -67,6 +67,7 @@ function createMockContext(
           enabled: true,
         },
       ],
+      phaseBackends: {},
       defaultBackend: 'kimi-code',
       maxConcurrentAgents: 4,
       maxPhaseRetries: 2,

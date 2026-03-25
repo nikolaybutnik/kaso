@@ -24,6 +24,7 @@ import type { ExecutionRunRecord, RunStatus, LogEntry } from '@/core/types'
 
 function createMockConfig(): KASOConfig {
   return {
+    phaseBackends: {},
     executorBackends: [
       {
         name: 'test-backend',

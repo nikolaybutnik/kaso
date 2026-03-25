@@ -66,6 +66,7 @@ function createTestConfig(overrides: Partial<KASOConfig> = {}): KASOConfig {
     maxPhaseRetries: 2,
     defaultPhaseTimeout: 300,
     phaseTimeouts: {},
+    phaseBackends: {},
     contextCapping: { enabled: false, charsPerToken: 4, relevanceRanking: [] },
     reviewCouncil: {
       maxReviewRounds: 2,

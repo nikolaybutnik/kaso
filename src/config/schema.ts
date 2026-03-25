@@ -72,6 +72,34 @@ export type ContextCappingStrategy = z.infer<
 >
 
 /**
+ * Phase name schema - 8 built-in phases or custom phases
+ * Used for phaseBackends keys - uses PhaseName type from core/types
+ */
+const PhaseNameSchema = z.union([
+  z.enum([
+    'intake',
+    'validation',
+    'architecture-analysis',
+    'implementation',
+    'architecture-review',
+    'test-verification',
+    'ui-validation',
+    'review-delivery',
+  ]),
+  z.string().regex(/^custom-[a-z0-9-]+$/),
+])
+
+/**
+ * Reviewer configuration for review council
+ */
+export const ReviewerConfigSchema = z.object({
+  role: z.string().min(1),
+  backend: z.string().min(1).optional(),
+})
+
+export type ReviewerConfig = z.infer<typeof ReviewerConfigSchema>
+
+/**
  * Review council configuration
  */
 export const ReviewCouncilConfigSchema = z.object({
@@ -81,6 +109,19 @@ export const ReviewCouncilConfigSchema = z.object({
   perspectives: z
     .array(z.enum(['security', 'performance', 'maintainability']))
     .default(['security', 'performance', 'maintainability']),
+  reviewers: z
+    .array(ReviewerConfigSchema)
+    .min(1)
+    .refine(
+      (reviewers) => {
+        const roles = new Set(reviewers.map((r) => r.role))
+        return roles.size === reviewers.length
+      },
+      {
+        message: 'Reviewer roles must be unique',
+      },
+    )
+    .optional(),
 })
 
 export type ReviewCouncilConfig = z.infer<typeof ReviewCouncilConfigSchema>
@@ -172,62 +213,122 @@ export type MCPToolDefinition = z.infer<typeof MCPToolDefinitionSchema>
 /**
  * Main KASO configuration schema
  */
-export const KASOConfigSchema = z.object({
-  // Executor backends
-  executorBackends: z.array(ExecutorBackendConfigSchema).min(1),
-  defaultBackend: z.string().min(1),
-  backendSelectionStrategy: z
-    .enum(['default', 'context-aware'])
-    .default('default'),
+export const KASOConfigSchema = z
+  .object({
+    // Executor backends
+    executorBackends: z.array(ExecutorBackendConfigSchema).min(1),
+    defaultBackend: z.string().min(1),
+    backendSelectionStrategy: z
+      .enum(['default', 'context-aware'])
+      .default('default'),
 
-  // Concurrency
-  maxConcurrentAgents: z
-    .union([z.literal('auto'), z.number().int().positive()])
-    .default('auto'),
+    // Phase configuration
+    maxConcurrentAgents: z
+      .union([z.literal('auto'), z.number().int().positive()])
+      .default('auto'),
 
-  // Phase configuration
-  maxPhaseRetries: z.number().int().min(0).default(2),
-  defaultPhaseTimeout: z.number().positive().default(300),
-  phaseTimeouts: z.record(z.string(), z.number().positive()).default({}),
+    // Phase configuration
+    maxPhaseRetries: z.number().int().min(0).default(2),
+    defaultPhaseTimeout: z.number().positive().default(300),
+    phaseTimeouts: z.record(z.string(), z.number().positive()).default({}),
 
-  // Context capping
-  contextCapping: ContextCappingStrategySchema.default({}),
+    // Phase-to-backend mapping
+    phaseBackends: z.record(PhaseNameSchema, z.string().min(1)).default({}),
 
-  // Review council
-  reviewCouncil: ReviewCouncilConfigSchema.default({}),
+    // Context capping
+    contextCapping: ContextCappingStrategySchema.default({}),
 
-  // UI baseline
-  uiBaseline: UIBaselineConfigSchema,
+    // Review council
+    reviewCouncil: ReviewCouncilConfigSchema.default({}),
 
-  // Webhooks
-  webhooks: z.array(WebhookConfigSchema).default([]),
+    // UI baseline
+    uiBaseline: UIBaselineConfigSchema,
 
-  // SSE Streaming
-  sse: SSEConfigSchema.default({}).optional(),
+    // Webhooks
+    webhooks: z.array(WebhookConfigSchema).default([]),
 
-  // File Watcher
-  fileWatcher: FileWatcherConfigSchema.default({}).optional(),
+    // SSE Streaming
+    sse: SSEConfigSchema.default({}).optional(),
 
-  // MCP Integration
-  mcpServers: z.array(MCPServerConfigSchema).default([]),
+    // File Watcher
+    fileWatcher: FileWatcherConfigSchema.default({}).optional(),
 
-  // Plugins
-  plugins: z.array(PluginConfigSchema).default([]),
+    // MCP Integration
+    mcpServers: z.array(MCPServerConfigSchema).default([]),
 
-  // Custom phases
-  customPhases: z.array(CustomPhaseConfigSchema).default([]),
+    // Plugins
+    plugins: z.array(PluginConfigSchema).default([]),
 
-  // Cost control
-  costBudgetPerRun: z.number().positive().optional(),
+    // Custom phases
+    customPhases: z.array(CustomPhaseConfigSchema).default([]),
 
-  // Execution store
-  executionStore: z
-    .object({
-      type: z.enum(['sqlite', 'jsonl']).default('sqlite'),
-      path: z.string().default('.kaso-execution-store.db'),
-    })
-    .default({}),
-})
+    // Cost control
+    costBudgetPerRun: z.number().positive().optional(),
+
+    // Execution store
+    executionStore: z
+      .object({
+        type: z.enum(['sqlite', 'jsonl']).default('sqlite'),
+        path: z.string().default('.kaso-execution-store.db'),
+      })
+      .default({}),
+  })
+  .superRefine((config, ctx) => {
+    // Build sets for efficient lookup
+    const allBackendNames = new Set(config.executorBackends.map((b) => b.name))
+    const enabledBackends = new Set(
+      config.executorBackends.filter((b) => b.enabled).map((b) => b.name),
+    )
+
+    // Validate phaseBackends references
+    for (const [phase, backendName] of Object.entries(config.phaseBackends)) {
+      if (!allBackendNames.has(backendName)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `phaseBackends["${phase}"]: backend "${backendName}" not found in executorBackends. Available enabled backends: [${[...enabledBackends].join(', ')}]`,
+          path: ['phaseBackends', phase],
+        })
+      } else if (!enabledBackends.has(backendName)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `phaseBackends["${phase}"]: backend "${backendName}" is disabled. Available enabled backends: [${[...enabledBackends].join(', ')}]`,
+          path: ['phaseBackends', phase],
+        })
+      }
+    }
+
+    // Validate reviewers[].backend references
+    if (config.reviewCouncil.reviewers) {
+      // Warn if >10 reviewers
+      if (config.reviewCouncil.reviewers.length > 10) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `reviewCouncil.reviewers: having more than 10 reviewers may impact performance`,
+          path: ['reviewCouncil', 'reviewers'],
+        })
+      }
+
+      const reviewers = config.reviewCouncil.reviewers
+      for (let i = 0; i < reviewers.length; i++) {
+        const reviewer = reviewers[i]!
+        if (reviewer.backend) {
+          if (!allBackendNames.has(reviewer.backend)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `reviewCouncil.reviewers[${i}].backend: backend "${reviewer.backend}" not found in executorBackends. Available enabled backends: [${[...enabledBackends].join(', ')}]`,
+              path: ['reviewCouncil', 'reviewers', i, 'backend'],
+            })
+          } else if (!enabledBackends.has(reviewer.backend)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `reviewCouncil.reviewers[${i}].backend: backend "${reviewer.backend}" is disabled. Available enabled backends: [${[...enabledBackends].join(', ')}]`,
+              path: ['reviewCouncil', 'reviewers', i, 'backend'],
+            })
+          }
+        }
+      }
+    }
+  })
 
 export type KASOConfig = z.infer<typeof KASOConfigSchema>
 
@@ -278,6 +379,7 @@ export function getDefaultConfig(): KASOConfig {
     maxConcurrentAgents: 'auto' as const,
     maxPhaseRetries: 2,
     defaultPhaseTimeout: 300,
+    phaseBackends: {},
     contextCapping: {},
     reviewCouncil: {},
     uiBaseline: {

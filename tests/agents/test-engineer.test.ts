@@ -7,15 +7,15 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { createTestEngineerAgent } from '../../src/agents/test-engineer'
+import { createTestEngineerAgent } from '@/agents/test-engineer'
 import type {
   AgentContext,
   ImplementationResult,
   TestReport,
   SteeringFiles,
-} from '../../src/core/types'
-import type { KASOConfig } from '../../src/config/schema'
-import { EventBus } from '../../src/core/event-bus'
+} from '@/core/types'
+import type { KASOConfig } from '@/config/schema'
+import { EventBus } from '@/core/event-bus'
 
 // Helper to create minimal AgentContext
 function createMockContext(
@@ -28,6 +28,7 @@ function createMockContext(
 
   const mockConfig: KASOConfig = {
     executorBackends: [],
+    phaseBackends: {},
     defaultBackend: 'test',
     backendSelectionStrategy: 'default',
     maxConcurrentAgents: 1,
@@ -193,12 +194,12 @@ describe('TestEngineerAgent', () => {
       // Create source file and existing test file
       await fs.mkdir(join(tempDir, 'src'), { recursive: true })
       await fs.mkdir(join(tempDir, 'tests'), { recursive: true })
-      
+
       await fs.writeFile(
         join(tempDir, 'src', 'utils.ts'),
         'export function add(a: number, b: number): number { return a + b }',
       )
-      
+
       await fs.writeFile(
         join(tempDir, 'tests', 'utils.test.ts'),
         'describe("utils", () => { it("works", () => {}) })',
@@ -314,7 +315,7 @@ describe('TestEngineerAgent', () => {
 
       expect(result.output).toBeDefined()
       const testReport = result.output as TestReport
-      
+
       // Verify TestReport structure
       expect(typeof testReport.passed).toBe('boolean')
       expect(typeof testReport.testsRun).toBe('number')
@@ -392,7 +393,7 @@ describe('TestEngineerAgent', () => {
     beforeEach(async () => {
       tempDir = join(tmpdir(), `kaso-test-engineer-${Date.now()}`)
       await fs.mkdir(tempDir, { recursive: true })
-      
+
       await fs.writeFile(
         join(tempDir, 'package.json'),
         JSON.stringify({
@@ -441,7 +442,7 @@ describe('TestEngineerAgent', () => {
       tempDir = join(tmpdir(), `kaso-test-engineer-${Date.now()}`)
       await fs.mkdir(tempDir, { recursive: true })
       await fs.mkdir(join(tempDir, 'coverage'), { recursive: true })
-      
+
       await fs.writeFile(
         join(tempDir, 'package.json'),
         JSON.stringify({
@@ -472,7 +473,7 @@ describe('TestEngineerAgent', () => {
           lines: { pct: 80 },
         },
       }
-      
+
       await fs.writeFile(
         join(tempDir, 'coverage', 'coverage-summary.json'),
         JSON.stringify(coverageData),

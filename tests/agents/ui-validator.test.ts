@@ -11,14 +11,14 @@ import {
   UIValidatorAgent,
   createUIValidatorAgent,
   ScreenshotInfo,
-} from '../../src/agents/ui-validator'
+} from '@/agents/ui-validator'
 import type {
   AgentContext,
   ImplementationResult,
   UIReview,
   ParsedSpec,
-} from '../../src/core/types'
-import { EventBus } from '../../src/core/event-bus'
+} from '@/core/types'
+import { EventBus } from '@/core/event-bus'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -80,6 +80,7 @@ function createMockContext(
     config: {
       executorBackends: [],
       defaultBackend: '',
+      phaseBackends: {},
       maxConcurrentAgents: 4,
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,

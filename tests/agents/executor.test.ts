@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { ExecutorAgent, createExecutorAgent } from '../../src/agents/executor'
-import { MockBackend } from '../../src/backends/backend-process'
-import { BackendRegistry } from '../../src/backends/backend-registry'
+import { ExecutorAgent, createExecutorAgent } from '@/agents/executor'
+import { MockBackend } from '@/backends/backend-process'
+import { BackendRegistry } from '@/backends/backend-registry'
 import type {
   AgentContext,
   AssembledContext,
@@ -14,9 +14,9 @@ import type {
   ArchitectureContext,
   ImplementationResult,
   SteeringFiles,
-} from '../../src/core/types'
-import type { KASOConfig, ExecutorBackendConfig } from '../../src/config/schema'
-import { EventBus } from '../../src/core/event-bus'
+} from '@/core/types'
+import type { KASOConfig, ExecutorBackendConfig } from '@/config/schema'
+import { EventBus } from '@/core/event-bus'
 
 // Helper to create minimal AgentContext
 function createMockContext(
@@ -39,6 +39,7 @@ function createMockContext(
         enabled: true,
       } as ExecutorBackendConfig,
     ],
+    phaseBackends: {},
     defaultBackend: 'mock-backend',
     backendSelectionStrategy: 'default',
     maxConcurrentAgents: 1,
@@ -131,7 +132,11 @@ function createMockContext(
 function createAgentWithMockBackend(
   eventBus?: EventBus,
   backendName = 'mock-backend',
-): { agent: ExecutorAgent; mockBackend: MockBackend; registry: BackendRegistry } {
+): {
+  agent: ExecutorAgent
+  mockBackend: MockBackend
+  registry: BackendRegistry
+} {
   const mockBackend = new MockBackend(backendName, true)
   const config = createMockContext().config
   const registry = new BackendRegistry(config)
@@ -213,7 +218,13 @@ describe('ExecutorAgent', () => {
             } as AssembledContext,
             validation: {
               approved: false,
-              issues: [{ type: 'api-contract', severity: 'error', description: 'Missing API' }],
+              issues: [
+                {
+                  type: 'api-contract',
+                  severity: 'error',
+                  description: 'Missing API',
+                },
+              ],
               suggestedFixes: [],
             } as ValidationReport,
           },
@@ -311,8 +322,14 @@ describe('ExecutorAgent', () => {
       await agent.execute(context)
 
       expect(progressEvents.length).toBeGreaterThan(0)
-      expect(progressEvents.some((m) => m.includes('Starting implementation attempt'))).toBe(true)
-      expect(progressEvents.some((m) => m.includes('Delegating to backend'))).toBe(true)
+      expect(
+        progressEvents.some((m) =>
+          m.includes('Starting implementation attempt'),
+        ),
+      ).toBe(true)
+      expect(
+        progressEvents.some((m) => m.includes('Delegating to backend')),
+      ).toBe(true)
     })
   })
 

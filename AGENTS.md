@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 38 source files across 56 test files with 871 passing tests including comprehensive property-based tests.
+The project has 38 source files across 57 test files with 881 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -121,7 +121,7 @@ tests/
 ├── infrastructure/      # 10 test files
 ├── integration/         # 3 test files
 ├── plugins/             # 2 test files
-├── property/            # 23 property-based test files
+├── property/            # 24 property-based test files
 └── streaming/           # 1 test file
 ```
 
@@ -389,13 +389,15 @@ Zod schemas for runtime configuration validation.
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `KASOConfigSchema` | Zod Schema | Main config schema with all sections |
+| `KASOConfigSchema` | Zod Schema | Main config schema with all sections, includes `phaseBackends` phase-to-backend mapping and `.superRefine()` cross-field validation for backend references |
 | `KASOConfig` | Type | Inferred TypeScript type from schema |
 | `ExecutorBackendConfigSchema` | Zod Schema | Backend config: name, command, args, protocol, maxContextWindow, costPer1000Tokens |
 | `PluginConfigSchema` | Zod Schema | Plugin: package, enabled, config |
 | `CustomPhaseConfigSchema` | Zod Schema | Custom phase: name (must match `custom-*`), package, position |
 | `ContextCappingStrategySchema` | Zod Schema | Context capping: enabled, charsPerToken, relevanceRanking |
-| `ReviewCouncilConfigSchema` | Zod Schema | Review council: maxReviewRounds, enableParallelReview, reviewBudgetUsd, perspectives |
+| `ReviewerConfigSchema` | Zod Schema | Reviewer config: required `role` string, optional `backend` string |
+| `ReviewerConfig` | Type | Inferred TypeScript type from `ReviewerConfigSchema` |
+| `ReviewCouncilConfigSchema` | Zod Schema | Review council: maxReviewRounds, enableParallelReview, reviewBudgetUsd, perspectives, optional reviewers array with unique-role validation |
 | `UIBaselineConfigSchema` | Zod Schema | UI baselines: baselineDir, captureOnPass, diffThreshold, viewport |
 | `WebhookConfigSchema` | Zod Schema | Webhooks: url, events, headers, secret |
 | `MCPServerConfigSchema` | Zod Schema | MCP servers: name, transport, command, args, url, env |
@@ -612,6 +614,7 @@ Inserts custom phases at configurable positions in the 8-phase pipeline. Custom 
   "maxPhaseRetries": 2,
   "defaultPhaseTimeout": 300,
   "phaseTimeouts": {},
+  "phaseBackends": {},
   "contextCapping": {
     "enabled": true,
     "charsPerToken": 4,
@@ -620,7 +623,8 @@ Inserts custom phases at configurable positions in the 8-phase pipeline. Custom 
   "reviewCouncil": {
     "maxReviewRounds": 2,
     "enableParallelReview": false,
-    "perspectives": ["security", "performance", "maintainability"]
+    "perspectives": ["security", "performance", "maintainability"],
+    "reviewers": [{"role": "security"}, {"role": "performance", "backend": "fast-model"}]
   },
   "uiBaseline": {
     "baselineDir": ".kiro/ui-baselines",

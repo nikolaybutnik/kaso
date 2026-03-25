@@ -13,14 +13,14 @@ import {
   createDeliveryAgent,
   ConventionalCommitType,
   CommitInfo,
-} from '../../src/agents/delivery'
+} from '@/agents/delivery'
 import type {
   AgentContext,
   ImplementationResult,
   TestReport,
   ReviewCouncilResult,
   DeliveryResult,
-} from '../../src/core/types'
+} from '@/core/types'
 
 // =============================================================================
 // Shared Fixtures
@@ -170,6 +170,7 @@ function createMockContext(
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,
       phaseTimeouts: {},
+      phaseBackends: {},
       backendSelectionStrategy: 'default',
       contextCapping: {
         enabled: true,

@@ -35,6 +35,7 @@ function createMockContext(
   const mockConfig: KASOConfig = {
     executorBackends: [],
     defaultBackend: 'test',
+    phaseBackends: {},
     backendSelectionStrategy: 'default',
     maxConcurrentAgents: 1,
     maxPhaseRetries: 2,

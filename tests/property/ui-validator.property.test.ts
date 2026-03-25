@@ -11,16 +11,13 @@
 
 import { test, fc } from '@fast-check/vitest'
 import { describe, expect } from 'vitest'
-import {
-  createUIValidatorAgent,
-  ScreenshotInfo,
-} from '../../src/agents/ui-validator'
+import { createUIValidatorAgent, ScreenshotInfo } from '@/agents/ui-validator'
 import type {
   AgentContext,
   ImplementationResult,
   UIReview,
   ParsedSpec,
-} from '../../src/core/types'
+} from '@/core/types'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -86,6 +83,7 @@ function createMockContext(
       maxPhaseRetries: 2,
       defaultPhaseTimeout: 300,
       phaseTimeouts: {},
+      phaseBackends: {},
       backendSelectionStrategy: 'default',
       contextCapping: {
         enabled: true,

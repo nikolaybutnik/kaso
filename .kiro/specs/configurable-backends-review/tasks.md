@@ -22,31 +22,31 @@ Incremental implementation of per-phase backend selection and configurable revie
     - Note: This is separate from 1.2 which updates the public `ReviewCouncilResult` output type in `types.ts`
     - _Requirements: 8.4, 9.1, 9.2_
 
-- [ ] 2. Extend configuration schema with `phaseBackends` and `reviewers`
-  - [ ] 2.1 Add `ReviewerConfigSchema` and `PhaseNameSchema` to `src/config/schema.ts`
+- [x] 2. Extend configuration schema with `phaseBackends` and `reviewers`
+  - [x] 2.1 Add `ReviewerConfigSchema` and `PhaseNameSchema` to `src/config/schema.ts`
     - Create `ReviewerConfigSchema` with required `role: string.min(1)` and optional `backend: string.min(1)`
     - Create `PhaseNameSchema` as a union of the 8 built-in phase literals and `custom-[a-z0-9-]+` regex
     - Export `ReviewerConfig` type
     - _Requirements: 4.1, 4.5, 4.6, 8.1_
 
-  - [ ] 2.2 Add `reviewers` field to `ReviewCouncilConfigSchema` in `src/config/schema.ts`
+  - [x] 2.2 Add `reviewers` field to `ReviewCouncilConfigSchema` in `src/config/schema.ts`
     - Add optional `reviewers` array with `min(1)` and unique-role `.refine()` validation
     - Keep existing `perspectives` field for backward compatibility
     - _Requirements: 4.1, 4.5, 4.6, 4.7, 5.3_
 
-  - [ ] 2.3 Add `phaseBackends` field and `.superRefine()` cross-field validation to `KASOConfigSchema` in `src/config/schema.ts`
+  - [x] 2.3 Add `phaseBackends` field and `.superRefine()` cross-field validation to `KASOConfigSchema` in `src/config/schema.ts`
     - Add `phaseBackends: z.record(PhaseNameSchema, z.string().min(1)).default({})` to the schema
     - Add `.superRefine()` that validates all `phaseBackends` values and `reviewers[].backend` values reference enabled backends in `executorBackends`
     - Validation order: (1) check if backend exists in `allBackends` — error "not found" if missing, (2) check if backend is in `enabledBackends` — error "disabled" if not enabled
     - Include >10 reviewers warning
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.3, 6.4, 10.1, 10.2, 10.3_
 
-  - [ ] 2.4 Update `getDefaultConfig()` in `src/config/schema.ts`
+  - [x] 2.4 Update `getDefaultConfig()` in `src/config/schema.ts`
     - Add `phaseBackends: {}` to the default config object
     - Ensure `reviewCouncil` defaults still work with legacy `perspectives` (no `reviewers` in defaults)
     - _Requirements: 1.2, 1.6_
 
-  - [ ]* 2.5 Write property tests for config validation in `tests/property/config-validation.property.test.ts` (new file)
+  - [x] 2.5 Write property tests for config validation in `tests/property/config-validation.property.test.ts` (new file)
     - **Property 1: Valid config schema round-trip**
     - **Validates: Requirements 1.1, 1.2, 1.5, 4.1, 5.3**
     - **Property 2: Cross-field backend reference rejection**
