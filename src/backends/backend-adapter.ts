@@ -45,10 +45,4 @@ export interface ExecutorBackend {
    * @param callback - Function to call when progress events are emitted
    */
   onProgress(callback: (event: BackendProgressEvent) => void): void
-
-  /**
-   * Get the backend name
-   * @deprecated Use the `name` property instead
-   */
-  getName(): string
 }

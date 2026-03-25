@@ -234,14 +234,6 @@ export class CLIProcessBackend implements ExecutorBackend {
   onProgress(callback: (event: BackendProgressEvent) => void): void {
     this.progressCallbacks.push(callback)
   }
-
-  /**
-   * Get the backend name
-   * @deprecated Use the `name` property instead
-   */
-  getName(): string {
-    return this.name
-  }
 }
 
 /**
@@ -323,10 +315,5 @@ export class MockBackend implements ExecutorBackend {
 
   onProgress(callback: (event: BackendProgressEvent) => void): void {
     this.progressCallbacks.push(callback)
-  }
-
-  /** @deprecated Use the `name` property instead */
-  getName(): string {
-    return this.name
   }
 }

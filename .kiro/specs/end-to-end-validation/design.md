@@ -175,7 +175,6 @@ class MockBackend implements ExecutorBackend {
   async execute(request: BackendRequest): Promise<BackendResponse>
   async isAvailable(): Promise<boolean>
   onProgress(callback: (event: BackendProgressEvent) => void): void
-  getName(): string
 }
 
 interface MockBackendConfig {

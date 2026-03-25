@@ -445,13 +445,18 @@ describe('SSE Property Tests', () => {
             await server.start()
             const port = server.getPort()
 
-            const collectors = Array.from({ length: clientCount }, () =>
-              collectSSEEvents(port, '/events', {
-                minEvents: 2,
-                timeoutMs: 2000,
+            // Use connectAndCollect so each client waits for its "connected"
+            // event before we proceed — eliminates the race where the server
+            // hasn't registered all clients yet when we broadcast.
+            const handles = Array.from({ length: clientCount }, () =>
+              connectAndCollect(port, '/events', {
+                minDataEvents: 1,
+                timeoutMs: 3000,
               }),
             )
-            await tick(50)
+
+            // Wait until every client has received its connected event
+            await Promise.all(handles.map((h) => h.ready))
 
             expect(server.getClientCount()).toBe(clientCount)
 
@@ -460,7 +465,7 @@ describe('SSE Property Tests', () => {
               createEvent({ type: 'run:completed', runId: testRunId }),
             )
 
-            const results = await Promise.all(collectors)
+            const results = await Promise.all(handles.map((h) => h.collect))
             for (const raw of results) {
               const found = parseSSEStream(raw).find(
                 (e) => e.event === 'run:completed',
@@ -469,6 +474,7 @@ describe('SSE Property Tests', () => {
               expect(JSON.parse(found!.data!).runId).toBe(testRunId)
             }
 
+            handles.forEach((h) => h.destroy())
             await server.stop()
             server = null
           },

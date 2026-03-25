@@ -6,7 +6,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ReviewCouncilAgent, createReviewCouncilAgent } from '@/agents/review-council'
+import {
+  ReviewCouncilAgent,
+  createReviewCouncilAgent,
+} from '@/agents/review-council'
 import { EventBus } from '@/core/event-bus'
 import { BackendRegistry } from '@/backends/backend-registry'
 import type { AgentContext, ReviewCouncilResult } from '@/core/types'
@@ -68,7 +71,9 @@ function createTestConfig(reviewerConfig?: {
   }
 }
 
-function createMockContext(overrides: Partial<AgentContext> = {}): AgentContext {
+function createMockContext(
+  overrides: Partial<AgentContext> = {},
+): AgentContext {
   const baseConfig = createTestConfig()
   return {
     runId: 'test-run-123',
@@ -121,7 +126,7 @@ function setupTest(config: KASOConfig = createTestConfig()): TestContext {
   })
 
   const backendRegistry = new BackendRegistry(config)
-  
+
   // Register mock backends for testing
   for (const backend of config.executorBackends) {
     if (backend.enabled) {
@@ -129,7 +134,6 @@ function setupTest(config: KASOConfig = createTestConfig()): TestContext {
         // Create mock backend with both getter methods and name property
         const mockBackend = {
           name: backend.name,
-          getName: () => backend.name,
           getProtocol: () => backend.protocol,
           getMaxContextWindow: () => backend.maxContextWindow,
           getCostPer1000Tokens: () => backend.costPer1000Tokens,
@@ -146,14 +150,14 @@ function setupTest(config: KASOConfig = createTestConfig()): TestContext {
           })),
           onProgress: vi.fn(),
         } as unknown as import('@/backends/backend-adapter').ExecutorBackend
-        
+
         backendRegistry.registerBackend(backend.name, mockBackend, backend)
       } catch {
         // Backend may already be registered
       }
     }
   }
-  
+
   const agent = createReviewCouncilAgent({
     eventBus,
     backendRegistry,
@@ -221,13 +225,15 @@ describe('Review Council Custom Reviewers Integration', () => {
 
     // Verify reviewer-override events have correct roles
     const securityEvent = reviewerOverrideEvents.find(
-      (e: import('@/core/types').ExecutionEvent) => e.data?.reviewerRole === 'security',
+      (e: import('@/core/types').ExecutionEvent) =>
+        e.data?.reviewerRole === 'security',
     )
     expect(securityEvent).toBeDefined()
     expect(securityEvent?.data?.backend).toBeDefined()
 
     const performanceEvent = reviewerOverrideEvents.find(
-      (e: import('@/core/types').ExecutionEvent) => e.data?.reviewerRole === 'performance',
+      (e: import('@/core/types').ExecutionEvent) =>
+        e.data?.reviewerRole === 'performance',
     )
     expect(performanceEvent).toBeDefined()
     expect(performanceEvent?.data?.backend).toBeDefined()
@@ -293,7 +299,12 @@ describe('Review Council Custom Reviewers Integration', () => {
   })
 
   it('should use custom perspectives in votes', async () => {
-    const customRoles = ['security', 'scalability', 'compliance', 'testing-quality']
+    const customRoles = [
+      'security',
+      'scalability',
+      'compliance',
+      'testing-quality',
+    ]
     const config = createTestConfig({
       reviewers: customRoles.map((role) => ({ role })),
     })
@@ -341,7 +352,11 @@ describe('Review Council Custom Reviewers Integration', () => {
 
   it('should use legacy perspectives when reviewers not provided', async () => {
     const config = createTestConfig({
-      perspectives: ['security', 'performance', 'maintainability'] as ('security' | 'performance' | 'maintainability')[],
+      perspectives: ['security', 'performance', 'maintainability'] as (
+        | 'security'
+        | 'performance'
+        | 'maintainability'
+      )[],
     })
     const { agent } = setupTest(config)
 

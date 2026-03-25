@@ -6,8 +6,8 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
 
 ## Tasks
 
-- [ ] 1. Create foundation helpers
-  - [ ] 1.1 Create `tests/e2e/helpers/mock-backend.ts`
+- [x] 1. Create foundation helpers
+  - [x] 1.1 Create `tests/e2e/helpers/mock-backend.ts`
     - Implement `MockBackend` class implementing `ExecutorBackend` interface
     - Configurable per-phase responses via `setPhaseResponse(phase, response)`
     - Configurable delay via `setDelay(ms)`, availability via `setAvailable(bool)`
@@ -16,7 +16,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Export `MockBackendConfig`, `MockPhaseResponse`, `MockBackendPreset` interfaces
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7_
 
-  - [ ] 1.2 Create `tests/e2e/helpers/mock-project.ts`
+  - [x] 1.2 Create `tests/e2e/helpers/mock-project.ts`
     - Implement `createMockProject(config?)` that creates a temp directory
     - Generate valid `kaso.config.json` passing `validateConfig()` with in-memory SQLite (`:memory:`)
     - Create `.kiro/specs/{feature}/design.md` with EARS-pattern acceptance criteria, glossary, introduction
@@ -25,7 +25,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Return `MockProjectResult` with `projectDir`, `specPath`, `configPath`, `cleanup()`
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-  - [ ] 1.3 Create `tests/e2e/helpers/phase-outputs.ts`
+  - [x] 1.3 Create `tests/e2e/helpers/phase-outputs.ts`
     - Implement fixture factories for all 8 phase output types
     - `createIntakeOutput()` → `AssembledContext` with `featureName`, `designDoc`, `taskList`, `architectureDocs`, `dependencies`, `removedFiles`
     - `createValidationOutput()` → `ValidationReport` with `approved`, `issues`, `suggestedFixes`

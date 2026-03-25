@@ -221,8 +221,11 @@ describe('File Watcher Trigger', () => {
       }),
     )
 
-    // Wait for the watcher to detect the change
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    // Wait for the watcher to detect the change (polling + awaitWriteFinish stability)
+    const deadline = Date.now() + 5000
+    while (!triggeredSpecPath && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
 
     expect(triggeredSpecPath).toBeDefined()
     expect(triggeredSpecName).toBe('test-feature')
