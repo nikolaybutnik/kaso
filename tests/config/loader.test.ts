@@ -4,12 +4,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { loadConfig, loadConfigSafe } from '../../src/config/loader'
+import { loadConfig, loadConfigSafe } from '@/config/loader'
 import {
   validateConfig,
   getDefaultConfig,
   ExecutorBackendConfigSchema,
-} from '../../src/config/schema'
+} from '@/config/schema'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { tmpdir } from 'os'
@@ -165,6 +165,240 @@ describe('Config Loader Tests', () => {
 
       const result = ExecutorBackendConfigSchema.safeParse(backendConfig)
       expect(result.success).toBe(true)
+    })
+  })
+
+  // ============================================================================
+  // Feature: configurable-backends-review
+  // ============================================================================
+
+  describe('Cross-field backend validation', () => {
+    it('should reject phaseBackends referencing non-existent backend', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        phaseBackends: {
+          implementation: 'non-existent-backend',
+        },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).toThrow(/non-existent-backend/)
+    })
+
+    it('should reject phaseBackends referencing disabled backend', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+          {
+            name: 'disabled-backend',
+            command: 'disabled',
+            protocol: 'cli-json',
+            enabled: false,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        phaseBackends: {
+          implementation: 'disabled-backend',
+        },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).toThrow(/disabled/)
+    })
+
+    it('should reject reviewers referencing non-existent backend', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        reviewCouncil: {
+          reviewers: [{ role: 'security', backend: 'non-existent-backend' }],
+        },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).toThrow(/non-existent-backend/)
+    })
+
+    it('should reject reviewers referencing disabled backend', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+          {
+            name: 'disabled-backend',
+            command: 'disabled',
+            protocol: 'cli-json',
+            enabled: false,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        reviewCouncil: {
+          reviewers: [{ role: 'security', backend: 'disabled-backend' }],
+        },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).toThrow(/disabled/)
+    })
+
+    it('should accept valid phaseBackends and reviewers', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+          {
+            name: 'claude-code',
+            command: 'claude',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        phaseBackends: {
+          implementation: 'claude-code',
+        },
+        reviewCouncil: {
+          reviewers: [
+            { role: 'security', backend: 'claude-code' },
+            { role: 'performance' },
+          ],
+        },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).not.toThrow()
+    })
+
+    it('should accept empty phaseBackends', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        phaseBackends: {},
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).not.toThrow()
+      const loaded = validateConfig(config)
+      expect(loaded.phaseBackends).toEqual({})
+    })
+
+    it('should warn when >10 reviewers configured', () => {
+      const reviewers = Array.from({ length: 11 }, (_, i) => ({
+        role: `role-${i}`,
+      }))
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        reviewCouncil: { reviewers },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).toThrow(/more than 10 reviewers/)
+    })
+
+    it('should reject duplicate reviewer roles', () => {
+      const config = {
+        executorBackends: [
+          {
+            name: 'kimi-code',
+            command: 'kimi',
+            protocol: 'cli-json',
+            enabled: true,
+          },
+        ],
+        defaultBackend: 'kimi-code',
+        reviewCouncil: {
+          reviewers: [
+            { role: 'security' },
+            { role: 'security' }, // duplicate
+          ],
+        },
+        uiBaseline: {
+          baselineDir: '.kiro/ui-baselines',
+          captureOnPass: true,
+          diffThreshold: 0.1,
+          viewport: { width: 1280, height: 720 },
+        },
+      }
+
+      expect(() => validateConfig(config)).toThrow(/unique/)
     })
   })
 })

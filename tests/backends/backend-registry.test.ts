@@ -247,4 +247,112 @@ describe('BackendRegistry', () => {
 
     expect(registry.getSelectionStrategy()).toBe('default')
   })
+
+  // ============================================================================
+  // Feature: configurable-backends-review
+  // ============================================================================
+
+  describe('Phase-aware backend selection', () => {
+    it('should selectBackendForPhase return phase override when configured', () => {
+      const config = createTestConfig()
+      config.phaseBackends = {
+        implementation: 'claude-code',
+      }
+      const registry = new BackendRegistry(config)
+
+      const backend = registry.selectBackendForPhase('implementation')
+      expect(backend.name).toBe('claude-code')
+    })
+
+    it('should selectBackendForPhase fallback to default when no override', () => {
+      const config = createTestConfig()
+      config.phaseBackends = {}
+      const registry = new BackendRegistry(config)
+
+      const backend = registry.selectBackendForPhase('validation')
+      expect(backend.name).toBe('kimi-code')
+    })
+
+    it('should throw error when phase override references unavailable backend', () => {
+      const config = createTestConfig()
+      const registry = new BackendRegistry(config)
+      
+      // Manually set phase override to non-existent backend
+      ;(registry as unknown as { phaseOverrides: Map<string, string> }).phaseOverrides = new Map([
+        ['implementation', 'non-existent-backend'],
+      ])
+      
+      expect(() => registry.selectBackendForPhase('implementation')).toThrow(
+        "Backend 'non-existent-backend' configured for phase 'implementation' is not available",
+      )
+    })
+
+    it('should hasPhaseOverride return true when phase has override', () => {
+      const config = createTestConfig()
+      config.phaseBackends = {
+        implementation: 'claude-code',
+      }
+      const registry = new BackendRegistry(config)
+
+      expect(registry.hasPhaseOverride('implementation')).toBe(true)
+      expect(registry.hasPhaseOverride('validation')).toBe(false)
+    })
+
+    it('should getPhaseOverride return configured backend name', () => {
+      const config = createTestConfig()
+      config.phaseBackends = {
+        implementation: 'claude-code',
+        'architecture-review': 'claude-code',
+      }
+      const registry = new BackendRegistry(config)
+
+      expect(registry.getPhaseOverride('implementation')).toBe('claude-code')
+      expect(registry.getPhaseOverride('validation')).toBeUndefined()
+    })
+
+    it('should be consistent between hasPhaseOverride and getPhaseOverride', () => {
+      const config = createTestConfig()
+      config.phaseBackends = {
+        implementation: 'claude-code',
+      }
+      const registry = new BackendRegistry(config)
+
+      // For phases with override
+      expect(registry.hasPhaseOverride('implementation')).toBe(true)
+      expect(registry.getPhaseOverride('implementation')).toBe('claude-code')
+
+      // For phases without override
+      expect(registry.hasPhaseOverride('validation')).toBe(false)
+      expect(registry.getPhaseOverride('validation')).toBeUndefined()
+    })
+
+    it('should selectBackendForPhase use context-aware strategy when no override', () => {
+      const config = createTestConfig()
+      config.backendSelectionStrategy = 'context-aware'
+      config.phaseBackends = {}
+      const registry = new BackendRegistry(config)
+
+      const context: AgentContext = {
+        runId: 'test-run',
+        spec: {
+          featureName: 'test',
+          specPath: '/test/spec',
+          missingFiles: [],
+          design: {
+            rawContent: 'x'.repeat(272000), // ~68000 tokens
+            sections: [],
+            codeBlocks: [],
+            metadata: {},
+          },
+        },
+        steering: { hooks: {} },
+        phaseOutputs: {},
+        config,
+        backends: {},
+      }
+
+      const backend = registry.selectBackendForPhase('implementation', context)
+      expect(backend.name).toBe('kimi-code')
+    })
+  })
 })

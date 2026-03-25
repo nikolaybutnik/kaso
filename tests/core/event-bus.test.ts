@@ -233,4 +233,92 @@ describe('EventBus', () => {
       expect(eventBus.getRecentEvents()).toHaveLength(0)
     })
   })
+
+  // ============================================================================
+  // Feature: configurable-backends-review
+  // ============================================================================
+
+  describe('agent:backend-selected event type', () => {
+    it('should accept and emit agent:backend-selected event', () => {
+      const listener = vi.fn()
+      eventBus.on('agent:backend-selected', listener)
+
+      const event: ExecutionEvent = {
+        type: 'agent:backend-selected',
+        runId: 'test-run',
+        timestamp: new Date().toISOString(),
+        phase: 'implementation',
+        data: {
+          backend: 'claude-code',
+          reason: 'phase-override',
+        },
+      }
+
+      eventBus.emit(event)
+      expect(listener).toHaveBeenCalledTimes(1)
+      expect(listener).toHaveBeenCalledWith(event)
+    })
+
+    it('should include reviewerRole in agent:backend-selected for reviewer-override', () => {
+      const listener = vi.fn()
+      eventBus.on('agent:backend-selected', listener)
+
+      const event: ExecutionEvent = {
+        type: 'agent:backend-selected',
+        runId: 'test-run',
+        timestamp: new Date().toISOString(),
+        phase: 'review-delivery',
+        data: {
+          backend: 'claude-code',
+          reason: 'reviewer-override',
+          reviewerRole: 'security',
+        },
+      }
+
+      eventBus.emit(event)
+      expect(listener).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          backend: 'claude-code',
+          reason: 'reviewer-override',
+          reviewerRole: 'security',
+        }),
+      }))
+    })
+
+    it('should handle all selection reasons in agent:backend-selected', () => {
+      const reasons = ['phase-override', 'context-aware', 'default', 'retry-override', 'reviewer-override']
+      const listener = vi.fn()
+      eventBus.on('agent:backend-selected', listener)
+
+      for (const reason of reasons) {
+        eventBus.emit({
+          type: 'agent:backend-selected',
+          runId: 'test-run',
+          timestamp: new Date().toISOString(),
+          data: { backend: 'test-backend', reason },
+        })
+      }
+
+      expect(listener).toHaveBeenCalledTimes(reasons.length)
+    })
+
+    it('should store agent:backend-selected in event history', () => {
+      const event: ExecutionEvent = {
+        type: 'agent:backend-selected',
+        runId: 'test-run',
+        timestamp: new Date().toISOString(),
+        phase: 'implementation',
+        data: {
+          backend: 'claude-code',
+          reason: 'phase-override',
+        },
+      }
+
+      eventBus.emit(event)
+      const recentEvents = eventBus.getRecentEvents()
+
+      expect(recentEvents).toHaveLength(1)
+      expect(recentEvents[0]?.type).toBe('agent:backend-selected')
+    })
+  })
 })

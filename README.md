@@ -86,7 +86,7 @@ kaso doctor                   # Verify prerequisites
 ## Testing
 
 ```bash
-npm test                # Run all 794 tests
+npm test                # Run all tests
 npm run test:property   # Property-based tests only
 npm run test:coverage   # With coverage report
 ```

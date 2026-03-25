@@ -18,6 +18,8 @@ import type {
   ReviewCouncilResult,
 } from '@/core/types'
 import { EventBus } from '@/core/event-bus'
+import { BackendRegistry } from '@/backends/backend-registry'
+import { MockBackend } from '@/backends/backend-process'
 
 // =============================================================================
 // Test Fixtures
@@ -114,7 +116,9 @@ describe('ReviewCouncilAgent', () => {
 
   beforeEach(() => {
     eventBus = new EventBus()
-    agent = createReviewCouncilAgent({ eventBus } as import('../../src/agents/review-council').ReviewCouncilDependencies)
+    agent = createReviewCouncilAgent({
+      eventBus,
+    } as import('@/agents/review-council').ReviewCouncilDependencies)
   })
 
   describe('interface compliance', () => {
@@ -472,7 +476,9 @@ describe('ReviewCouncilAgent', () => {
 
 describe('Review Council Edge Cases', () => {
   it('should handle empty modified files list', async () => {
-    const agent = createReviewCouncilAgent({} as import('../../src/agents/review-council').ReviewCouncilDependencies)
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
     const context = createMockContext({
       config: {
         ...createMockContext().config,
@@ -514,7 +520,9 @@ describe('Review Council Edge Cases', () => {
   })
 
   it('should handle custom perspective configuration', async () => {
-    const agent = createReviewCouncilAgent({} as import('../../src/agents/review-council').ReviewCouncilDependencies)
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
     const context = createMockContext({
       config: {
         ...createMockContext().config,
@@ -559,7 +567,9 @@ describe('Review Council Edge Cases', () => {
   })
 
   it('should handle abort during execution', async () => {
-    const agent = createReviewCouncilAgent({} as import('../../src/agents/review-council').ReviewCouncilDependencies)
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
     const abortController = new AbortController()
 
     // Abort after a short delay
@@ -575,5 +585,335 @@ describe('Review Council Edge Cases', () => {
     } catch {
       // Expected if abort is thrown
     }
+  })
+})
+
+// =============================================================================
+// Feature: configurable-backends-review
+// =============================================================================
+
+describe('Review Council Configurable Reviewers', () => {
+  const DEFAULT_PERSPECTIVES = [
+    'security',
+    'performance',
+    'maintainability',
+  ] as const
+
+  it('should default to 3 reviewers when neither reviewers nor perspectives provided', async () => {
+    const eventBus = new EventBus()
+    const baseContext = createMockContext()
+    const config = {
+      ...baseContext.config,
+      reviewCouncil: {
+        maxReviewRounds: 1,
+        enableParallelReview: false,
+        perspectives: [...DEFAULT_PERSPECTIVES],
+      },
+    }
+    const backendRegistry = new BackendRegistry(config)
+    backendRegistry.registerBackend(
+      'kimi-code',
+      new MockBackend('kimi-code', true),
+    )
+    const agent = createReviewCouncilAgent({ eventBus, backendRegistry })
+    const context = createMockContext({
+      config,
+      phaseOutputs: baseContext.phaseOutputs,
+    })
+
+    const result = await agent.execute(context)
+    expect(result.success).toBe(true)
+
+    const councilResult = result.output as ReviewCouncilResult
+    expect(councilResult.votes.length).toBe(3)
+    const perspectives = councilResult.votes.map((v) => v.perspective)
+    expect(perspectives).toContain('security')
+    expect(perspectives).toContain('performance')
+    expect(perspectives).toContain('maintainability')
+  })
+
+  it('should handle single reviewer approval (passed)', async () => {
+    const eventBus = new EventBus()
+    const baseContext = createMockContext()
+    const config = {
+      ...baseContext.config,
+      reviewCouncil: {
+        maxReviewRounds: 1,
+        enableParallelReview: false,
+        perspectives: [...DEFAULT_PERSPECTIVES],
+        reviewers: [{ role: 'security' }],
+      },
+    }
+    const backendRegistry = new BackendRegistry(config)
+    backendRegistry.registerBackend(
+      'kimi-code',
+      new MockBackend('kimi-code', true),
+    )
+    const agent = createReviewCouncilAgent({ eventBus, backendRegistry })
+    const context = createMockContext({
+      config,
+      phaseOutputs: baseContext.phaseOutputs,
+    })
+
+    const result = await agent.execute(context)
+    expect(result.success).toBe(true)
+
+    const councilResult = result.output as ReviewCouncilResult
+    expect(councilResult.votes.length).toBe(1)
+    expect(councilResult.consensus).toBe('passed')
+  })
+
+  it('should handle single reviewer rejection (rejected)', async () => {
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
+    const context = createMockContext({
+      config: {
+        ...createMockContext().config,
+        reviewCouncil: {
+          maxReviewRounds: 1,
+          enableParallelReview: false,
+          perspectives: [...DEFAULT_PERSPECTIVES],
+          reviewers: [{ role: 'security' }],
+        },
+      },
+      phaseOutputs: {
+        implementation: {
+          modifiedFiles: ['src/auth/login.ts'],
+          addedTests: [],
+          duration: 1000,
+          backend: 'kimi-code',
+          selfCorrectionAttempts: 0,
+        } as ImplementationResult,
+        'architecture-review': {
+          approved: false,
+          violations: [
+            {
+              file: 'src/auth/login.ts',
+              pattern: 'test',
+              issue: 'violation',
+              suggestion: 'fix',
+            },
+          ],
+          modifiedFiles: ['src/auth/login.ts'],
+        } as ArchitectureReview,
+        'test-verification': {
+          passed: false,
+          coverage: 10,
+          testFailures: [{ test: 'test', error: 'failed' }],
+          testsRun: 5,
+          duration: 1000,
+        } as TestReport,
+      },
+    })
+
+    const result = await agent.execute(context)
+    const councilResult = result.output as ReviewCouncilResult
+    expect(councilResult.votes.length).toBe(1)
+    expect(councilResult.consensus).toBe('rejected')
+  })
+
+  it('should handle 2-reviewer edge case (1 approve = passed-with-warnings)', async () => {
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
+    const context = createMockContext({
+      config: {
+        ...createMockContext().config,
+        reviewCouncil: {
+          maxReviewRounds: 1,
+          enableParallelReview: false,
+          perspectives: [...DEFAULT_PERSPECTIVES],
+          reviewers: [{ role: 'security' }, { role: 'performance' }],
+        },
+      },
+      phaseOutputs: {
+        implementation: {
+          modifiedFiles: ['src/auth/login.ts'],
+          addedTests: [],
+          duration: 1000,
+          backend: 'kimi-code',
+          selfCorrectionAttempts: 0,
+        } as ImplementationResult,
+        'architecture-review': {
+          approved: true,
+          violations: [],
+          modifiedFiles: ['src/auth/login.ts'],
+        } as ArchitectureReview,
+        'test-verification': {
+          passed: false,
+          coverage: 30,
+          testFailures: [{ test: 'test', error: 'failed' }],
+          testsRun: 5,
+          duration: 1000,
+        } as TestReport,
+      },
+    })
+
+    const result = await agent.execute(context)
+    const councilResult = result.output as ReviewCouncilResult
+    // security rejects (auth file + failing tests), performance approves (no perf-sensitive patterns)
+    // floor(2*2/3) = 1, so 1 approval = passed-with-warnings
+    expect(councilResult.votes.length).toBe(2)
+    expect(councilResult.consensus).toBe('passed-with-warnings')
+  })
+
+  it('should handle 2-reviewer edge case (0 approve = rejected)', async () => {
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
+    const context = createMockContext({
+      config: {
+        ...createMockContext().config,
+        reviewCouncil: {
+          maxReviewRounds: 1,
+          enableParallelReview: false,
+          perspectives: [...DEFAULT_PERSPECTIVES],
+          reviewers: [{ role: 'security' }, { role: 'maintainability' }],
+        },
+      },
+      phaseOutputs: {
+        implementation: {
+          modifiedFiles: ['src/auth/login.ts'],
+          addedTests: [],
+          duration: 1000,
+          backend: 'kimi-code',
+          selfCorrectionAttempts: 0,
+        } as ImplementationResult,
+        'architecture-review': {
+          approved: false,
+          violations: [
+            {
+              file: 'src/auth/login.ts',
+              pattern: 'test',
+              issue: 'violation',
+              suggestion: 'fix',
+            },
+          ],
+          modifiedFiles: ['src/auth/login.ts'],
+        } as ArchitectureReview,
+        'test-verification': {
+          passed: false,
+          coverage: 10,
+          testFailures: [{ test: 'test', error: 'failed' }],
+          testsRun: 5,
+          duration: 1000,
+        } as TestReport,
+      },
+    })
+
+    const result = await agent.execute(context)
+    const councilResult = result.output as ReviewCouncilResult
+    expect(councilResult.votes.length).toBe(2)
+    expect(councilResult.consensus).toBe('rejected')
+  })
+
+  it('should handle 4-reviewer edge case', async () => {
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
+    const context = createMockContext({
+      config: {
+        ...createMockContext().config,
+        reviewCouncil: {
+          maxReviewRounds: 1,
+          enableParallelReview: false,
+          perspectives: [...DEFAULT_PERSPECTIVES],
+          reviewers: [
+            { role: 'security' },
+            { role: 'performance' },
+            { role: 'maintainability' },
+            { role: 'accessibility' },
+          ],
+        },
+      },
+    })
+
+    const result = await agent.execute(context)
+    expect(result.success).toBe(true)
+
+    const councilResult = result.output as ReviewCouncilResult
+    expect(councilResult.votes.length).toBe(4)
+  })
+
+  it('should provide heuristic fallback for custom roles', async () => {
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
+    const context = createMockContext({
+      config: {
+        ...createMockContext().config,
+        reviewCouncil: {
+          maxReviewRounds: 1,
+          enableParallelReview: false,
+          perspectives: [...DEFAULT_PERSPECTIVES],
+          reviewers: [{ role: 'accessibility' }],
+        },
+      },
+    })
+
+    const result = await agent.execute(context)
+    expect(result.success).toBe(true)
+
+    const councilResult = result.output as ReviewCouncilResult
+    expect(councilResult.votes.length).toBe(1)
+    expect(councilResult.votes[0]?.perspective).toBe('accessibility')
+    expect(councilResult.votes[0]?.feedback).toContain('heuristic')
+  })
+
+  it('should emit agent:backend-selected event with reviewer-override reason', async () => {
+    const eventBus = new EventBus()
+    const events: Array<{ type: string; data?: Record<string, unknown> }> = []
+
+    eventBus.on('agent:backend-selected', (event) => {
+      events.push({ type: event.type, data: event.data })
+    })
+
+    const config = {
+      ...createMockContext().config,
+      reviewCouncil: {
+        maxReviewRounds: 1,
+        enableParallelReview: false,
+        perspectives: [...DEFAULT_PERSPECTIVES],
+        reviewers: [{ role: 'security', backend: 'kimi-code' }],
+      },
+    }
+    const backendRegistry = new BackendRegistry(config)
+    const agent = createReviewCouncilAgent({ eventBus, backendRegistry })
+    const context = createMockContext({ config })
+
+    await agent.execute(context)
+
+    const reviewerOverrideEvents = events.filter(
+      (e) => e.data?.reason === 'reviewer-override',
+    )
+    expect(reviewerOverrideEvents.length).toBeGreaterThanOrEqual(1)
+    expect(reviewerOverrideEvents[0]?.data?.reviewerRole).toBe('security')
+  })
+
+  it('should use custom reviewers array over perspectives', async () => {
+    const agent = createReviewCouncilAgent(
+      {} as import('@/agents/review-council').ReviewCouncilDependencies,
+    )
+    const context = createMockContext({
+      config: {
+        ...createMockContext().config,
+        reviewCouncil: {
+          maxReviewRounds: 1,
+          enableParallelReview: false,
+          perspectives: ['security', 'performance', 'maintainability'],
+          reviewers: [{ role: 'compliance' }, { role: 'scalability' }],
+        },
+      },
+    })
+
+    const result = await agent.execute(context)
+    expect(result.success).toBe(true)
+
+    const councilResult = result.output as ReviewCouncilResult
+    const perspectives = councilResult.votes.map((v) => v.perspective)
+    expect(perspectives).toContain('compliance')
+    expect(perspectives).toContain('scalability')
+    expect(perspectives).not.toContain('security')
   })
 })

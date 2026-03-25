@@ -150,19 +150,19 @@ Incremental implementation of per-phase backend selection and configurable revie
     - Strongly recommended — validates configurable review council end-to-end
     - _Requirements: 4.2, 6.1, 6.2, 7.1, 8.2, 11.3_
 
-- [ ] 10. Update existing unit tests
-  - [ ]* 10.1 Update `tests/config/loader.test.ts` with cross-field validation tests
+- [x] 10. Update existing unit tests
+  - [x] 10.1 Update `tests/config/loader.test.ts` with cross-field validation tests
     - Test invalid backend references in `phaseBackends` and `reviewers[].backend`
     - Test disabled backend references
     - Test empty `phaseBackends`, >10 reviewers warning
     - _Requirements: 1.3, 1.4, 4.8, 10.1, 10.2, 10.3_
 
-  - [ ]* 10.2 Update `tests/backends/backend-registry.test.ts` with phase selection tests
+  - [x] 10.2 Update `tests/backends/backend-registry.test.ts` with phase selection tests
     - Test `selectBackendForPhase()` with override, without override, and unavailable backend error
     - Test `hasPhaseOverride()` and `getPhaseOverride()` basic behavior
     - _Requirements: 3.1, 3.2, 3.3, 3.5, 3.6, 3.7_
 
-  - [ ]* 10.3 Update `tests/agents/review-council.test.ts` with configurable reviewer tests
+  - [x] 10.3 Update `tests/agents/review-council.test.ts` with configurable reviewer tests
     - Test default 3-reviewer fallback (Req 4.4)
     - Test single reviewer consensus edge cases (Req 7.4, 7.5)
     - Test 2-reviewer edge cases (Req 7.7, 7.8)
@@ -171,12 +171,13 @@ Incremental implementation of per-phase backend selection and configurable revie
     - Test `agent:backend-selected` event emission with `reviewer-override` reason
     - _Requirements: 4.4, 7.4, 7.5, 7.7, 7.8, 7.9, 8.3, 11.3_
 
-  - [ ]* 10.4 Update `tests/core/event-bus.test.ts` to verify `agent:backend-selected` event type
+  - [x] 10.4 Update `tests/core/event-bus.test.ts` to verify `agent:backend-selected` event type
     - Verify EventBus accepts and emits the new event type
     - _Requirements: 11.1_
 
 - [ ] 11. Final checkpoint — All tests pass
   - Ensure all tests pass, ask the user if questions arise.
+  - Update documentation where relevant.
 
 ## Notes
 

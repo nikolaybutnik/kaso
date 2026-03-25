@@ -147,6 +147,112 @@ function collectSSEEvents(
 
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * Connect to the SSE server and return a handle that lets you emit events
+ * only after the connection is fully established (connected event received).
+ * This eliminates the race condition where events are emitted before the
+ * client is registered.
+ */
+function connectAndCollect(
+  port: number,
+  path: string,
+  opts: {
+    headers?: Record<string, string>
+    timeoutMs?: number
+    minDataEvents?: number
+  } = {},
+): { ready: Promise<void>; collect: Promise<string>; destroy: () => void } {
+  const { headers = {}, timeoutMs = 3000, minDataEvents = 1 } = opts
+  let resolveReady: () => void
+  let resolveCollect: (raw: string) => void
+  let rejectBoth: (err: Error) => void
+
+  const ready = new Promise<void>((res, rej) => {
+    resolveReady = res
+    rejectBoth = rej
+  })
+  const collect = new Promise<string>((res, rej) => {
+    resolveCollect = res
+    rejectBoth = rej
+  })
+
+  let buffer = ''
+  let dataEventCount = 0
+  let destroyed = false
+
+  const req = http.get(
+    `http://localhost:${port}${path}`,
+    { headers },
+    (res) => {
+      if (res.statusCode !== 200) {
+        let body = ''
+        res.on('data', (chunk: Buffer) => {
+          body += chunk.toString()
+        })
+        res.on('end', () =>
+          rejectBoth(new Error(`HTTP ${res.statusCode}: ${body}`)),
+        )
+        return
+      }
+
+      const timer = setTimeout(() => {
+        if (!destroyed) {
+          destroyed = true
+          req.destroy()
+          resolveCollect(buffer)
+        }
+      }, timeoutMs)
+
+      res.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString()
+        const events = parseSSEStream(buffer)
+        // Signal ready once we see the connected event
+        if (events.some((e) => e.event === 'connected')) {
+          resolveReady()
+        }
+        // Count non-connected events
+        dataEventCount = events.filter((e) => e.event !== 'connected').length
+        if (dataEventCount >= minDataEvents) {
+          clearTimeout(timer)
+          if (!destroyed) {
+            destroyed = true
+            req.destroy()
+            resolveCollect(buffer)
+          }
+        }
+      })
+      res.on('end', () => {
+        clearTimeout(timer)
+        resolveReady() // in case connected event was missed
+        resolveCollect(buffer)
+      })
+    },
+  )
+
+  req.on('error', (err) => {
+    if (
+      err.message.includes('ECONNRESET') ||
+      err.message.includes('socket hang up')
+    ) {
+      resolveReady()
+      resolveCollect(buffer)
+    } else {
+      rejectBoth(err)
+    }
+  })
+
+  return {
+    ready,
+    collect,
+    destroy: () => {
+      if (!destroyed) {
+        destroyed = true
+        req.destroy()
+      }
+    },
+  }
+}
+
 // =============================================================================
 // Property Tests
 // =============================================================================
@@ -182,6 +288,7 @@ describe('SSE Property Tests', () => {
     })
 
     it('P46: for any event type/phase/agent combo, SSE message contains required fields', async () => {
+      let iteration = 0
       await fc.assert(
         fc.asyncProperty(
           fc.constantFrom(...EVENT_TYPES),
@@ -189,23 +296,27 @@ describe('SSE Property Tests', () => {
           fc
             .string({ minLength: 1, maxLength: 30 })
             .filter((s) => /^[a-z-]+$/.test(s)),
-          fc
-            .string({ minLength: 1, maxLength: 30 })
-            .filter((s) => /^[a-z-]+$/.test(s)),
-          async (eventType, phase, runId, agent) => {
-            const collectPromise = collectSSEEvents(sharedPort, '/events', {
-              minEvents: 2,
+          async (eventType, phase, agent) => {
+            const runId = `p46-run-${++iteration}`
+
+            const handle = connectAndCollect(sharedPort, '/events', {
+              minDataEvents: 1,
             })
-            await tick()
+            await handle.ready
 
             sharedBus.emit(
               createEvent({ type: eventType, phase, runId, agent }),
             )
 
-            const raw = await collectPromise
-            const sseEvent = parseSSEStream(raw).find(
-              (e) => e.event === eventType,
-            )
+            const raw = await handle.collect
+            const sseEvent = parseSSEStream(raw).find((e) => {
+              if (e.event !== eventType || !e.data) return false
+              try {
+                return JSON.parse(e.data).runId === runId
+              } catch {
+                return false
+              }
+            })
             expect(sseEvent).toBeDefined()
 
             const data: SSEMessage = JSON.parse(sseEvent!.data!)
@@ -221,21 +332,31 @@ describe('SSE Property Tests', () => {
     })
 
     it('P46: elapsedTime is present when duration is in event data', async () => {
+      let iteration = 0
       await fc.assert(
         fc.asyncProperty(
           fc.integer({ min: 0, max: 1000000 }),
           async (duration) => {
-            const collectPromise = collectSSEEvents(sharedPort, '/events', {
-              minEvents: 2,
+            const uniqueRunId = `p46-elapsed-${++iteration}`
+
+            const handle = connectAndCollect(sharedPort, '/events', {
+              minDataEvents: 1,
             })
-            await tick()
+            await handle.ready
 
-            sharedBus.emit(createEvent({ data: { duration } }))
-
-            const raw = await collectPromise
-            const sseEvent = parseSSEStream(raw).find(
-              (e) => e.event === 'phase:started',
+            sharedBus.emit(
+              createEvent({ runId: uniqueRunId, data: { duration } }),
             )
+
+            const raw = await handle.collect
+            const sseEvent = parseSSEStream(raw).find((e) => {
+              if (e.event !== 'phase:started' || !e.data) return false
+              try {
+                return JSON.parse(e.data).runId === uniqueRunId
+              } catch {
+                return false
+              }
+            })
             expect(sseEvent).toBeDefined()
 
             const data: SSEMessage = JSON.parse(sseEvent!.data!)
@@ -247,20 +368,30 @@ describe('SSE Property Tests', () => {
     })
 
     it('P50: every SSE event has id, event, and parseable JSON data', async () => {
+      let iteration = 0
       await fc.assert(
         fc.asyncProperty(
           fc.constantFrom(...EVENT_TYPES),
           fc.constantFrom(...PHASE_NAMES),
           fc.integer({ min: 0, max: 100000 }),
           async (type, phase, duration) => {
-            const collectPromise = collectSSEEvents(sharedPort, '/events', {
-              minEvents: 2,
+            const uniqueRunId = `p50-format-${++iteration}`
+
+            const handle = connectAndCollect(sharedPort, '/events', {
+              minDataEvents: 1,
             })
-            await tick()
+            await handle.ready
 
-            sharedBus.emit(createEvent({ type, phase, data: { duration } }))
+            sharedBus.emit(
+              createEvent({
+                type,
+                phase,
+                runId: uniqueRunId,
+                data: { duration },
+              }),
+            )
 
-            const raw = await collectPromise
+            const raw = await handle.collect
             for (const evt of parseSSEStream(raw)) {
               expect(evt.id).toBeDefined()
               expect(evt.event).toBeDefined()
@@ -274,10 +405,10 @@ describe('SSE Property Tests', () => {
     })
 
     it('P50: SSEMessage data always contains type and runId', async () => {
-      const collectPromise = collectSSEEvents(sharedPort, '/events', {
-        minEvents: 4,
+      const handle = connectAndCollect(sharedPort, '/events', {
+        minDataEvents: 3,
       })
-      await tick()
+      await handle.ready
 
       for (const type of [
         'phase:started',
@@ -287,7 +418,7 @@ describe('SSE Property Tests', () => {
         sharedBus.emit(createEvent({ type, runId: 'format-test' }))
       }
 
-      const raw = await collectPromise
+      const raw = await handle.collect
       for (const evt of parseSSEStream(raw).filter(
         (e) => e.event !== 'connected',
       )) {
@@ -379,12 +510,12 @@ describe('SSE Property Tests', () => {
           async (targetRunId, otherRunId) => {
             fc.pre(targetRunId !== otherRunId)
 
-            const collectPromise = collectSSEEvents(
+            const handle = connectAndCollect(
               sharedPort,
               `/events?runId=${encodeURIComponent(targetRunId)}`,
-              { minEvents: 2, timeoutMs: 3000 },
+              { minDataEvents: 1, timeoutMs: 3000 },
             )
-            await tick(150)
+            await handle.ready
 
             sharedBus.emit(
               createEvent({ type: 'phase:started', runId: targetRunId }),
@@ -393,7 +524,7 @@ describe('SSE Property Tests', () => {
               createEvent({ type: 'phase:completed', runId: otherRunId }),
             )
 
-            const raw = await collectPromise
+            const raw = await handle.collect
             const nonConnected = parseSSEStream(raw).filter(
               (e) => e.event !== 'connected',
             )
@@ -470,18 +601,18 @@ describe('SSE Property Tests', () => {
           fc.subarray(EVENT_TYPES, { minLength: 1, maxLength: 4 }),
           async (allowedTypes) => {
             const filterParam = allowedTypes.join(',')
-            const collectPromise = collectSSEEvents(
+            const handle = connectAndCollect(
               sharedPort,
               `/events?events=${filterParam}`,
-              { minEvents: 1 + allowedTypes.length },
+              { minDataEvents: allowedTypes.length },
             )
-            await tick()
+            await handle.ready
 
             for (const type of EVENT_TYPES) {
               sharedBus.emit(createEvent({ type }))
             }
 
-            const raw = await collectPromise
+            const raw = await handle.collect
             const nonConnected = parseSSEStream(raw).filter(
               (e) => e.event !== 'connected',
             )
