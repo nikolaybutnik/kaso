@@ -87,7 +87,7 @@ test.prop([
       const pathStr = String(path)
       if (pathStr.endsWith('design.md')) return designContent
       if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-      if (pathStr.endsWith('task.md')) return taskContent
+      if (pathStr.endsWith('tasks.md')) return taskContent
       if (pathStr.endsWith('package.json')) return '{}'
       throw new Error('File not found')
     })
@@ -144,7 +144,7 @@ test.prop([
  * When spec files are missing, the error should clearly identify which files
  */
 test.prop([
-  fc.array(fc.constantFrom('design.md', 'tech-spec.md', 'task.md'), {
+  fc.array(fc.constantFrom('design.md', 'tech-spec.md', 'tasks.md'), {
     minLength: 1,
     maxLength: 3,
   }),
@@ -162,7 +162,7 @@ test.prop([
       }
       if (pathStr.endsWith('design.md')) return '# Design'
       if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
-      if (pathStr.endsWith('task.md')) return '- [ ] Task'
+      if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
       if (pathStr.endsWith('package.json')) return '{}'
       throw Object.assign(new Error('File not found'), { code: 'ENOENT' })
     })
@@ -226,7 +226,7 @@ test.prop([
     const pathStr = String(path)
     if (pathStr.endsWith('design.md')) return '# Design'
     if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
-    if (pathStr.endsWith('task.md')) return taskContent
+    if (pathStr.endsWith('tasks.md')) return taskContent
     if (pathStr.endsWith('package.json')) return '{}'
     throw new Error('File not found')
   })
@@ -292,7 +292,7 @@ test.prop([fc.integer({ min: 5000, max: 50000 })])(
       const pathStr = String(path)
       if (pathStr.endsWith('design.md')) return designContent
       if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-      if (pathStr.endsWith('task.md')) return taskContent
+      if (pathStr.endsWith('tasks.md')) return taskContent
       if (pathStr.endsWith('package.json')) return '{}'
       if (pathStr.endsWith('ARCHITECTURE.md')) return filler
       throw new Error('File not found')
@@ -366,7 +366,7 @@ test.prop([
     const pathStr = String(path)
     if (pathStr.endsWith('design.md')) return designContent
     if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-    if (pathStr.endsWith('task.md')) return taskContent
+    if (pathStr.endsWith('tasks.md')) return taskContent
     if (pathStr.endsWith('package.json')) {
       return JSON.stringify({ dependencies })
     }
@@ -416,7 +416,7 @@ test.prop([fc.integer({ min: 100, max: 5000 })])(
       const pathStr = String(path)
       if (pathStr.endsWith('design.md')) return designContent
       if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-      if (pathStr.endsWith('task.md')) return taskContent
+      if (pathStr.endsWith('tasks.md')) return taskContent
       if (pathStr.endsWith('package.json')) return '{}'
       throw new Error('File not found')
     })

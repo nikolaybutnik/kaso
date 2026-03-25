@@ -60,7 +60,7 @@ describe('Property 19: Implementation context includes spec, architecture, and v
       contextCapping: {
         enabled: true,
         charsPerToken: 4,
-        relevanceRanking: ['design.md', 'tech-spec.md', 'task.md'],
+        relevanceRanking: ['design.md', 'tech-spec.md', 'tasks.md'],
       },
       uiBaseline: {
         baselineDir: '.kiro/ui-baselines',
@@ -164,87 +164,101 @@ describe('Property 19: Implementation context includes spec, architecture, and v
 
   test.prop([
     fc.record({
-      featureName: fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0),
+      featureName: fc
+        .string({ minLength: 1, maxLength: 50 })
+        .filter((s) => s.trim().length > 0),
       designContent: fc.string({ minLength: 0, maxLength: 1000 }),
       techSpecContent: fc.string({ minLength: 0, maxLength: 1000 }),
       validationApproved: fc.boolean(),
       hasArchitecture: fc.boolean(),
     }),
-  ])('should include all required context in backend request', async (params) => {
-    const context = createMinimalContext(tempDir)
+  ])(
+    'should include all required context in backend request',
+    async (params) => {
+      const context = createMinimalContext(tempDir)
 
-    // Customize context based on property parameters
-    context.spec.featureName = params.featureName
-    if (context.phaseOutputs['intake']) {
-      const intake = context.phaseOutputs['intake'] as AssembledContext
-      intake.featureName = params.featureName
-      if (intake.designDoc) {
-        intake.designDoc.rawContent = params.designContent
+      // Customize context based on property parameters
+      context.spec.featureName = params.featureName
+      if (context.phaseOutputs['intake']) {
+        const intake = context.phaseOutputs['intake'] as AssembledContext
+        intake.featureName = params.featureName
+        if (intake.designDoc) {
+          intake.designDoc.rawContent = params.designContent
+        }
+        if (intake.techSpec) {
+          intake.techSpec.rawContent = params.techSpecContent
+        }
       }
-      if (intake.techSpec) {
-        intake.techSpec.rawContent = params.techSpecContent
+      if (context.phaseOutputs['validation']) {
+        const validation = context.phaseOutputs[
+          'validation'
+        ] as ValidationReport
+        validation.approved = params.validationApproved
       }
-    }
-    if (context.phaseOutputs['validation']) {
-      const validation = context.phaseOutputs['validation'] as ValidationReport
-      validation.approved = params.validationApproved
-    }
-    if (!params.hasArchitecture) {
-      context.architecture = undefined
-    }
+      if (!params.hasArchitecture) {
+        context.architecture = undefined
+      }
 
-    const agent = createAgentWithMockBackend()
-    const result = await agent.execute(context)
+      const agent = createAgentWithMockBackend()
+      const result = await agent.execute(context)
 
-    // If validation is not approved or architecture is missing, should fail
-    if (!params.validationApproved) {
-      expect(result.success).toBe(false)
-      expect(result.error?.message).toContain('validation')
-      return
-    }
+      // If validation is not approved or architecture is missing, should fail
+      if (!params.validationApproved) {
+        expect(result.success).toBe(false)
+        expect(result.error?.message).toContain('validation')
+        return
+      }
 
-    if (!params.hasArchitecture) {
-      expect(result.success).toBe(false)
-      expect(result.error?.message).toContain('architecture')
-      return
-    }
+      if (!params.hasArchitecture) {
+        expect(result.success).toBe(false)
+        expect(result.error?.message).toContain('architecture')
+        return
+      }
 
-    // With valid context, should succeed
-    expect(result.success).toBe(true)
-    expect(result.output).toBeDefined()
+      // With valid context, should succeed
+      expect(result.success).toBe(true)
+      expect(result.output).toBeDefined()
 
-    const implResult = result.output as ImplementationResult
-    expect(implResult.backend).toBeDefined()
-    expect(implResult.modifiedFiles).toBeDefined()
-    expect(implResult.addedTests).toBeDefined()
-    expect(implResult.duration).toBeGreaterThanOrEqual(0)
-  })
+      const implResult = result.output as ImplementationResult
+      expect(implResult.backend).toBeDefined()
+      expect(implResult.modifiedFiles).toBeDefined()
+      expect(implResult.addedTests).toBeDefined()
+      expect(implResult.duration).toBeGreaterThanOrEqual(0)
+    },
+  )
 
   test.prop([
-    fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0), // runId
-    fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0), // featureName
-  ])('should maintain context integrity through execution', async (runId, featureName) => {
-    const context = createMinimalContext(tempDir)
-    context.runId = runId
-    context.spec.featureName = featureName
-    if (context.phaseOutputs['intake']) {
-      const intake = context.phaseOutputs['intake'] as AssembledContext
-      intake.featureName = featureName
-    }
+    fc
+      .string({ minLength: 1, maxLength: 100 })
+      .filter((s) => s.trim().length > 0), // runId
+    fc
+      .string({ minLength: 1, maxLength: 50 })
+      .filter((s) => s.trim().length > 0), // featureName
+  ])(
+    'should maintain context integrity through execution',
+    async (runId, featureName) => {
+      const context = createMinimalContext(tempDir)
+      context.runId = runId
+      context.spec.featureName = featureName
+      if (context.phaseOutputs['intake']) {
+        const intake = context.phaseOutputs['intake'] as AssembledContext
+        intake.featureName = featureName
+      }
 
-    const agent = createAgentWithMockBackend()
-    const result = await agent.execute(context)
+      const agent = createAgentWithMockBackend()
+      const result = await agent.execute(context)
 
-    expect(result.success).toBe(true)
+      expect(result.success).toBe(true)
 
-    // Verify the result structure is consistent
-    const implResult = result.output as ImplementationResult
-    expect(Array.isArray(implResult.modifiedFiles)).toBe(true)
-    expect(Array.isArray(implResult.addedTests)).toBe(true)
-    expect(typeof implResult.duration).toBe('number')
-    expect(typeof implResult.backend).toBe('string')
-    expect(typeof implResult.selfCorrectionAttempts).toBe('number')
-  })
+      // Verify the result structure is consistent
+      const implResult = result.output as ImplementationResult
+      expect(Array.isArray(implResult.modifiedFiles)).toBe(true)
+      expect(Array.isArray(implResult.addedTests)).toBe(true)
+      expect(typeof implResult.duration).toBe('number')
+      expect(typeof implResult.backend).toBe('string')
+      expect(typeof implResult.selfCorrectionAttempts).toBe('number')
+    },
+  )
 })
 
 describe('Property 20: Executor retries capped at 3', () => {
@@ -366,15 +380,17 @@ describe('Property 20: Executor retries capped at 3', () => {
       // Update config to have a valid backend entry
       const config: KASOConfig = {
         ...context.config,
-        executorBackends: [{
-          name: 'mock-backend',
-          command: 'echo',
-          args: [],
-          protocol: 'cli-json',
-          maxContextWindow: 128000,
-          costPer1000Tokens: 0.01,
-          enabled: true,
-        } as ExecutorBackendConfig],
+        executorBackends: [
+          {
+            name: 'mock-backend',
+            command: 'echo',
+            args: [],
+            protocol: 'cli-json',
+            maxContextWindow: 128000,
+            costPer1000Tokens: 0.01,
+            enabled: true,
+          } as ExecutorBackendConfig,
+        ],
       }
       const registry = new BackendRegistry(config)
       registry.registerBackend('mock-backend', failingBackend)
@@ -390,26 +406,27 @@ describe('Property 20: Executor retries capped at 3', () => {
     }
   })
 
-  test.prop([
-    fc.integer({ min: 0, max: 5 }),
-  ])('retry count should never exceed maximum', async (_simulatedFailures) => {
-    // This property verifies that the retry logic is bounded
-    // The executor agent uses a constant MAX_SELF_CORRECTION_RETRIES = 3
-    // which limits total attempts to 4 (initial + 3 retries)
+  test.prop([fc.integer({ min: 0, max: 5 })])(
+    'retry count should never exceed maximum',
+    async (_simulatedFailures) => {
+      // This property verifies that the retry logic is bounded
+      // The executor agent uses a constant MAX_SELF_CORRECTION_RETRIES = 3
+      // which limits total attempts to 4 (initial + 3 retries)
 
-    // The actual retry count is determined by the implementation constant
-    const MAX_RETRIES = 3
-    const maxTotalAttempts = MAX_RETRIES + 1 // initial + retries
+      // The actual retry count is determined by the implementation constant
+      const MAX_RETRIES = 3
+      const maxTotalAttempts = MAX_RETRIES + 1 // initial + retries
 
-    // Verify the bound is respected
-    expect(MAX_RETRIES).toBeLessThanOrEqual(3)
-    expect(maxTotalAttempts).toBeLessThanOrEqual(4)
+      // Verify the bound is respected
+      expect(MAX_RETRIES).toBeLessThanOrEqual(3)
+      expect(maxTotalAttempts).toBeLessThanOrEqual(4)
 
-    // In actual execution, the agent would stop after maxTotalAttempts
-    // and return a failure result with retryable: true
-    expect(typeof maxTotalAttempts).toBe('number')
-    expect(maxTotalAttempts).toBe(4)
-  })
+      // In actual execution, the agent would stop after maxTotalAttempts
+      // and return a failure result with retryable: true
+      expect(typeof maxTotalAttempts).toBe('number')
+      expect(maxTotalAttempts).toBe(4)
+    },
+  )
 })
 
 describe('Additional Executor Properties', () => {
@@ -427,15 +444,17 @@ describe('Additional Executor Properties', () => {
     },
     steering: { hooks: {} },
     config: {
-      executorBackends: [{
-        name: 'mock',
-        command: 'echo',
-        args: [],
-        protocol: 'cli-json',
-        maxContextWindow: 128000,
-        costPer1000Tokens: 0.01,
-        enabled: true,
-      } as ExecutorBackendConfig],
+      executorBackends: [
+        {
+          name: 'mock',
+          command: 'echo',
+          args: [],
+          protocol: 'cli-json',
+          maxContextWindow: 128000,
+          costPer1000Tokens: 0.01,
+          enabled: true,
+        } as ExecutorBackendConfig,
+      ],
       defaultBackend: 'mock',
       backendSelectionStrategy: 'default',
       maxConcurrentAgents: 1,

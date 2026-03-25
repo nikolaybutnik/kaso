@@ -49,7 +49,7 @@ function createMockContext(
     contextCapping: {
       enabled: true,
       charsPerToken: 4,
-      relevanceRanking: ['design.md', 'tech-spec.md', 'task.md'],
+      relevanceRanking: ['design.md', 'tech-spec.md', 'tasks.md'],
     },
     uiBaseline: {
       baselineDir: '.kiro/ui-baselines',

@@ -177,7 +177,7 @@ export interface CodeBlock {
 }
 
 /**
- * Task item from task.md
+ * Task item from tasks.md
  */
 export interface TaskItem {
   id: string

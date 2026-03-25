@@ -61,7 +61,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return designContent
         if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-        if (pathStr.endsWith('task.md')) return taskContent
+        if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json'))
           return '{"dependencies": {"react": "^18.0.0"}}'
         throw new Error('File not found')
@@ -106,7 +106,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return designContent
         if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-        if (pathStr.endsWith('task.md')) return taskContent
+        if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
         throw new Error('File not found')
       })
@@ -127,7 +127,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return content
         if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
-        if (pathStr.endsWith('task.md')) return '- [ ] Task'
+        if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
         if (pathStr.endsWith('package.json')) return '{}'
         throw new Error('File not found')
       })
@@ -149,7 +149,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return content
         if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
-        if (pathStr.endsWith('task.md')) return '- [ ] Task'
+        if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
         if (pathStr.endsWith('package.json')) return '{}'
         throw new Error('File not found')
       })
@@ -171,7 +171,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return content
         if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
-        if (pathStr.endsWith('task.md')) return '- [ ] Task'
+        if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
         if (pathStr.endsWith('package.json')) return '{}'
         throw new Error('File not found')
       })
@@ -196,7 +196,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return designContent
         if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-        if (pathStr.endsWith('task.md')) return taskContent
+        if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
         throw new Error('File not found')
       })
@@ -225,7 +225,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return designContent
         if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-        if (pathStr.endsWith('task.md')) return taskContent
+        if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
         if (pathStr.endsWith('ARCHITECTURE.md')) return largeContent
         throw new Error('File not found')
@@ -261,7 +261,7 @@ describe('SpecReaderAgent', () => {
         const pathStr = String(path)
         if (pathStr.endsWith('design.md')) return designContent
         if (pathStr.endsWith('tech-spec.md')) return techSpecContent
-        if (pathStr.endsWith('task.md')) return taskContent
+        if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
         throw new Error('File not found')
       })

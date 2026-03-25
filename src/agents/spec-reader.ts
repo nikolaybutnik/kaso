@@ -24,7 +24,7 @@ const TASK_SIZE_OVERHEAD = 10
 
 /**
  * SpecReaderAgent implementation
- * Parses design.md, tech-spec.md, task.md and assembles context
+ * Parses design.md, tech-spec.md, tasks.md and assembles context
  */
 export class SpecReaderAgent implements Agent {
   private specPath: string
@@ -84,34 +84,51 @@ export class SpecReaderAgent implements Agent {
   }
 
   /**
-   * Parse design.md, tech-spec.md, task.md files
+   * Parse design.md, tech-spec.md, tasks.md files (falls back to task.md)
    */
   private async parseSpecFiles(): Promise<ParsedSpec> {
-    const specFiles = ['design.md', 'tech-spec.md', 'task.md']
     const missingFiles: string[] = []
 
     let design: ParsedMarkdown | undefined
     let techSpec: ParsedMarkdown | undefined
     let taskList: TaskItem[] | undefined
 
-    for (const file of specFiles) {
-      const filePath = join(this.specPath, file)
-      try {
-        const content = await fs.readFile(filePath, 'utf-8')
+    // Kiro generates tasks.md, but support legacy task.md as fallback
+    const specFiles: Array<{
+      candidates: string[]
+      type: 'design' | 'techSpec' | 'taskList'
+    }> = [
+      { candidates: ['design.md'], type: 'design' },
+      { candidates: ['tech-spec.md'], type: 'techSpec' },
+      { candidates: ['tasks.md', 'task.md'], type: 'taskList' },
+    ]
 
-        if (file === 'design.md') {
-          design = parseMarkdown(content)
-        } else if (file === 'tech-spec.md') {
-          techSpec = parseMarkdown(content)
-        } else if (file === 'task.md') {
-          taskList = this.parseTaskList(content, filePath)
+    for (const { candidates, type } of specFiles) {
+      let loaded = false
+      for (const file of candidates) {
+        const filePath = join(this.specPath, file)
+        try {
+          const content = await fs.readFile(filePath, 'utf-8')
+
+          if (type === 'design') {
+            design = parseMarkdown(content)
+          } else if (type === 'techSpec') {
+            techSpec = parseMarkdown(content)
+          } else if (type === 'taskList') {
+            taskList = this.parseTaskList(content, filePath)
+          }
+          loaded = true
+          break
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw new Error(
+              `Failed to read ${file}: ${(error as Error).message}`,
+            )
+          }
         }
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          missingFiles.push(file)
-        } else {
-          throw new Error(`Failed to read ${file}: ${(error as Error).message}`)
-        }
+      }
+      if (!loaded) {
+        missingFiles.push(candidates[0]!)
       }
     }
 
