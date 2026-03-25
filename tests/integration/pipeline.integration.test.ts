@@ -350,19 +350,20 @@ describe('Git Worktree Isolation', () => {
 describe('SSE Event Streaming', () => {
   let eventBus: EventBus
   let sseServer: SSEServer
-  const SSE_PORT = 19876 // High port to avoid conflicts
+  let ssePort: number
 
   beforeEach(async () => {
     eventBus = new EventBus()
     sseServer = new SSEServer(eventBus, {
       enabled: true,
-      port: SSE_PORT,
+      port: 0, // OS-assigned port to avoid EADDRINUSE
       host: 'localhost',
       endpoint: '/events',
       heartbeatIntervalMs: 60000,
       maxClients: 10,
     })
     await sseServer.start()
+    ssePort = sseServer.getPort()
   })
 
   afterEach(async () => {
@@ -375,7 +376,7 @@ describe('SSE Event Streaming', () => {
     expect(sseServer.isRunning()).toBe(true)
     expect(sseServer.getClientCount()).toBe(0)
 
-    const receivedData = await connectSSEClient(SSE_PORT, '/events', 500)
+    const receivedData = await connectSSEClient(ssePort, '/events', 500)
     expect(receivedData).toBeDefined()
   })
 
@@ -383,7 +384,7 @@ describe('SSE Event Streaming', () => {
     const receivedEvents: string[] = []
 
     const clientPromise = new Promise<void>((resolve) => {
-      const req = http.get(`http://localhost:${SSE_PORT}/events`, (res) => {
+      const req = http.get(`http://localhost:${ssePort}/events`, (res) => {
         res.on('data', (chunk: Buffer) => {
           const lines = chunk.toString().split('\n')
           for (const line of lines) {
@@ -440,7 +441,7 @@ describe('SSE Event Streaming', () => {
   it('should respond to health check endpoint', async () => {
     const response = await new Promise<{ statusCode: number; body: string }>(
       (resolve) => {
-        http.get(`http://localhost:${SSE_PORT}/health`, (res) => {
+        http.get(`http://localhost:${ssePort}/health`, (res) => {
           let body = ''
           res.on('data', (chunk: Buffer) => {
             body += chunk.toString()
@@ -460,7 +461,7 @@ describe('SSE Event Streaming', () => {
   it('should track client count', async () => {
     expect(sseServer.getClientCount()).toBe(0)
 
-    const clientReq = http.get(`http://localhost:${SSE_PORT}/events`)
+    const clientReq = http.get(`http://localhost:${ssePort}/events`)
 
     await new Promise((resolve) => setTimeout(resolve, 300))
 

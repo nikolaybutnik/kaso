@@ -80,23 +80,23 @@ Incremental implementation of per-phase backend selection and configurable revie
     - **Validates: Requirements 3.4, 3.6, 3.7**
 
 - [ ] 5. Integrate phase-aware backend selection into Orchestrator
-  - [ ] 5.1 Update `executePhase()` in `src/core/orchestrator.ts` to use `selectBackendForPhase()`
+  - [x] 5.1 Update `executePhase()` in `src/core/orchestrator.ts` to use `selectBackendForPhase()`
     - Replace direct `selectBackend()` call with `selectBackendForPhase(phase, context)` when no `preferredBackend` override
     - Record the resolved backend name in the cost tracking invocation so per-backend cost breakdowns remain accurate (Req 2.5)
     - Emit `agent:backend-selected` event with resolved backend name and selection reason
     - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.7, 11.1, 11.2_
 
-  - [ ] 5.2 Update `buildAgentContext()` in `src/core/orchestrator.ts` to set `preferredBackend` from phase override
+  - [x] 5.2 Update `buildAgentContext()` in `src/core/orchestrator.ts` to set `preferredBackend` from phase override
     - When no retry-context `preferredBackend` exists, check `backendRegistry.getPhaseOverride(phase)` and set it
     - _Requirements: 2.4_
 
-  - [ ]* 5.3 Write property tests for orchestrator backend selection in `tests/property/orchestrator.property.test.ts`
+  - [x] 5.3 Write property tests for orchestrator backend selection in `tests/property/orchestrator.property.test.ts`
     - **Property 5: preferredBackend takes priority over phase override**
     - **Validates: Requirements 2.3, 2.4**
     - **Property 14: Backend selection event reason validity**
     - **Validates: Requirements 11.1, 11.2, 11.3**
 
-- [ ] 6. Checkpoint — Backend selection pipeline complete
+- [x] 6. Checkpoint — Backend selection pipeline complete
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Refactor ReviewCouncilAgent for configurable reviewers

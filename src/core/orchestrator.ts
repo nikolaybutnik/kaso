@@ -761,15 +761,36 @@ export class Orchestrator {
         phase,
       )
 
-      // Track cost
+      // Resolve backend and emit selection event
+      const backend = context.preferredBackend
+        ? this.backendRegistry.getBackend(context.preferredBackend)
+        : this.backendRegistry.selectBackendForPhase(phase, context)
+      const resolvedBackendName = backend.name
+
+      const selectionReason = context.preferredBackend
+        ? 'retry-override'
+        : this.backendRegistry.hasPhaseOverride(phase)
+          ? 'phase-override'
+          : this.backendRegistry.getSelectionStrategy() === 'context-aware'
+            ? 'context-aware'
+            : 'default'
+
+      this.eventBus.emit({
+        type: 'agent:backend-selected',
+        runId: runInfo.runId,
+        timestamp: nowISO(),
+        phase,
+        data: { backend: resolvedBackendName, reason: selectionReason },
+      })
+
+      // Track cost with resolved backend
       if (agentResult.tokensUsed && agentResult.tokensUsed > 0) {
-        const backendName = this.backendRegistry.getDefaultBackendName()
-        const backendConfig = this.backendRegistry.getConfig(backendName)
+        const backendConfig = this.backendRegistry.getConfig(resolvedBackendName)
         const costRate =
           backendConfig?.costPer1000Tokens ?? DEFAULT_COST_PER_1000_TOKENS
         this.costTracker.recordInvocation(
           runInfo.runId,
-          backendName,
+          resolvedBackendName,
           agentResult.tokensUsed,
           costRate,
         )
@@ -1078,6 +1099,14 @@ export class Orchestrator {
       }
       if (runInfo.retryContext.alternativeBackend) {
         context.preferredBackend = runInfo.retryContext.alternativeBackend
+      }
+    }
+
+    // Set preferredBackend from phase override if no retry override exists
+    if (!context.preferredBackend && phase) {
+      const phaseOverride = this.backendRegistry.getPhaseOverride(phase)
+      if (phaseOverride) {
+        context.preferredBackend = phaseOverride
       }
     }
 

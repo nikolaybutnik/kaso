@@ -22,6 +22,7 @@ import type { BackendRegistry } from '@/backends/backend-registry'
 import type { SpecWriter } from '@/infrastructure/spec-writer'
 import type {
   AgentResult,
+  ExecutionEvent,
   PhaseName,
   ExecutionRunRecord,
   PhaseResultRecord,
@@ -222,9 +223,13 @@ function createMockWorktreeManager(): WorktreeManager {
 }
 
 function createMockBackendRegistry(): BackendRegistry {
+  const mockBackend = { name: TEST_BACKEND_NAME }
   return {
-    getBackend: vi.fn(),
-    selectBackend: vi.fn(),
+    getBackend: vi.fn(() => mockBackend),
+    selectBackend: vi.fn(() => mockBackend),
+    selectBackendForPhase: vi.fn(() => mockBackend),
+    hasPhaseOverride: vi.fn(() => false),
+    getPhaseOverride: vi.fn(() => undefined),
     listBackends: vi.fn(() => [TEST_BACKEND_NAME]),
     getConfig: vi.fn(() => ({
       name: TEST_BACKEND_NAME,
@@ -723,6 +728,210 @@ describe('Orchestrator Properties', () => {
       }
 
       await runPromise
+    },
+  )
+
+  // ==========================================================================
+  // Feature: configurable-backends-review — Orchestrator backend selection
+  // ==========================================================================
+
+  /**
+   * Feature: configurable-backends-review, Property 5: preferredBackend takes priority over phase override
+   * Validates: Requirements 2.3, 2.4
+   *
+   * For any phase with a phaseBackends override, buildAgentContext sets preferredBackend
+   * from the override. When preferredBackend is set, executePhase uses getBackend()
+   * instead of selectBackendForPhase(), proving preferredBackend takes priority.
+   */
+  test.prop([fc.constantFrom(...PIPELINE_PHASES)], { numRuns: 20 })(
+    'Property 5 (configurable-backends): preferredBackend takes priority over phase override',
+    async (targetPhase) => {
+      const OVERRIDE_BACKEND = 'override-backend'
+
+      const phaseBackends: Record<string, string> = {
+        [targetPhase]: OVERRIDE_BACKEND,
+      }
+
+      const events: ExecutionEvent[] = []
+      const eventBus = new EventBus()
+      eventBus.on('agent:backend-selected', (event: ExecutionEvent) => {
+        events.push(event)
+      })
+
+      // Track calls to getBackend vs selectBackendForPhase to verify the code path
+      const getBackendCalls: string[] = []
+      const selectForPhaseCalls: string[] = []
+
+      const mockRegistry = {
+        getBackend: vi.fn((name: string) => {
+          getBackendCalls.push(name)
+          return { name }
+        }),
+        selectBackend: vi.fn(() => ({ name: TEST_BACKEND_NAME })),
+        selectBackendForPhase: vi.fn((phase: string) => {
+          selectForPhaseCalls.push(phase)
+          return { name: phaseBackends[phase] ?? TEST_BACKEND_NAME }
+        }),
+        hasPhaseOverride: vi.fn((phase: string) => phase in phaseBackends),
+        getPhaseOverride: vi.fn((phase: string) => phaseBackends[phase]),
+        listBackends: vi.fn(() => [TEST_BACKEND_NAME, OVERRIDE_BACKEND]),
+        getConfig: vi.fn((name: string) => ({
+          name,
+          command: 'echo',
+          args: [],
+          protocol: 'cli-json' as const,
+          maxContextWindow: 128000,
+          costPer1000Tokens: TEST_COST_RATE,
+          enabled: true,
+        })),
+        getDefaultBackendName: vi.fn(() => TEST_BACKEND_NAME),
+        getSelectionStrategy: vi.fn(() => 'default' as const),
+        isBackendAvailable: vi.fn(async () => true),
+        registerBackend: vi.fn(),
+      } as unknown as BackendRegistry
+
+      const { orchestrator } = buildOrchestrator({
+        eventBus,
+        backendRegistry: mockRegistry,
+        agentRegistry: createMockAgentRegistry(),
+      })
+
+      await orchestrator.startRun({ specPath: '.kiro/specs/preferred-test' })
+
+      // buildAgentContext sets preferredBackend from phase override when no retry
+      // override exists. Then executePhase sees preferredBackend is truthy and calls
+      // getBackend(preferredBackend) instead of selectBackendForPhase.
+      const targetEvent = events.find((e) => e.phase === targetPhase)
+      expect(targetEvent).toBeDefined()
+      expect(targetEvent!.data!.backend).toBe(OVERRIDE_BACKEND)
+
+      // The target phase went through getBackend (preferredBackend path),
+      // NOT selectBackendForPhase
+      expect(getBackendCalls).toContain(OVERRIDE_BACKEND)
+
+      // Non-override phases use selectBackendForPhase (no preferredBackend set)
+      const nonTargetPhases = PIPELINE_PHASES.filter((p) => p !== targetPhase)
+      for (const phase of nonTargetPhases) {
+        expect(selectForPhaseCalls).toContain(phase)
+        const phaseEvent = events.find((e) => e.phase === phase)
+        expect(phaseEvent).toBeDefined()
+        expect(phaseEvent!.data!.backend).toBe(TEST_BACKEND_NAME)
+      }
+    },
+  )
+
+  /**
+   * Feature: configurable-backends-review, Property 14: Backend selection event reason validity
+   * Validates: Requirements 11.1, 11.2, 11.3
+   *
+   * For any agent:backend-selected event emitted during pipeline execution, the reason
+   * field shall be one of the valid selection reasons.
+   */
+  test.prop(
+    [
+      fc.subarray([...PIPELINE_PHASES], { minLength: 0, maxLength: 4 }),
+      fc.constantFrom('default', 'context-aware') as fc.Arbitrary<
+        'default' | 'context-aware'
+      >,
+    ],
+    { numRuns: 20 },
+  )(
+    'Property 14 (configurable-backends): Backend selection event reasons are always valid',
+    async (overridePhases, strategy) => {
+      const VALID_REASONS = new Set([
+        'phase-override',
+        'context-aware',
+        'default',
+        'reviewer-override',
+        'retry-override',
+      ])
+
+      const PHASE_BACKEND = 'phase-specific-backend'
+      const phaseBackends: Record<string, string> = {}
+      for (const phase of overridePhases) {
+        phaseBackends[phase] = PHASE_BACKEND
+      }
+
+      const events: ExecutionEvent[] = []
+      const eventBus = new EventBus()
+      eventBus.on('agent:backend-selected', (event: ExecutionEvent) => {
+        events.push(event)
+      })
+
+      const mockRegistry = {
+        getBackend: vi.fn((name: string) => ({ name })),
+        selectBackend: vi.fn(() => ({ name: TEST_BACKEND_NAME })),
+        selectBackendForPhase: vi.fn((phase: string) => {
+          if (phaseBackends[phase]) return { name: PHASE_BACKEND }
+          return { name: TEST_BACKEND_NAME }
+        }),
+        hasPhaseOverride: vi.fn((phase: string) => phase in phaseBackends),
+        getPhaseOverride: vi.fn((phase: string) => phaseBackends[phase]),
+        listBackends: vi.fn(() => [TEST_BACKEND_NAME, PHASE_BACKEND]),
+        getConfig: vi.fn((name: string) => ({
+          name,
+          command: 'echo',
+          args: [],
+          protocol: 'cli-json' as const,
+          maxContextWindow: 128000,
+          costPer1000Tokens: TEST_COST_RATE,
+          enabled: true,
+        })),
+        getDefaultBackendName: vi.fn(() => TEST_BACKEND_NAME),
+        getSelectionStrategy: vi.fn(() => strategy),
+        isBackendAvailable: vi.fn(async () => true),
+        registerBackend: vi.fn(),
+      } as unknown as BackendRegistry
+
+      const config = createTestConfig({
+        backendSelectionStrategy: strategy,
+        phaseBackends,
+      })
+
+      const { orchestrator } = buildOrchestrator({
+        eventBus,
+        backendRegistry: mockRegistry,
+        config,
+      })
+
+      await orchestrator.startRun({ specPath: '.kiro/specs/reason-test' })
+
+      // Every phase should emit exactly one backend-selected event
+      expect(events.length).toBe(PIPELINE_PHASES.length)
+
+      // Every event must have a valid reason
+      for (const event of events) {
+        const reason = (event.data as Record<string, string>).reason
+        expect(VALID_REASONS).toContain(reason)
+        expect(event.phase).toBeDefined()
+        expect(event.data!.backend).toBeDefined()
+      }
+
+      // Phases with overrides: preferredBackend is set by buildAgentContext,
+      // so executePhase uses the preferredBackend code path
+      for (const phase of overridePhases) {
+        const phaseEvent = events.find((e) => e.phase === phase)
+        expect(phaseEvent).toBeDefined()
+        const reason = (phaseEvent!.data as Record<string, string>).reason
+        expect(VALID_REASONS).toContain(reason)
+        expect(phaseEvent!.data!.backend).toBe(PHASE_BACKEND)
+      }
+
+      // Phases without overrides use the selection strategy reason
+      const nonOverridePhases = PIPELINE_PHASES.filter(
+        (p) => !overridePhases.includes(p),
+      )
+      for (const phase of nonOverridePhases) {
+        const phaseEvent = events.find((e) => e.phase === phase)
+        expect(phaseEvent).toBeDefined()
+        const reason = (phaseEvent!.data as Record<string, string>).reason
+        if (strategy === 'context-aware') {
+          expect(reason).toBe('context-aware')
+        } else {
+          expect(reason).toBe('default')
+        }
+        expect(phaseEvent!.data!.backend).toBe(TEST_BACKEND_NAME)
+      }
     },
   )
 })
