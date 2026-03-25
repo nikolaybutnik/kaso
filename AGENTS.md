@@ -381,7 +381,7 @@ Backend discovery and selection.
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `BackendRegistry` | Class | Registers backends from config. Selection strategies: `'default'` (use configured default) or `'context-aware'` (cheapest backend whose maxContextWindow fits the estimated context size). `registerBackend()` allows direct instance registration for testing with mocks. |
+| `BackendRegistry` | Class | Registers backends from config. Selection strategies: `'default'` (use configured default) or `'context-aware'` (cheapest backend whose maxContextWindow fits the estimated context size). Phase-aware selection via `selectBackendForPhase(phase, context?)` checks phase overrides first, then falls back to selection strategy. Fail-fast on unavailable phase override backends. `hasPhaseOverride(phase)` and `getPhaseOverride(phase)` for phase override introspection. `registerBackend()` allows direct instance registration for testing with mocks. |
 
 ### `src/config/schema.ts`
 

@@ -227,3 +227,129 @@ test.prop([fc.integer({ min: 1000, max: 100000 })])(
     expect(backend.name).toBeTruthy()
   },
 )
+
+// =============================================================================
+// Feature: configurable-backends-review
+// =============================================================================
+
+/**
+ * Generate a KASO config with phaseBackends overrides
+ */
+const configWithPhaseBackendsArbitrary: fc.Arbitrary<{
+  config: KASOConfig
+  phaseBackends: Record<string, string>
+}> = fc
+  .record({
+    backends: fc.array(backendConfigArbitrary, { minLength: 2, maxLength: 5 }),
+    defaultBackendIndex: fc.integer({ min: 0, max: 4 }),
+    selectionStrategy: fc.constantFrom('default' as const, 'context-aware' as const),
+    phaseOverrides: fc.array(
+      fc.record({
+        phase: fc.constantFrom(
+          'intake',
+          'validation',
+          'architecture-analysis',
+          'implementation',
+          'architecture-review',
+          'test-verification',
+          'ui-validation',
+          'review-delivery',
+        ),
+        backendIndex: fc.integer({ min: 0, max: 4 }),
+      }),
+      { minLength: 1, maxLength: 4 },
+    ),
+  })
+  .map(({ backends, defaultBackendIndex, selectionStrategy, phaseOverrides }) => {
+    const validIndex = Math.min(defaultBackendIndex, backends.length - 1)
+
+    // Ensure at least one backend is enabled (the default one)
+    const modifiedBackends = backends.map((backend, index) => ({
+      ...backend,
+      enabled: index === validIndex ? true : backend.enabled,
+    }))
+
+    const defaultBackendEntry = modifiedBackends[validIndex]
+    if (!defaultBackendEntry) {
+      throw new Error('Invalid backend index')
+    }
+
+    // Build phaseBackends from overrides, ensuring backend indices are valid
+    const phaseBackends: Record<string, string> = {}
+    for (const override of phaseOverrides) {
+      const backendIdx = Math.min(override.backendIndex, modifiedBackends.length - 1)
+      const backend = modifiedBackends[backendIdx]
+      if (backend && backend.enabled) {
+        phaseBackends[override.phase] = backend.name
+      }
+    }
+
+    const baseConfig = getDefaultConfig()
+    const config: KASOConfig = {
+      ...baseConfig,
+      executorBackends: modifiedBackends,
+      defaultBackend: defaultBackendEntry.name,
+      backendSelectionStrategy: selectionStrategy,
+      phaseBackends,
+    }
+
+    return { config, phaseBackends }
+  })
+
+/**
+ * Property 3: Phase override returns configured backend
+ * Validates: Requirements 2.1, 3.1, 3.2
+ */
+test.prop([configWithPhaseBackendsArbitrary])('Property 3: Phase override returns configured backend', ({ config, phaseBackends }) => {
+  const registry = new BackendRegistry(config)
+
+  // Test each phase with an override
+  for (const [phase, backendName] of Object.entries(phaseBackends)) {
+    const selectedBackend = registry.selectBackendForPhase(phase as import('../../src/core/types').PhaseName)
+    expect(selectedBackend.name).toBe(backendName)
+  }
+})
+
+/**
+ * Property 4: No-override fallback to selection strategy
+ * Validates: Requirements 2.2, 2.6, 3.3
+ */
+test.prop([configWithPhaseBackendsArbitrary])('Property 4: No-override fallback to selection strategy', ({ config, phaseBackends }) => {
+  const registry = new BackendRegistry(config)
+  const context = createTestContext(config)
+
+  // Find a phase without override
+  const allPhases = ['intake', 'validation', 'architecture-analysis', 'implementation', 'architecture-review', 'test-verification', 'ui-validation', 'review-delivery']
+  const phaseWithoutOverride = allPhases.find((p) => !(p in phaseBackends))
+
+  if (phaseWithoutOverride) {
+    const viaPhaseMethod = registry.selectBackendForPhase(phaseWithoutOverride as import('../../src/core/types').PhaseName, context)
+    const viaSelectBackend = registry.selectBackend(context)
+    expect(viaPhaseMethod.name).toBe(viaSelectBackend.name)
+  }
+})
+
+/**
+ * Property 6: Phase override map consistency
+ * Validates: Requirements 3.4, 3.6, 3.7
+ */
+test.prop([configWithPhaseBackendsArbitrary])('Property 6: Phase override map consistency', ({ config, phaseBackends }) => {
+  const registry = new BackendRegistry(config)
+
+  // Test hasPhaseOverride and getPhaseOverride consistency
+  for (const [phase, backendName] of Object.entries(phaseBackends)) {
+    // hasPhaseOverride should return true
+    expect(registry.hasPhaseOverride(phase as import('../../src/core/types').PhaseName)).toBe(true)
+    // getPhaseOverride should return the configured backend name
+    expect(registry.getPhaseOverride(phase as import('../../src/core/types').PhaseName)).toBe(backendName)
+  }
+
+  // Test phases without overrides
+  const allPhases = ['intake', 'validation', 'architecture-analysis', 'implementation', 'architecture-review', 'test-verification', 'ui-validation', 'review-delivery']
+  for (const phase of allPhases) {
+    if (!(phase in phaseBackends)) {
+      expect(registry.hasPhaseOverride(phase as import('../../src/core/types').PhaseName)).toBe(false)
+      expect(registry.getPhaseOverride(phase as import('../../src/core/types').PhaseName)).toBeUndefined()
+    }
+  }
+})

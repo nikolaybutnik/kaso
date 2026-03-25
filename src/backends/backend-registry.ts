@@ -4,8 +4,8 @@
  */
 
 import type { ExecutorBackend } from './backend-adapter'
-import type { ExecutorBackendConfig, KASOConfig } from '../config/schema'
-import type { AgentContext } from '../core/types'
+import type { ExecutorBackendConfig, KASOConfig } from '@/config/schema'
+import type { AgentContext, PhaseName } from '@/core/types'
 import { CLIProcessBackend } from './backend-process'
 
 /**
@@ -17,6 +17,7 @@ export class BackendRegistry {
   private configs = new Map<string, ExecutorBackendConfig>()
   private defaultBackendName: string
   private selectionStrategy: 'default' | 'context-aware'
+  private phaseOverrides: Map<string, string> // PhaseName → BackendName
 
   /**
    * Create a new backend registry
@@ -40,6 +41,9 @@ export class BackendRegistry {
           `Available backends: ${Array.from(this.backends.keys()).join(', ')}`,
       )
     }
+
+    // Initialize phase overrides from config
+    this.phaseOverrides = new Map(Object.entries(config.phaseBackends ?? {}))
   }
 
   /**
@@ -58,7 +62,11 @@ export class BackendRegistry {
    * @param backend - Backend instance
    * @param config - Optional backend configuration
    */
-  registerBackend(name: string, backend: ExecutorBackend, config?: ExecutorBackendConfig): void {
+  registerBackend(
+    name: string,
+    backend: ExecutorBackend,
+    config?: ExecutorBackendConfig,
+  ): void {
     this.backends.set(name, backend)
     if (config) {
       this.configs.set(name, config)
@@ -222,5 +230,51 @@ export class BackendRegistry {
    */
   getSelectionStrategy(): 'default' | 'context-aware' {
     return this.selectionStrategy
+  }
+
+  /**
+   * Select backend for a specific phase
+   * Checks phase override first, then falls back to selection strategy
+   * @param phase - Phase name
+   * @param context - Optional agent context for context-aware selection
+   * @returns Selected backend instance
+   * @throws Error if phase override references unavailable backend (fail-fast)
+   */
+  selectBackendForPhase(
+    phase: PhaseName,
+    context?: AgentContext,
+  ): ExecutorBackend {
+    // Check phase override
+    const override = this.phaseOverrides.get(phase)
+    if (override) {
+      const backend = this.backends.get(override)
+      if (!backend) {
+        throw new Error(
+          `Backend '${override}' configured for phase '${phase}' is not available. ` +
+            `Available backends: ${Array.from(this.backends.keys()).join(', ')}`,
+        )
+      }
+      return backend
+    }
+    // Fall back to existing selection strategy
+    return this.selectBackend(context)
+  }
+
+  /**
+   * Check if a phase has a configured backend override
+   * @param phase - Phase name
+   * @returns True if phase has an override
+   */
+  hasPhaseOverride(phase: PhaseName): boolean {
+    return this.phaseOverrides.has(phase)
+  }
+
+  /**
+   * Get the configured backend override for a phase
+   * @param phase - Phase name
+   * @returns Backend name or undefined if no override
+   */
+  getPhaseOverride(phase: PhaseName): string | undefined {
+    return this.phaseOverrides.get(phase)
   }
 }

@@ -54,16 +54,16 @@ Incremental implementation of per-phase backend selection and configurable revie
     - **Property 10: Unique role validation rejects duplicates**
     - **Validates: Requirement 4.7**
 
-- [ ] 3. Checkpoint — Schema and types complete
+- [x] 3. Checkpoint — Schema and types complete
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Add phase-aware selection to BackendRegistry
-  - [ ] 4.1 Add `phaseOverrides` map and constructor initialization in `src/backends/backend-registry.ts`
+- [x] 4. Add phase-aware selection to BackendRegistry
+  - [x] 4.1 Add `phaseOverrides` map and constructor initialization in `src/backends/backend-registry.ts`
     - Add `private phaseOverrides: Map<string, string>` field
     - Initialize from `config.phaseBackends ?? {}` in constructor
     - _Requirements: 3.4_
 
-  - [ ] 4.2 Implement `selectBackendForPhase()`, `hasPhaseOverride()`, and `getPhaseOverride()` in `src/backends/backend-registry.ts`
+  - [x] 4.2 Implement `selectBackendForPhase()`, `hasPhaseOverride()`, and `getPhaseOverride()` in `src/backends/backend-registry.ts`
     - `selectBackendForPhase(phase, context?)`: check phase override first, then delegate to `selectBackend(context)`
     - Throw on override referencing unavailable backend (fail-fast — do NOT fall back to default)
     - Note: `isAvailable()` on `ExecutorBackend` is synchronous in the current codebase. If it becomes async, this method signature must change to `Promise<ExecutorBackend>`
@@ -71,7 +71,7 @@ Incremental implementation of per-phase backend selection and configurable revie
     - `getPhaseOverride(phase)`: returns string | undefined
     - _Requirements: 3.1, 3.2, 3.3, 3.5, 3.6, 3.7_
 
-  - [ ]* 4.3 Write property tests for BackendRegistry phase selection in `tests/property/backend-registry.property.test.ts`
+  - [x] 4.3 Write property tests for BackendRegistry phase selection in `tests/property/backend-registry.property.test.ts`
     - **Property 3: Phase override returns configured backend**
     - **Validates: Requirements 2.1, 3.1, 3.2**
     - **Property 4: No-override fallback to selection strategy**
