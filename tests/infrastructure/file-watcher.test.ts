@@ -530,7 +530,6 @@ describe('FileWatcher Edge Cases', () => {
     const tempDir = await createTempSpecsDir()
     const specDir = await createSpecDir(tempDir, 'other-files')
     await fs.writeFile(join(specDir, 'design.md'), '# Design', 'utf-8')
-    await fs.writeFile(join(specDir, 'tech-spec.md'), '# Tech Spec', 'utf-8')
 
     const watcher = createFileWatcher(createMockConfig(tempDir))
 

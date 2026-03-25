@@ -67,7 +67,8 @@ export async function createMockProject(
     mkdirSync(steeringDir, { recursive: true })
 
     // Create spec files
-    const designMd = config?.specContent?.designMd ?? createDefaultDesignMd(featureName)
+    const designMd =
+      config?.specContent?.designMd ?? createDefaultDesignMd(featureName)
     const tasksMd = config?.specContent?.tasksMd ?? createDefaultTasksMd()
 
     writeFileSync(join(specsDir, 'design.md'), designMd)
@@ -76,7 +77,8 @@ export async function createMockProject(
     // Create steering files
     const codingPractices =
       config?.steeringFiles?.codingPractices ?? createDefaultCodingPractices()
-    const personality = config?.steeringFiles?.personality ?? createDefaultPersonality()
+    const personality =
+      config?.steeringFiles?.personality ?? createDefaultPersonality()
 
     writeFileSync(join(steeringDir, 'coding_practices.md'), codingPractices)
     writeFileSync(join(steeringDir, 'personality.md'), personality)
@@ -324,7 +326,7 @@ function createKasoConfig(overrides?: Partial<KASOConfig>): KASOConfig {
     contextCapping: {
       enabled: true,
       charsPerToken: 4,
-      relevanceRanking: ['design.md', 'tech-spec.md', 'tasks.md'],
+      relevanceRanking: ['requirements.md', 'design.md', 'tasks.md'],
     },
     reviewCouncil: {
       maxReviewRounds: 1,

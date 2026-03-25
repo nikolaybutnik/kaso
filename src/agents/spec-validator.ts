@@ -655,12 +655,12 @@ export class SpecValidatorAgent implements Agent {
 
     if (designDoc?.rawContent.toLowerCase().includes(lowerText)) {
       const lineNum = this.findLineNumber(designDoc.rawContent, text)
-      return `design.md:${lineNum}`
+      return `requirements.md:${lineNum}`
     }
 
     if (techSpec?.rawContent.toLowerCase().includes(lowerText)) {
       const lineNum = this.findLineNumber(techSpec.rawContent, text)
-      return `tech-spec.md:${lineNum}`
+      return `design.md:${lineNum}`
     }
 
     return 'Unknown location'
@@ -695,14 +695,14 @@ export class SpecValidatorAgent implements Agent {
       designDoc?.rawContent.toLowerCase().includes('database') ||
       designDoc?.rawContent.toLowerCase().includes('table')
     ) {
-      return 'design.md'
+      return 'requirements.md'
     }
 
     if (
       techSpec?.rawContent.toLowerCase().includes('database') ||
       techSpec?.rawContent.toLowerCase().includes('table')
     ) {
-      return 'tech-spec.md'
+      return 'design.md'
     }
 
     return 'Unknown location'
@@ -763,8 +763,8 @@ export class SpecValidatorAgent implements Agent {
     designDoc?: ParsedMarkdown,
     techSpec?: ParsedMarkdown,
   ): string {
-    if (designDoc) return 'design.md'
-    if (techSpec) return 'tech-spec.md'
+    if (designDoc) return 'requirements.md'
+    if (techSpec) return 'design.md'
     return 'Unknown location'
   }
 

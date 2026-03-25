@@ -16,6 +16,11 @@ vi.mock('fs', () => ({
   },
 }))
 
+/** Helper: create ENOENT error for missing files */
+function enoent(): Error {
+  return Object.assign(new Error('File not found'), { code: 'ENOENT' })
+}
+
 describe('SpecReaderAgent', () => {
   let agent: SpecReaderAgent
   let mockContext: AgentContext
@@ -53,18 +58,18 @@ describe('SpecReaderAgent', () => {
 
   describe('execute', () => {
     it('should parse spec files successfully', async () => {
-      const designContent = `# Design\n\nThis is the design.`
-      const techSpecContent = `# Tech Spec\n\nTechnical details here.`
+      const requirementsContent = `# Requirements\n\nThis is the requirements.`
+      const designContent = `# Design\n\nTechnical details here.`
       const taskContent = `- [x] Task 1\n- [ ] Task 2`
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
+        if (pathStr.endsWith('requirements.md')) return requirementsContent
         if (pathStr.endsWith('design.md')) return designContent
-        if (pathStr.endsWith('tech-spec.md')) return techSpecContent
         if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json'))
           return '{"dependencies": {"react": "^18.0.0"}}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -84,9 +89,8 @@ describe('SpecReaderAgent', () => {
     it('should identify missing files', async () => {
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
-        if (pathStr.endsWith('design.md')) return '# Design'
-        // Throw ENOENT error for missing files
-        throw Object.assign(new Error('File not found'), { code: 'ENOENT' })
+        if (pathStr.endsWith('requirements.md')) return '# Requirements'
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -98,17 +102,17 @@ describe('SpecReaderAgent', () => {
     })
 
     it('should continue without steering files', async () => {
+      const requirementsContent = '# Requirements\n\nContent'
       const designContent = '# Design\n\nContent'
-      const techSpecContent = '# Tech Spec\n\nContent'
       const taskContent = '- [ ] Task 1'
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
+        if (pathStr.endsWith('requirements.md')) return requirementsContent
         if (pathStr.endsWith('design.md')) return designContent
-        if (pathStr.endsWith('tech-spec.md')) return techSpecContent
         if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockRejectedValue(new Error('Directory not found'))
 
@@ -125,11 +129,11 @@ describe('SpecReaderAgent', () => {
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
-        if (pathStr.endsWith('design.md')) return content
-        if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
+        if (pathStr.endsWith('requirements.md')) return content
+        if (pathStr.endsWith('design.md')) return '# Design'
         if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
         if (pathStr.endsWith('package.json')) return '{}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -147,11 +151,11 @@ describe('SpecReaderAgent', () => {
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
-        if (pathStr.endsWith('design.md')) return content
-        if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
+        if (pathStr.endsWith('requirements.md')) return content
+        if (pathStr.endsWith('design.md')) return '# Design'
         if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
         if (pathStr.endsWith('package.json')) return '{}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -169,11 +173,11 @@ describe('SpecReaderAgent', () => {
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
-        if (pathStr.endsWith('design.md')) return content
-        if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
+        if (pathStr.endsWith('requirements.md')) return content
+        if (pathStr.endsWith('design.md')) return '# Design'
         if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
         if (pathStr.endsWith('package.json')) return '{}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -188,17 +192,17 @@ describe('SpecReaderAgent', () => {
 
   describe('task list parsing', () => {
     it('should parse task items with status', async () => {
+      const requirementsContent = '# Requirements'
       const designContent = '# Design'
-      const techSpecContent = '# Tech Spec'
       const taskContent = `- [x] Completed task\n- [ ] Incomplete task\n- [X] Another completed`
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
+        if (pathStr.endsWith('requirements.md')) return requirementsContent
         if (pathStr.endsWith('design.md')) return designContent
-        if (pathStr.endsWith('tech-spec.md')) return techSpecContent
         if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -215,20 +219,19 @@ describe('SpecReaderAgent', () => {
 
   describe('context capping', () => {
     it('should apply context capping when enabled', async () => {
-      // Create large content that exceeds typical context window
-      const largeContent = 'x'.repeat(200000) // ~50000 tokens
+      const largeContent = 'x'.repeat(200000)
+      const requirementsContent = `# Requirements\n\n${largeContent}`
       const designContent = `# Design\n\n${largeContent}`
-      const techSpecContent = `# Tech Spec\n\n${largeContent}`
       const taskContent = '- [ ] Task'
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
+        if (pathStr.endsWith('requirements.md')) return requirementsContent
         if (pathStr.endsWith('design.md')) return designContent
-        if (pathStr.endsWith('tech-spec.md')) return techSpecContent
         if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
         if (pathStr.endsWith('ARCHITECTURE.md')) return largeContent
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -237,7 +240,7 @@ describe('SpecReaderAgent', () => {
         contextCapping: {
           enabled: true,
           charsPerToken: 4,
-          relevanceRanking: ['tech-spec.md', 'design.md', 'ARCHITECTURE.md'],
+          relevanceRanking: ['design.md', 'requirements.md', 'ARCHITECTURE.md'],
         },
       }
 
@@ -246,24 +249,22 @@ describe('SpecReaderAgent', () => {
       expect(result.success).toBe(true)
       const output = result.output as AssembledContext
       expect(output.removedFiles).toBeDefined()
-      // Should have removed some files to fit within window
       expect(output.removedFiles.length).toBeGreaterThan(0)
     })
 
     it('should throw error when irreducible overflow occurs', async () => {
-      // Create content that exceeds window even for essential files
-      const hugeContent = 'x'.repeat(600000) // ~150000 tokens
-      const designContent = `# Design\n\nText` // Small design
-      const techSpecContent = `# Tech Spec\n\n${hugeContent}` // Make tech-spec huge (most essential)
+      const hugeContent = 'x'.repeat(600000)
+      const requirementsContent = `# Requirements\n\nText`
+      const designContent = `# Design\n\n${hugeContent}`
       const taskContent = '- [ ] Task'
 
       vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
         const pathStr = String(path)
+        if (pathStr.endsWith('requirements.md')) return requirementsContent
         if (pathStr.endsWith('design.md')) return designContent
-        if (pathStr.endsWith('tech-spec.md')) return techSpecContent
         if (pathStr.endsWith('tasks.md')) return taskContent
         if (pathStr.endsWith('package.json')) return '{}'
-        throw new Error('File not found')
+        throw enoent()
       })
       vi.mocked(fs.readdir).mockRejectedValue(new Error('Directory not found'))
 
@@ -272,7 +273,7 @@ describe('SpecReaderAgent', () => {
         contextCapping: {
           enabled: true,
           charsPerToken: 4,
-          relevanceRanking: ['tech-spec.md', 'design.md'],
+          relevanceRanking: ['design.md', 'requirements.md'],
         },
       }
 

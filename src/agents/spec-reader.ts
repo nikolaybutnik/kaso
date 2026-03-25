@@ -24,7 +24,7 @@ const TASK_SIZE_OVERHEAD = 10
 
 /**
  * SpecReaderAgent implementation
- * Parses design.md, tech-spec.md, tasks.md and assembles context
+ * Parses requirements.md, design.md, tasks.md and assembles context
  */
 export class SpecReaderAgent implements Agent {
   private specPath: string
@@ -84,7 +84,7 @@ export class SpecReaderAgent implements Agent {
   }
 
   /**
-   * Parse design.md, tech-spec.md, tasks.md files (falls back to task.md)
+   * Parse requirements.md, design.md, tasks.md files (with legacy fallbacks)
    */
   private async parseSpecFiles(): Promise<ParsedSpec> {
     const missingFiles: string[] = []
@@ -93,19 +93,24 @@ export class SpecReaderAgent implements Agent {
     let techSpec: ParsedMarkdown | undefined
     let taskList: TaskItem[] | undefined
 
-    // Kiro generates tasks.md, but support legacy task.md as fallback
+    // Kiro standard files: requirements.md, design.md, tasks.md
+    // Legacy fallbacks: design.md→requirements, tech-spec.md→design, task.md→tasks
     const specFiles: Array<{
       candidates: string[]
       type: 'design' | 'techSpec' | 'taskList'
     }> = [
-      { candidates: ['design.md'], type: 'design' },
-      { candidates: ['tech-spec.md'], type: 'techSpec' },
+      { candidates: ['requirements.md', 'design.md'], type: 'design' },
+      { candidates: ['design.md', 'tech-spec.md'], type: 'techSpec' },
       { candidates: ['tasks.md', 'task.md'], type: 'taskList' },
     ]
+
+    // Track which files have been claimed so a file isn't used for two slots
+    const claimedFiles = new Set<string>()
 
     for (const { candidates, type } of specFiles) {
       let loaded = false
       for (const file of candidates) {
+        if (claimedFiles.has(file)) continue
         const filePath = join(this.specPath, file)
         try {
           const content = await fs.readFile(filePath, 'utf-8')
@@ -117,6 +122,7 @@ export class SpecReaderAgent implements Agent {
           } else if (type === 'taskList') {
             taskList = this.parseTaskList(content, filePath)
           }
+          claimedFiles.add(file)
           loaded = true
           break
         } catch (error) {
@@ -431,15 +437,17 @@ export class SpecReaderAgent implements Agent {
       })
     }
 
-    // Design doc — can be truncated as last resort before spec files
+    // Design doc (requirements.md or legacy design.md) — can be truncated as last resort
     if (assembled.designDoc) {
       const tokenSize = Math.ceil(
         assembled.designDoc.rawContent.length / charsPerToken,
       )
-      const rankIndex = relevanceRanking.indexOf('design.md')
+      // Check both names in relevance ranking for backwards compat
+      let rankIndex = relevanceRanking.indexOf('requirements.md')
+      if (rankIndex === -1) rankIndex = relevanceRanking.indexOf('design.md')
       const relevanceScore = rankIndex === -1 ? UNRANKED_SCORE : rankIndex
       removable.push({
-        file: 'design.md',
+        file: 'requirements.md',
         category: 'spec',
         tokenSize,
         relevanceScore,
@@ -466,7 +474,7 @@ export class SpecReaderAgent implements Agent {
   ): void {
     if (category === 'architecture') {
       delete capped.architectureDocs[file]
-    } else if (file === 'design.md' && capped.designDoc) {
+    } else if (file === 'requirements.md' && capped.designDoc) {
       capped.designDoc = {
         rawContent: TRUNCATED_MARKER,
         sections: [],

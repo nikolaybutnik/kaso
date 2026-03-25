@@ -58,8 +58,8 @@ export const ContextCappingStrategySchema = z.object({
   relevanceRanking: z
     .array(z.string())
     .default([
+      'requirements.md',
       'design.md',
-      'tech-spec.md',
       'tasks.md',
       'ARCHITECTURE.md',
       '.cursorrules',

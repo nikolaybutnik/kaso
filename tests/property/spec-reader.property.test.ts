@@ -17,6 +17,11 @@ vi.mock('fs', () => ({
   },
 }))
 
+/** Helper: create ENOENT error for missing files */
+function enoent(): Error {
+  return Object.assign(new Error('File not found'), { code: 'ENOENT' })
+}
+
 /**
  * Arbitrary for generating valid markdown content
  */
@@ -78,18 +83,17 @@ test.prop([
   taskItemArbitrary,
 ])(
   'Property 1: Spec parsing produces structured context',
-  async (featureName, designContent, techSpecContent, taskContent) => {
+  async (featureName, requirementsContent, designContent, taskContent) => {
     const specPath = `/test/specs/${featureName}`
     const agent = new SpecReaderAgent(specPath)
 
-    // Mock file system
     vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
       const pathStr = String(path)
+      if (pathStr.endsWith('requirements.md')) return requirementsContent
       if (pathStr.endsWith('design.md')) return designContent
-      if (pathStr.endsWith('tech-spec.md')) return techSpecContent
       if (pathStr.endsWith('tasks.md')) return taskContent
       if (pathStr.endsWith('package.json')) return '{}'
-      throw new Error('File not found')
+      throw enoent()
     })
     vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -125,7 +129,6 @@ test.prop([
 
     const result = await agent.execute(context)
 
-    // Verify result structure
     expect(result.success).toBe(true)
     expect(result.output).toBeDefined()
 
@@ -144,7 +147,7 @@ test.prop([
  * When spec files are missing, the error should clearly identify which files
  */
 test.prop([
-  fc.array(fc.constantFrom('design.md', 'tech-spec.md', 'tasks.md'), {
+  fc.array(fc.constantFrom('requirements.md', 'design.md', 'tasks.md'), {
     minLength: 1,
     maxLength: 3,
   }),
@@ -154,17 +157,31 @@ test.prop([
     const specPath = '/test/specs/test-feature'
     const agent = new SpecReaderAgent(specPath)
 
-    // Mock file system - only return files that are NOT in missingFiles
+    // Map primary filenames to their fallback candidates so blocking
+    // a primary also blocks its fallbacks (otherwise the fallback succeeds)
+    const fallbackMap: Record<string, string[]> = {
+      'requirements.md': ['design.md'],
+      'design.md': ['tech-spec.md'],
+      'tasks.md': ['task.md'],
+    }
+    const allBlocked = new Set<string>()
+    for (const f of missingFiles) {
+      allBlocked.add(f)
+      for (const fb of fallbackMap[f] ?? []) {
+        allBlocked.add(fb)
+      }
+    }
+
     vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
       const pathStr = String(path)
-      if (missingFiles.some((f) => pathStr.endsWith(f))) {
-        throw Object.assign(new Error('File not found'), { code: 'ENOENT' })
+      if ([...allBlocked].some((f) => pathStr.endsWith(f))) {
+        throw enoent()
       }
+      if (pathStr.endsWith('requirements.md')) return '# Requirements'
       if (pathStr.endsWith('design.md')) return '# Design'
-      if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
       if (pathStr.endsWith('tasks.md')) return '- [ ] Task'
       if (pathStr.endsWith('package.json')) return '{}'
-      throw Object.assign(new Error('File not found'), { code: 'ENOENT' })
+      throw enoent()
     })
     vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -224,11 +241,11 @@ test.prop([
 
   vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
     const pathStr = String(path)
+    if (pathStr.endsWith('requirements.md')) return '# Requirements'
     if (pathStr.endsWith('design.md')) return '# Design'
-    if (pathStr.endsWith('tech-spec.md')) return '# Tech Spec'
     if (pathStr.endsWith('tasks.md')) return taskContent
     if (pathStr.endsWith('package.json')) return '{}'
-    throw new Error('File not found')
+    throw enoent()
   })
   vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -260,7 +277,6 @@ test.prop([
   const output = result.output as AssembledContext
   expect(output.taskList).toHaveLength(tasks.length)
 
-  // Verify each task matches expected status
   const taskList = output.taskList ?? []
   for (let i = 0; i < tasks.length; i++) {
     const task = taskList[i]
@@ -277,12 +293,10 @@ test.prop([
 test.prop([fc.integer({ min: 5000, max: 50000 })])(
   'Property 15: Assembled context respects max context window',
   async (maxWindow) => {
-    // Create content where total exceeds window but techSpec alone fits
-    // techSpec ~30% of window, design ~30%, arch ~30% => total ~90% * 3 docs > 100%
     const thirtyPercent = Math.floor(maxWindow * 4 * 0.3)
     const filler = 'x'.repeat(thirtyPercent)
+    const requirementsContent = `# Requirements\n\n${filler}`
     const designContent = `# Design\n\n${filler}`
-    const techSpecContent = `# Tech Spec\n\n${filler}`
     const taskContent = '- [ ] Task'
 
     const specPath = '/test/specs/test-feature'
@@ -290,12 +304,12 @@ test.prop([fc.integer({ min: 5000, max: 50000 })])(
 
     vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
       const pathStr = String(path)
+      if (pathStr.endsWith('requirements.md')) return requirementsContent
       if (pathStr.endsWith('design.md')) return designContent
-      if (pathStr.endsWith('tech-spec.md')) return techSpecContent
       if (pathStr.endsWith('tasks.md')) return taskContent
       if (pathStr.endsWith('package.json')) return '{}'
       if (pathStr.endsWith('ARCHITECTURE.md')) return filler
-      throw new Error('File not found')
+      throw enoent()
     })
     vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -313,7 +327,7 @@ test.prop([fc.integer({ min: 5000, max: 50000 })])(
         contextCapping: {
           enabled: true,
           charsPerToken: 4,
-          relevanceRanking: ['tech-spec.md', 'design.md', 'ARCHITECTURE.md'],
+          relevanceRanking: ['design.md', 'requirements.md', 'ARCHITECTURE.md'],
         },
       },
       backends: {
@@ -331,12 +345,10 @@ test.prop([fc.integer({ min: 5000, max: 50000 })])(
 
     const result = await agent.execute(context)
 
-    // Should succeed by capping context
     expect(result.success).toBe(true)
     expect(result.output).toBeDefined()
 
     const output = result.output as AssembledContext
-    // Verify we tracked removed files
     expect(output.removedFiles).toBeDefined()
     expect(output.removedFiles.length).toBeGreaterThan(0)
   },
@@ -355,8 +367,8 @@ test.prop([
     { minKeys: 0, maxKeys: 10 },
   ),
 ])('Property 16: Dependency info included in context', async (dependencies) => {
+  const requirementsContent = '# Requirements\n\nContent'
   const designContent = '# Design\n\nContent'
-  const techSpecContent = '# Tech Spec\n\nContent'
   const taskContent = '- [ ] Task'
 
   const specPath = '/test/specs/test-feature'
@@ -364,13 +376,13 @@ test.prop([
 
   vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
     const pathStr = String(path)
+    if (pathStr.endsWith('requirements.md')) return requirementsContent
     if (pathStr.endsWith('design.md')) return designContent
-    if (pathStr.endsWith('tech-spec.md')) return techSpecContent
     if (pathStr.endsWith('tasks.md')) return taskContent
     if (pathStr.endsWith('package.json')) {
       return JSON.stringify({ dependencies })
     }
-    throw new Error('File not found')
+    throw enoent()
   })
   vi.mocked(fs.readdir).mockResolvedValue([])
 
@@ -403,10 +415,9 @@ test.prop([
 test.prop([fc.integer({ min: 100, max: 5000 })])(
   'Property 61: Context capping throws on irreducible overflow',
   async (smallWindow) => {
-    // Create content where techSpec alone exceeds the window — irreducible
     const hugeContent = 'x'.repeat(smallWindow * 10)
-    const designContent = `# Design\n\nSmall content`
-    const techSpecContent = `# Tech Spec\n\n${hugeContent}`
+    const requirementsContent = `# Requirements\n\nSmall content`
+    const designContent = `# Design\n\n${hugeContent}`
     const taskContent = '- [ ] Task'
 
     const specPath = '/test/specs/test-feature'
@@ -414,11 +425,11 @@ test.prop([fc.integer({ min: 100, max: 5000 })])(
 
     vi.mocked(fs.readFile).mockImplementation(async (path: unknown) => {
       const pathStr = String(path)
+      if (pathStr.endsWith('requirements.md')) return requirementsContent
       if (pathStr.endsWith('design.md')) return designContent
-      if (pathStr.endsWith('tech-spec.md')) return techSpecContent
       if (pathStr.endsWith('tasks.md')) return taskContent
       if (pathStr.endsWith('package.json')) return '{}'
-      throw new Error('File not found')
+      throw enoent()
     })
     vi.mocked(fs.readdir).mockRejectedValue(new Error('Directory not found'))
 
@@ -436,7 +447,7 @@ test.prop([fc.integer({ min: 100, max: 5000 })])(
         contextCapping: {
           enabled: true,
           charsPerToken: 4,
-          relevanceRanking: ['tech-spec.md', 'design.md'],
+          relevanceRanking: ['design.md', 'requirements.md'],
         },
       },
       backends: {
@@ -454,7 +465,6 @@ test.prop([fc.integer({ min: 100, max: 5000 })])(
 
     const result = await agent.execute(context)
 
-    // Should fail when irreducible overflow occurs
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
     expect(result.error?.message).toContain('Cannot cap context')
