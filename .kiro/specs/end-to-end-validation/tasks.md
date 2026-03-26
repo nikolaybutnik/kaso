@@ -38,21 +38,21 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Export a `createDefaultPhaseResponses()` that returns a `Map<PhaseName, MockPhaseResponse>` wiring all factories
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8_
 
-- [ ] 2. Checkpoint — Ensure foundation helpers compile cleanly
+- [x] 2. Checkpoint — Ensure foundation helpers compile cleanly
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. Create test infrastructure helpers
-  - [ ] 3.1 Create `tests/e2e/helpers/event-collector.ts`
+- [x] 3. Create test infrastructure helpers
+  - [x] 3.1 Create `tests/e2e/helpers/event-collector.ts`
     - Implement `EventCollector` class subscribing to `EventBus.onAny()`
     - Methods: `getEvents()`, `getByType(type)`, `getByRunId(runId)`, `getByPhase(phase)`, `assertMinCount(type, min)`, `assertOrdering(before, after)`, `waitForEvent(type, timeoutMs?)`, `clear()`, `dispose()`
     - _Requirements: 3.4, 9.1, 9.4_
 
-  - [ ] 3.2 Create `tests/e2e/helpers/phase-validator.ts`
+  - [x] 3.2 Create `tests/e2e/helpers/phase-validator.ts`
     - Implement `PhaseValidator` class querying `ExecutionStore`
     - Methods: `assertAllPhasesCompleted(runId)`, `assertSequenceOrder(runId)`, `assertValidTiming(runId)`, `assertPhaseOutputShape(runId, phase, expectedKeys)`, `getPhaseResults(runId)`
     - _Requirements: 3.3, 3.5, 3.6, 4.1–4.8_
 
-  - [ ] 3.3 Create `tests/e2e/helpers/harness.ts`
+  - [x] 3.3 Create `tests/e2e/helpers/harness.ts`
     - Implement `E2ETestHarness` with `setup(options?)` and `teardown(ctx)` methods
     - `setup()` calls `createMockProject()`, then `initializeKASO()` with the generated config
     - After init, register `MockBackend` instances via `BackendRegistry.registerBackend()`
