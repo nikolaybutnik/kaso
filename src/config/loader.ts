@@ -38,6 +38,15 @@ export function loadConfig(options: ConfigLoaderOptions = {}): KASOConfig {
     // Validate the config
     return validateConfig(config)
   } catch (error) {
+    // If file not found and defaults are enabled, return defaults
+    if (
+      useDefaults &&
+      error instanceof Error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      console.warn(`Config file not found at ${configPath}, using defaults`)
+      return getDefaultConfig()
+    }
     handleConfigLoadError(error, configPath, useDefaults)
   }
 }

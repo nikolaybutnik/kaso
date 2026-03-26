@@ -32,6 +32,7 @@ import { createPhaseInjector } from '@/plugins/phase-injector'
 import type { SSEServer } from '@/streaming/sse-server'
 import type { KASOConfig } from '@/config/schema'
 import type { PhaseName } from '@/core/types'
+import { cpus } from 'os'
 
 // ============================================================================
 // Application Context
@@ -108,7 +109,7 @@ export async function initializeKASO(
   // Initialize concurrency manager
   const maxConcurrent =
     config.maxConcurrentAgents === 'auto'
-      ? Math.max(1, require('os').cpus().length - 1)
+      ? Math.max(1, cpus().length - 1)
       : config.maxConcurrentAgents
   const concurrencyManager = new ConcurrencyManager(maxConcurrent)
 
