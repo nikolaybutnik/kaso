@@ -323,9 +323,9 @@ const TEST_FEATURE_NAMES = new Set<string>()
 
 /**
  * Register a feature name as a test artifact so cleanupAllTestArtifacts knows to remove it.
- * Called automatically by setupHarness.
+ * Called automatically by setupHarness. Export for tests that bypass setupHarness.
  */
-function trackTestFeature(featureName: string): void {
+export function trackTestFeature(featureName: string): void {
   TEST_FEATURE_NAMES.add(featureName)
 }
 

@@ -95,11 +95,11 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Test cleanup removes temp directory
     - _Requirements: 1.1–1.6_
 
-- [ ] 6. Checkpoint — Ensure Tier 1 tests pass
+- [x] 6. Checkpoint — Ensure Tier 1 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Implement Tier 2 tests — Error Handling & Recovery
-  - [ ] 7.1 Create `tests/e2e/tier2-error-recovery.e2e.test.ts`
+- [x] 7. Implement Tier 2 tests — Error Handling & Recovery
+  - [x] 7.1 Create `tests/e2e/tier2-error-recovery.e2e.test.ts`
     - Test: crash recovery — interrupt after implementation checkpoint, call `recoverInterruptedRuns()`, verify detection of non-terminal run
     - Test: crash recovery — missing worktree marks run as `failed`
     - Test: checkpoint exists after each phase with `runId`, `phase`, serialized `phaseOutputs`
@@ -117,7 +117,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Test: `ErrorHandler` classifies errors and selects recovery strategy
     - _Requirements: 5.1–5.5, 6.1–6.5, 7.1–7.3, 17.1–17.4, 18.1–18.5_
 
-- [ ] 8. Checkpoint — Ensure Tier 2 tests pass
+- [x] 8. Checkpoint — Ensure Tier 2 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Create advanced helpers
