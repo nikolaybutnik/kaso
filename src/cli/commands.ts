@@ -589,22 +589,102 @@ export function initCommand(): void {
   const specsDir = join(kiroDir, 'specs')
   if (!existsSync(specsDir)) {
     mkdirSync(specsDir, { recursive: true })
-    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kiro/specs/')}`)
+    console.log(
+      `  ${color('green', '✓')} Created ${color('cyan', '.kiro/specs/')}`,
+    )
     createdCount++
   } else {
-    console.log(`  ${color('green', '✓')} ${color('cyan', '.kiro/specs/')} exists`)
+    console.log(
+      `  ${color('green', '✓')} ${color('cyan', '.kiro/specs/')} exists`,
+    )
     existingCount++
   }
 
-  // Create .kiro/steering directory
+  // Create .kiro/steering directory and default steering files
   const steeringDir = join(kiroDir, 'steering')
   if (!existsSync(steeringDir)) {
     mkdirSync(steeringDir, { recursive: true })
-    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kiro/steering/')}`)
+    console.log(
+      `  ${color('green', '✓')} Created ${color('cyan', '.kiro/steering/')}`,
+    )
     createdCount++
   } else {
-    console.log(`  ${color('green', '✓')} ${color('cyan', '.kiro/steering/')} exists`)
+    console.log(
+      `  ${color('green', '✓')} ${color('cyan', '.kiro/steering/')} exists`,
+    )
     existingCount++
+  }
+
+  // Create default steering files if they don't exist
+  const steeringFiles: Array<{ name: string; content: string }> = [
+    {
+      name: 'coding-practices.md',
+      content: `---
+inclusion: always
+---
+
+# Coding Practices
+
+## Style & Readability
+- Self-documenting code first. Comments only when the "why" isn't obvious
+- Meaningful names for everything
+- No magic strings or magic numbers — use constants
+
+## Architecture
+- Follow existing project patterns and conventions
+- DRY — extract shared logic, don't copy-paste
+- Single responsibility — functions and modules do one thing well
+- Favor composition over inheritance
+
+## Quality
+- Type annotations everywhere
+- Handle errors explicitly — no silent catches
+- Guard clauses over nested conditionals
+- Early returns to reduce nesting
+`,
+    },
+    {
+      name: 'personality.md',
+      content: `---
+inclusion: always
+---
+
+# Personality
+
+## Communication Style
+- Be concise and clear
+- Use technical terms appropriately
+- Provide examples when explaining concepts
+- Focus on correctness first, then style
+`,
+    },
+    {
+      name: 'commit-conventions.md',
+      content: `---
+inclusion: always
+---
+
+# Commit Conventions
+
+Format: \`<type>(<scope>): <short description>\`
+
+Types: feat, fix, refactor, test, docs, chore
+
+Rules:
+- Subject max 72 chars, imperative mood, no trailing period
+- Body wraps at 80 chars
+`,
+    },
+  ]
+
+  for (const file of steeringFiles) {
+    const filePath = join(steeringDir, file.name)
+    if (!existsSync(filePath)) {
+      writeFileSync(filePath, file.content)
+      console.log(
+        `  ${color('green', '✓')} Created ${color('cyan', `.kiro/steering/${file.name}`)}`,
+      )
+    }
   }
 
   // Create .kaso directory
@@ -622,10 +702,14 @@ export function initCommand(): void {
   const worktreesDir = join(kasoDir, 'worktrees')
   if (!existsSync(worktreesDir)) {
     mkdirSync(worktreesDir, { recursive: true })
-    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kaso/worktrees/')}`)
+    console.log(
+      `  ${color('green', '✓')} Created ${color('cyan', '.kaso/worktrees/')}`,
+    )
     createdCount++
   } else {
-    console.log(`  ${color('green', '✓')} ${color('cyan', '.kaso/worktrees/')} exists`)
+    console.log(
+      `  ${color('green', '✓')} ${color('cyan', '.kaso/worktrees/')} exists`,
+    )
     existingCount++
   }
 
@@ -652,10 +736,14 @@ export function initCommand(): void {
       },
     }
     writeFileSync(configPath, JSON.stringify(minimalConfig, null, 2))
-    console.log(`  ${color('green', '✓')} Created ${color('cyan', 'kaso.config.json')}`)
+    console.log(
+      `  ${color('green', '✓')} Created ${color('cyan', 'kaso.config.json')}`,
+    )
     configCreated = true
   } else {
-    console.log(`  ${color('green', '✓')} ${color('cyan', 'kaso.config.json')} exists`)
+    console.log(
+      `  ${color('green', '✓')} ${color('cyan', 'kaso.config.json')} exists`,
+    )
   }
 
   console.log()
@@ -663,7 +751,9 @@ export function initCommand(): void {
     console.log(color('green', `Created ${createdCount} directorie(s)`))
   }
   if (existingCount > 0) {
-    console.log(color('yellow', `${existingCount} directorie(s) already existed`))
+    console.log(
+      color('yellow', `${existingCount} directorie(s) already existed`),
+    )
   }
   if (configCreated) {
     console.log(color('green', 'Created kaso.config.json with default backend'))
@@ -671,8 +761,12 @@ export function initCommand(): void {
   console.log()
   console.log(color('bold', 'Next steps:'))
   console.log(`  1. Open Kiro and create a new feature spec`)
-  console.log(`     (Kiro will create requirements.md, design.md, and tasks.md)`)
-  console.log(`  2. Run: ${color('cyan', 'kaso start .kiro/specs/<feature-name>')}`)
+  console.log(
+    `     (Kiro will create requirements.md, design.md, and tasks.md)`,
+  )
+  console.log(
+    `  2. Run: ${color('cyan', 'kaso start .kiro/specs/<feature-name>')}`,
+  )
 }
 
 /**

@@ -87,7 +87,7 @@ describe('createMockProject', () => {
     cleanupFn = result.cleanup
 
     const steeringDir = join(result.projectDir, '.kiro', 'steering')
-    expect(existsSync(join(steeringDir, 'coding_practices.md'))).toBe(true)
+    expect(existsSync(join(steeringDir, 'coding-practices.md'))).toBe(true)
     expect(existsSync(join(steeringDir, 'personality.md'))).toBe(true)
   })
 

@@ -82,7 +82,7 @@ export async function createMockProject(
     const personality =
       config?.steeringFiles?.personality ?? createDefaultPersonality()
 
-    writeFileSync(join(steeringDir, 'coding_practices.md'), codingPractices)
+    writeFileSync(join(steeringDir, 'coding-practices.md'), codingPractices)
     writeFileSync(join(steeringDir, 'personality.md'), personality)
 
     // Create kaso.config.json

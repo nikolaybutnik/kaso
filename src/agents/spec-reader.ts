@@ -293,40 +293,45 @@ export class SpecReaderAgent implements Agent {
    */
   private async loadSteeringFiles(projectRoot: string): Promise<SteeringFiles> {
     const kiroDir = join(projectRoot, '.kiro')
-    const rulesDir = join(kiroDir, 'rules')
+    const steeringDir = join(kiroDir, 'steering')
     const hooksDir = join(kiroDir, 'hooks')
     const steering: SteeringFiles = {
       hooks: {},
     }
 
-    try {
-      const codingPracticesPath = join(rulesDir, 'coding-practices.md')
-      steering.codingPractices = await fs.readFile(codingPracticesPath, 'utf-8')
-    } catch (error) {
-      console.warn(
-        `Warning: No coding practices file found at ${rulesDir}/coding-practices.md`,
-      )
-    }
+    // Load steering files — try both naming conventions (underscore and hyphen)
+    const steeringFiles: Array<{
+      key: keyof Omit<SteeringFiles, 'hooks'>
+      candidates: string[]
+    }> = [
+      {
+        key: 'codingPractices',
+        candidates: ['coding-practices.md', 'coding_practices.md'],
+      },
+      { key: 'personality', candidates: ['personality.md'] },
+      {
+        key: 'commitConventions',
+        candidates: ['commit-conventions.md', 'commit_conventions.md'],
+      },
+    ]
 
-    try {
-      const personalityPath = join(rulesDir, 'personality.md')
-      steering.personality = await fs.readFile(personalityPath, 'utf-8')
-    } catch (error) {
-      console.warn(
-        `Warning: No personality file found at ${rulesDir}/personality.md`,
-      )
-    }
-
-    try {
-      const commitConventionsPath = join(rulesDir, 'commit-conventions.md')
-      steering.commitConventions = await fs.readFile(
-        commitConventionsPath,
-        'utf-8',
-      )
-    } catch (error) {
-      console.warn(
-        `Warning: No commit conventions file found at ${rulesDir}/commit-conventions.md`,
-      )
+    for (const { key, candidates } of steeringFiles) {
+      let loaded = false
+      for (const filename of candidates) {
+        try {
+          steering[key] = await fs.readFile(
+            join(steeringDir, filename),
+            'utf-8',
+          )
+          loaded = true
+          break
+        } catch {
+          // Try next candidate
+        }
+      }
+      if (!loaded) {
+        // Silently skip — steering files are optional
+      }
     }
 
     // Load hooks
@@ -338,8 +343,8 @@ export class SpecReaderAgent implements Agent {
           steering.hooks[hookName] = join(hooksDir, file)
         }
       }
-    } catch (error) {
-      console.warn(`Warning: Could not load hooks from ${hooksDir}`)
+    } catch {
+      // Hooks directory may not exist — that's fine
     }
 
     return steering

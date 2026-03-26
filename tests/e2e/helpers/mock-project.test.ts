@@ -49,11 +49,11 @@ describe('createMockProject', () => {
       expect(existsSync(join(result.specPath, 'tasks.md'))).toBe(true)
     })
 
-    it('creates steering files: coding_practices.md, personality.md', async () => {
+    it('creates steering files: coding-practices.md, personality.md', async () => {
       result = await createMockProject()
 
       const steeringDir = join(result.projectDir, '.kiro', 'steering')
-      expect(existsSync(join(steeringDir, 'coding_practices.md'))).toBe(true)
+      expect(existsSync(join(steeringDir, 'coding-practices.md'))).toBe(true)
       expect(existsSync(join(steeringDir, 'personality.md'))).toBe(true)
     })
 
