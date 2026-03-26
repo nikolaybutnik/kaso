@@ -23,7 +23,7 @@ import type { FileWatcher } from '@/infrastructure/file-watcher'
 import type { KASOConfig } from '@/config/schema'
 import type { ExecutionRunRecord, RunStatus } from '@/core/types'
 import { execSync } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 // ============================================================================
@@ -563,6 +563,119 @@ export async function watchCommand(context: CommandContext): Promise<void> {
 }
 
 /**
+ * Initialize KASO in current directory (init command)
+ * Creates .kiro/ and .kaso/ directory structure
+ */
+export function initCommand(): void {
+  console.log(color('bold', 'Initializing KASO'))
+  console.log()
+
+  const cwd = process.cwd()
+  let createdCount = 0
+  let existingCount = 0
+
+  // Create .kiro directory
+  const kiroDir = join(cwd, '.kiro')
+  if (!existsSync(kiroDir)) {
+    mkdirSync(kiroDir, { recursive: true })
+    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kiro/')}`)
+    createdCount++
+  } else {
+    console.log(`  ${color('green', '✓')} ${color('cyan', '.kiro/')} exists`)
+    existingCount++
+  }
+
+  // Create .kiro/specs directory
+  const specsDir = join(kiroDir, 'specs')
+  if (!existsSync(specsDir)) {
+    mkdirSync(specsDir, { recursive: true })
+    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kiro/specs/')}`)
+    createdCount++
+  } else {
+    console.log(`  ${color('green', '✓')} ${color('cyan', '.kiro/specs/')} exists`)
+    existingCount++
+  }
+
+  // Create .kiro/steering directory
+  const steeringDir = join(kiroDir, 'steering')
+  if (!existsSync(steeringDir)) {
+    mkdirSync(steeringDir, { recursive: true })
+    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kiro/steering/')}`)
+    createdCount++
+  } else {
+    console.log(`  ${color('green', '✓')} ${color('cyan', '.kiro/steering/')} exists`)
+    existingCount++
+  }
+
+  // Create .kaso directory
+  const kasoDir = join(cwd, '.kaso')
+  if (!existsSync(kasoDir)) {
+    mkdirSync(kasoDir, { recursive: true })
+    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kaso/')}`)
+    createdCount++
+  } else {
+    console.log(`  ${color('green', '✓')} ${color('cyan', '.kaso/')} exists`)
+    existingCount++
+  }
+
+  // Create .kaso/worktrees directory
+  const worktreesDir = join(kasoDir, 'worktrees')
+  if (!existsSync(worktreesDir)) {
+    mkdirSync(worktreesDir, { recursive: true })
+    console.log(`  ${color('green', '✓')} Created ${color('cyan', '.kaso/worktrees/')}`)
+    createdCount++
+  } else {
+    console.log(`  ${color('green', '✓')} ${color('cyan', '.kaso/worktrees/')} exists`)
+    existingCount++
+  }
+
+  // Create minimal config file if it doesn't exist
+  const configPath = join(cwd, 'kaso.config.json')
+  let configCreated = false
+  if (!existsSync(configPath)) {
+    const minimalConfig = {
+      executorBackends: [
+        {
+          name: 'kimi-code',
+          command: 'kimi',
+          args: [],
+          protocol: 'cli-json',
+          maxContextWindow: 128000,
+          costPer1000Tokens: 0.01,
+          enabled: true,
+        },
+      ],
+      defaultBackend: 'kimi-code',
+      executionStore: {
+        type: 'sqlite',
+        path: '.kaso/execution-store.db',
+      },
+    }
+    writeFileSync(configPath, JSON.stringify(minimalConfig, null, 2))
+    console.log(`  ${color('green', '✓')} Created ${color('cyan', 'kaso.config.json')}`)
+    configCreated = true
+  } else {
+    console.log(`  ${color('green', '✓')} ${color('cyan', 'kaso.config.json')} exists`)
+  }
+
+  console.log()
+  if (createdCount > 0) {
+    console.log(color('green', `Created ${createdCount} directorie(s)`))
+  }
+  if (existingCount > 0) {
+    console.log(color('yellow', `${existingCount} directorie(s) already existed`))
+  }
+  if (configCreated) {
+    console.log(color('green', 'Created kaso.config.json with default backend'))
+  }
+  console.log()
+  console.log(color('bold', 'Next steps:'))
+  console.log(`  1. Open Kiro and create a new feature spec`)
+  console.log(`     (Kiro will create requirements.md, design.md, and tasks.md)`)
+  console.log(`  2. Run: ${color('cyan', 'kaso start .kiro/specs/<feature-name>')}`)
+}
+
+/**
  * System health check (doctor command)
  */
 export function doctorCommand(context?: CommandContext): void {
@@ -760,6 +873,56 @@ export function doctorCommand(context?: CommandContext): void {
       status: 'warn',
       message: '.kaso directory not found',
       hint: 'Run `kaso init` or create .kaso directory manually',
+    })
+  }
+
+  // Check 8: .kiro directory (required for specs)
+  const kiroDir = join(process.cwd(), '.kiro')
+  if (existsSync(kiroDir)) {
+    // Check for specs
+    const specsDir = join(kiroDir, 'specs')
+    if (existsSync(specsDir)) {
+      try {
+        const specs = readdirSync(specsDir, { withFileTypes: true })
+          .filter((dirent) => dirent.isDirectory())
+          .map((dirent) => dirent.name)
+
+        if (specs.length > 0) {
+          checks.push({
+            name: 'Kiro Specs',
+            status: 'pass',
+            message: `${specs.length} spec(s) found: ${specs.join(', ')}`,
+          })
+        } else {
+          checks.push({
+            name: 'Kiro Specs',
+            status: 'warn',
+            message: '.kiro/specs directory exists but is empty',
+            hint: 'Create spec directories under .kiro/specs/ to define features',
+          })
+        }
+      } catch {
+        checks.push({
+          name: 'Kiro Specs',
+          status: 'warn',
+          message: 'Cannot read .kiro/specs directory',
+          hint: 'Check directory permissions',
+        })
+      }
+    } else {
+      checks.push({
+        name: 'Kiro Specs',
+        status: 'warn',
+        message: '.kiro directory exists but specs/ subdirectory not found',
+        hint: 'Create .kiro/specs/ directory for feature specifications',
+      })
+    }
+  } else {
+    checks.push({
+      name: 'Kiro Directory',
+      status: 'fail',
+      message: '.kiro directory not found',
+      hint: 'KASO requires .kiro/ directory with specs. Run `kaso init` or create it manually',
     })
   }
 

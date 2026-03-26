@@ -279,7 +279,7 @@ class SpecValidatorAgent {
       })
     }
     
-    // Check for DB schemas in tech-spec.md
+    // Check for DB schemas in design.md
     if (!this.hasDbSchemas(context.phaseOutputs.intake.techSpec)) {
       issues.push({
         type: 'db-schema',
@@ -1226,9 +1226,9 @@ This prevents tool misuse during evaluation phases.
 │  User creates:                    KASO reads:                               │
 │  ┌────────────────┐               ┌────────────────┐                        │
 │  │ .kiro/specs/   │──────────────▶│ SpecReaderAgent│                        │
-│  │ ├── design.md  │               └────────┬───────┘                        │
-│  │ ├── tech-spec.md│                        │                               │
-│  │ └── task.md    │                         ▼                               │
+│  │ ├── requirements.md│          └────────┬───────┘                        │
+│  │ ├── design.md  │                        │                               │
+│  │ └── tasks.md   │                         ▼                               │
 │  └────────────────┘               ┌────────────────┐                        │
 │                                   │ AssembledContext                        │
 │  User configures:                 │  ├─ designDoc                             │

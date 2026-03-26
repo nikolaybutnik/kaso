@@ -225,7 +225,7 @@ Or use JSONL intentionally (slower but no native deps):
 
 ### Symptom: "No spec files found"
 ```
-Error: No design.md or tech-spec.md found in ./my-feature
+Error: No requirements.md or design.md found in ./my-feature
 ```
 
 ### Solution
@@ -233,9 +233,9 @@ KASO expects spec files following Kiro structure:
 
 ```
 .kiro/specs/my-feature/
-├── design.md       # Required: feature design
-├── tech-spec.md    # Required: technical specification
-└── task.md         # Required: implementation tasks
+├── requirements.md  # Required: feature requirements
+├── design.md        # Required: feature design
+└── tasks.md         # Required: implementation tasks
 ```
 
 Verify:

@@ -293,7 +293,7 @@ Phase 1 (Intake) agent — parses Kiro spec files and assembles execution contex
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `SpecReaderAgent` | Class | Parses requirements.md, design.md, tasks.md (with legacy fallbacks to design.md, tech-spec.md, task.md). Resolves spec path from `AgentContext.spec.specPath` at runtime (falls back to constructor value). Derives project root by locating the `.kiro` boundary in the spec path. Loads architecture docs (ARCHITECTURE.md, ADRs) and extracts dependencies from package.json relative to project root. Loads steering files from `.kiro/rules/` and `.kiro/hooks/`. Applies context capping with relevance-ranked file removal. |
+| `SpecReaderAgent` | Class | Parses requirements.md, design.md, tasks.md (with legacy fallbacks). Resolves spec path from `AgentContext.spec.specPath` at runtime (falls back to constructor value). Derives project root by locating the `.kiro` boundary in the spec path. Loads architecture docs (ARCHITECTURE.md, ADRs) and extracts dependencies from package.json relative to project root. Loads steering files from `.kiro/rules/` and `.kiro/hooks/`. Applies context capping with relevance-ranked file removal. |
 
 ### `src/agents/spec-validator.ts`
 

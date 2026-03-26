@@ -13,6 +13,7 @@
  * - kaso logs <run-id>        — stream/display execution logs
  * - kaso watch                — start file-watcher mode
  * - kaso doctor               — verify system health
+ * - kaso init                 — initialize KASO directories
  *
  * Requirements: 28.1, 28.2, 28.3, 28.4, 28.5, 28.6, 28.7, 28.8, 28.9
  */
@@ -38,6 +39,7 @@ import {
   logsCommand,
   watchCommand,
   doctorCommand,
+  initCommand,
   type CommandContext,
 } from './commands'
 
@@ -280,6 +282,20 @@ program
 
     const context = await createContext(globalOpts)
     await watchCommand(context)
+  })
+
+program
+  .command('init')
+  .description('Initialize KASO directories (.kiro/, .kaso/)')
+  .action((_options: unknown, cmd: Command) => {
+    const globalOpts = cmd.optsWithGlobals<{
+      color?: boolean
+    }>()
+    if (globalOpts.color === false) {
+      process.env.NO_COLOR = '1'
+    }
+
+    initCommand()
   })
 
 program
