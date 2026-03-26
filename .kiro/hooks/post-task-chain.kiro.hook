@@ -29,6 +29,7 @@
       "2. **Test correctness**: Read all test files for this task. Every test must assert on actual output/behavior, not just 'did not crash'. Rewrite tests that only check stability without verifying data. If a config option exists but isn't enforced, implement it or remove it.",
       "3. **Imports**: All modified src/**/*.ts files must use `@/` aliases for cross-directory imports. Same-directory `./` is fine. Rewrite any `../../` paths.",
       "4. **Code quality**: No `any` types, no dead code, no unresolved TODOs, no silent error swallowing. Re-verify AGENTS.md counts and info match reality.",
+      "5. **Update Docs**: For every modified `src/` file, verify its AGENTS.md module reference section accurately describes the current exports, constructor signatures, and key behaviors. Update descriptions that are stale or missing new functionality. If a new module was added, add a new reference section. Check that the project structure tree, file counts, and implementation status table reflect reality.",
       "",
       "Fix issues and re-run tests if anything changed.",
       "",

@@ -116,7 +116,7 @@ export function createAgent(
 
   switch (phase) {
     case 'intake':
-      return new SpecReaderAgent('.')
+      return new SpecReaderAgent('.') // Fallback; execute() uses context.spec.specPath at runtime
     case 'validation':
       return new SpecValidatorAgent()
     case 'architecture-analysis':

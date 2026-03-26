@@ -68,8 +68,10 @@ export class ExecutionStore {
 
     this.db = new Database(dbPath)
 
-    // Enable WAL mode for better concurrency
-    this.db.pragma('journal_mode = WAL')
+    // Enable WAL mode for better concurrency (disabled for :memory: as it can cause issues)
+    if (dbPath !== ':memory:') {
+      this.db.pragma('journal_mode = WAL')
+    }
 
     this.createSchema()
   }
@@ -181,26 +183,59 @@ export class ExecutionStore {
       throw new Error('Database not initialized')
     }
 
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO runs (
-        id, spec_path, status, current_phase, phases, started_at, paused_at, completed_at, worktree_path, cost
-      ) VALUES (
-        @id, @spec_path, @status, @current_phase, @phases, @started_at, @paused_at, @completed_at, @worktree_path, @cost
-      )
-    `)
-
-    stmt.run({
-      id: run.runId,
-      spec_path: run.specPath,
-      status: run.status,
-      current_phase: run.currentPhase,
-      phases: JSON.stringify(run.phases),
-      started_at: run.startedAt,
-      paused_at: run.pausedAt,
-      completed_at: run.completedAt,
-      worktree_path: run.worktreePath,
-      cost: run.cost,
-    })
+    // Use INSERT OR REPLACE for new runs, UPDATE for existing runs to avoid CASCADE DELETE
+    const existingRun = this.db.prepare('SELECT 1 FROM runs WHERE id = ?').get(run.runId)
+    
+    if (existingRun) {
+      // Update existing run to avoid CASCADE DELETE of phase_results
+      const stmt = this.db.prepare(`
+        UPDATE runs SET
+          spec_path = @spec_path,
+          status = @status,
+          current_phase = @current_phase,
+          phases = @phases,
+          started_at = @started_at,
+          paused_at = @paused_at,
+          completed_at = @completed_at,
+          worktree_path = @worktree_path,
+          cost = @cost,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = @id
+      `)
+      stmt.run({
+        id: run.runId,
+        spec_path: run.specPath,
+        status: run.status,
+        current_phase: run.currentPhase,
+        phases: JSON.stringify(run.phases),
+        started_at: run.startedAt,
+        paused_at: run.pausedAt,
+        completed_at: run.completedAt,
+        worktree_path: run.worktreePath,
+        cost: run.cost,
+      })
+    } else {
+      // Insert new run
+      const stmt = this.db.prepare(`
+        INSERT INTO runs (
+          id, spec_path, status, current_phase, phases, started_at, paused_at, completed_at, worktree_path, cost
+        ) VALUES (
+          @id, @spec_path, @status, @current_phase, @phases, @started_at, @paused_at, @completed_at, @worktree_path, @cost
+        )
+      `)
+      stmt.run({
+        id: run.runId,
+        spec_path: run.specPath,
+        status: run.status,
+        current_phase: run.currentPhase,
+        phases: JSON.stringify(run.phases),
+        started_at: run.startedAt,
+        paused_at: run.pausedAt,
+        completed_at: run.completedAt,
+        worktree_path: run.worktreePath,
+        cost: run.cost,
+      })
+    }
   }
 
   /**

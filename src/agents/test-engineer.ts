@@ -86,6 +86,22 @@ export class TestEngineerAgent implements Agent {
       const implementationResult = this.getImplementationResult(context)
       const worktreePath = context.worktreePath!
 
+      // Skip test execution if no files were modified
+      if (implementationResult.modifiedFiles.length === 0) {
+        return {
+          success: true,
+          output: {
+            passed: true,
+            testsRun: 0,
+            testFailures: [],
+            coverage: 0,
+            duration: 0,
+            generatedTests: [],
+          },
+          duration: Date.now() - startTime,
+        }
+      }
+
       // Step 1 — Generate tests for modified files (Req 13.1)
       this.emitProgress(context.runId, 'Generating tests for modified files...')
       const generatedTests = await this.generateTests(

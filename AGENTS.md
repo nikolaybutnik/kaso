@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 38 source files across 65 test files with 1004 passing tests including comprehensive property-based tests.
+The project has 38 source files across 68 test files with 1040 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -116,8 +116,11 @@ src/
 tests/
 ├── agents/              # 10 test files
 ├── backends/            # 2 test files
+├── cli/                 # 1 test file
 ├── config/              # 1 test file
 ├── core/                # 3 test files
+├── e2e/                 # 9 test files (tier1–tier4 + helper unit tests)
+│   └── helpers/         # Shared test utilities (harness, mock-backend, mock-project, etc.)
 ├── infrastructure/      # 10 test files
 ├── integration/         # 5 test files
 ├── plugins/             # 2 test files
@@ -290,7 +293,7 @@ Phase 1 (Intake) agent — parses Kiro spec files and assembles execution contex
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `SpecReaderAgent` | Class | Parses requirements.md, design.md, tasks.md (with legacy fallbacks to design.md, tech-spec.md, task.md). Loads architecture docs (ARCHITECTURE.md, ADRs). Extracts dependencies from package.json. Loads steering files. Applies context capping with relevance-ranked file removal. |
+| `SpecReaderAgent` | Class | Parses requirements.md, design.md, tasks.md (with legacy fallbacks to design.md, tech-spec.md, task.md). Resolves spec path from `AgentContext.spec.specPath` at runtime (falls back to constructor value). Derives project root by locating the `.kiro` boundary in the spec path. Loads architecture docs (ARCHITECTURE.md, ADRs) and extracts dependencies from package.json relative to project root. Loads steering files from `.kiro/rules/` and `.kiro/hooks/`. Applies context capping with relevance-ranked file removal. |
 
 ### `src/agents/spec-validator.ts`
 
@@ -323,7 +326,7 @@ Phase 6 (Test & Verification) agent — generates tests, runs the test suite, an
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `TestEngineerAgent` | Class | Generates unit/integration/edge-case test stubs for modified source files that lack tests. Runs `npm test` in the worktree and parses Vitest/Jest output. Reads `coverage-summary.json` for line coverage on modified files. Produces `TestReport` with passed, testsRun, testFailures, coverage, duration, generatedTests. Supports `AbortSignal` for cooperative cancellation. |
+| `TestEngineerAgent` | Class | Generates unit/integration/edge-case test stubs for modified source files that lack tests. Skips test execution when `modifiedFiles` is empty (returns a passing report with zero tests). Runs `npm test` in the worktree and parses Vitest/Jest output. Reads `coverage-summary.json` for line coverage on modified files. Produces `TestReport` with passed, testsRun, testFailures, coverage, duration, generatedTests. Supports `AbortSignal` for cooperative cancellation. |
 | `createTestEngineerAgent` | Function | Factory function accepting optional `EventBus` |
 
 ### `src/agents/review-council.ts`
@@ -425,7 +428,7 @@ Dual-mode persistence for runs and phase results.
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `ExecutionStore` | Class | SQLite primary, JSONL fallback. Methods: `saveRun`, `getRun`, `listRuns`, `appendPhaseResult`, `getInterruptedRuns`, `updateRunStatus`, `checkpoint`, `getPhaseResults`, `getDatabase`, `close`. |
+| `ExecutionStore` | Class | SQLite primary, JSONL fallback. Disables WAL mode for `:memory:` databases. Uses UPDATE for existing runs to avoid CASCADE DELETE of phase results. Methods: `saveRun`, `getRun`, `listRuns`, `appendPhaseResult`, `getInterruptedRuns`, `updateRunStatus`, `checkpoint`, `getPhaseResults`, `getDatabase`, `close`. |
 | `ExecutionStoreConfig` | Interface | `type` (`'sqlite' \| 'jsonl'`), `path` |
 
 SQLite schema: `runs` table, `phase_results` table, `checkpoints` table.

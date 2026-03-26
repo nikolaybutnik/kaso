@@ -539,6 +539,15 @@ export class Orchestrator {
 
       const phaseResult = await this.executePhase(runInfo, phase)
 
+      // Persist phase result BEFORE handling escalation (Req 3.3)
+      const resultRecord: PhaseResultRecord = {
+        ...phaseResult,
+        runId: runInfo.runId,
+        sequence: runInfo.phaseSequence++,
+      }
+      runInfo.phaseResults.push(resultRecord)
+      this.executionStore.appendPhaseResult(runInfo.runId, resultRecord)
+
       // Handle escalation from error handler (Req 14.1)
       if (phaseResult.error?.data?.escalated === true) {
         const reason = phaseResult.error.message
@@ -574,14 +583,6 @@ export class Orchestrator {
         this.failRun(runInfo, reason)
         return
       }
-
-      const resultRecord: PhaseResultRecord = {
-        ...phaseResult,
-        runId: runInfo.runId,
-        sequence: runInfo.phaseSequence++,
-      }
-      runInfo.phaseResults.push(resultRecord)
-      this.executionStore.appendPhaseResult(runInfo.runId, resultRecord)
 
       if (phaseResult.output) {
         runInfo.phaseOutputs[phase] = phaseResult.output
@@ -1090,6 +1091,11 @@ export class Orchestrator {
       backends,
       mcpTools,
       abortSignal: runInfo.phaseAbortController?.signal,
+    }
+
+    // Set architecture context from phase 3 output
+    if (runInfo.phaseOutputs['architecture-analysis']) {
+      context.architecture = runInfo.phaseOutputs['architecture-analysis'] as import('@/core/types').ArchitectureContext
     }
 
     // Apply retry context from ErrorHandler (Req 16.2)

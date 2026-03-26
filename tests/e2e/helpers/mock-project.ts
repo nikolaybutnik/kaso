@@ -67,10 +67,12 @@ export async function createMockProject(
     mkdirSync(steeringDir, { recursive: true })
 
     // Create spec files
+    const requirementsMd = createDefaultRequirementsMd(featureName)
     const designMd =
       config?.specContent?.designMd ?? createDefaultDesignMd(featureName)
     const tasksMd = config?.specContent?.tasksMd ?? createDefaultTasksMd()
 
+    writeFileSync(join(specsDir, 'requirements.md'), requirementsMd)
     writeFileSync(join(specsDir, 'design.md'), designMd)
     writeFileSync(join(specsDir, 'tasks.md'), tasksMd)
 
@@ -87,6 +89,12 @@ export async function createMockProject(
     const kasoConfig = createKasoConfig(config?.configOverrides)
     const configPath = join(tempDir, 'kaso.config.json')
     writeFileSync(configPath, JSON.stringify(kasoConfig, null, 2))
+
+    // Create package.json in project root for dependency extraction
+    writeFileSync(
+      join(tempDir, 'package.json'),
+      JSON.stringify({ name: featureName, dependencies: {} }, null, 2),
+    )
 
     return {
       projectDir: tempDir,
@@ -131,22 +139,20 @@ async function cleanupTempDir(dir: string): Promise<void> {
 }
 
 /**
- * Create default design.md content with EARS-pattern acceptance criteria
+ * Create default requirements.md content
  * @param featureName - Name of the feature
- * @returns Design markdown content
+ * @returns Requirements markdown content
  */
-function createDefaultDesignMd(featureName: string): string {
-  return `# Design Document: ${featureName}
+function createDefaultRequirementsMd(featureName: string): string {
+  return `# Requirements: ${featureName}
 
 ## Introduction
 
-A mock feature for E2E validation testing. This feature demonstrates
-widget creation and management capabilities.
+Requirements for the ${featureName} feature.
 
 ## Glossary
 
 - **Widget**: A reusable UI component for displaying data
-- **Widget Manager**: Service responsible for widget lifecycle
 
 ## Requirements
 
@@ -158,39 +164,62 @@ widget creation and management capabilities.
 
 1. WHEN a user submits valid widget data THEN the system SHALL create a widget
 2. WHEN a widget is created THEN the system SHALL assign a unique identifier
-3. WHEN widget creation fails THEN the system SHALL return an error message
 
-### Requirement 2: Widget Retrieval
+## Data Model
 
-**User Story:** As a user, I want to retrieve widgets so that I can view data.
+\`\`\`typescript
+interface Widget {
+  id: string;
+  name: string;
+}
+\`\`\`
+`
+}
+
+/**
+ * Create default design.md content with EARS-pattern acceptance criteria
+ * @param featureName - Name of the feature
+ * @returns Design markdown content
+ */
+function createDefaultDesignMd(featureName: string): string {
+  return `# Design Document: ${featureName}
+
+## Introduction
+
+A mock feature for E2E validation testing.
+
+## Glossary
+
+- **Widget**: A reusable UI component
+
+## Requirements
+
+### Requirement 1: Widget Creation
+
+**User Story:** As a user, I want to create widgets.
 
 #### Acceptance Criteria
 
-1. WHEN a user requests a widget by ID THEN the system SHALL return the widget
-2. WHEN a widget does not exist THEN the system SHALL return a 404 error
+1. WHEN a user submits valid widget data THEN the system SHALL create a widget
+2. WHEN a widget is created THEN the system SHALL assign a unique identifier
 
-## API Design
+## Implementation Details
 
-### POST /widgets
+The feature will include request and response schemas:
 
-Create a new widget.
-
-**Request:**
+Request body schema:
 \`\`\`json
 {
   "name": "string",
-  "type": "chart|table|metric",
-  "config": {}
+  "type": "chart"
 }
 \`\`\`
 
-**Response (201):**
+Response body schema:
 \`\`\`json
 {
   "id": "widget_123456",
-  "name": "string",
-  "type": "chart",
-  "createdAt": "2024-01-15T10:30:00Z"
+  "name": "string"
 }
 \`\`\`
 
@@ -200,18 +229,15 @@ Create a new widget.
 interface Widget {
   id: string;
   name: string;
-  type: 'chart' | 'table' | 'metric';
-  config: Record<string, unknown>;
   createdAt: Date;
-  updatedAt: Date;
 }
 \`\`\`
 
-## Security Considerations
+The data storage uses a structured format with proper data organization.
 
-1. All widget operations require authentication
-2. Input validation prevents injection attacks
-3. Rate limiting applied to creation endpoints
+## Security
+
+Authentication and authorization will be implemented.
 `
 }
 
@@ -230,12 +256,12 @@ function createDefaultTasksMd(): string {
 
 ## Phase 2: Core Implementation
 
-- [ ] 2.0 Implement widget creation API
+- [ ] 2.0 Implement widget creation
   - [ ] 2.1 Add widget model
   - [ ] 2.2 Add widget service
   - [ ] 2.3 Add widget controller
-- [ ] 2.1 Implement widget retrieval API
-  - [ ] 2.4 Add GET endpoint
+- [ ] 2.1 Implement widget retrieval
+  - [ ] 2.4 Add retrieval logic
   - [ ] 2.5 Add error handling
 
 ## Phase 3: Testing

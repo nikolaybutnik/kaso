@@ -34,45 +34,81 @@ export class SpecReaderAgent implements Agent {
   }
 
   /**
+   * Resolve the effective spec path from context, falling back to constructor value.
+   * Also derives the project root by walking up from the spec directory
+   * (convention: specs live at `<projectRoot>/.kiro/specs/<feature>/`).
+   */
+  private resolveSpecPath(context: AgentContext): {
+    specPath: string
+    projectRoot: string
+  } {
+    const effectivePath =
+      context.spec.specPath && context.spec.specPath !== '.'
+        ? resolve(context.spec.specPath)
+        : this.specPath
+
+    // Derive project root: walk up looking for .kiro boundary
+    // Convention: <root>/.kiro/specs/<feature> → root is 3 levels up
+    const parts = effectivePath.split('/')
+    const kiroIdx = parts.lastIndexOf('.kiro')
+    const projectRoot =
+      kiroIdx > 0
+        ? parts.slice(0, kiroIdx).join('/')
+        : resolve(effectivePath, '..')
+
+    return { specPath: effectivePath, projectRoot }
+  }
+
+  /**
    * Execute the spec reader agent
    */
   async execute(context: AgentContext): Promise<AgentResult> {
     const startTime = Date.now()
     try {
-      // Parse spec files
-      const parsedSpec = await this.parseSpecFiles()
+      const { specPath, projectRoot } = this.resolveSpecPath(context)
 
-      // Load architecture documentation
-      const architectureDocs = await this.loadArchitectureDocs()
+      // Temporarily set specPath for internal methods that reference this.specPath
+      const originalSpecPath = this.specPath
+      this.specPath = specPath
 
-      // Load steering files (used by orchestrator to populate AgentContext.steering)
-      await this.loadSteeringFiles()
+      try {
+        // Parse spec files
+        const parsedSpec = await this.parseSpecFiles()
 
-      // Extract dependencies
-      const dependencies = await this.extractDependencies()
+        // Load architecture documentation (relative to project root)
+        const architectureDocs = await this.loadArchitectureDocs(projectRoot)
 
-      // Assemble context
-      let assembledContext: AssembledContext = {
-        featureName: parsedSpec.featureName,
-        designDoc: parsedSpec.design,
-        techSpec: parsedSpec.techSpec,
-        taskList: parsedSpec.taskList,
-        architectureDocs,
-        dependencies,
-        removedFiles: [],
-      }
+        // Load steering files (relative to project root's .kiro/)
+        await this.loadSteeringFiles(projectRoot)
 
-      // Apply context capping if enabled
-      if (context.config.contextCapping?.enabled) {
-        assembledContext = this.applyContextCapping(assembledContext, context)
-      }
+        // Extract dependencies (package.json in project root)
+        const dependencies = await this.extractDependencies(projectRoot)
 
-      const duration = Date.now() - startTime
+        // Assemble context
+        let assembledContext: AssembledContext = {
+          featureName: parsedSpec.featureName,
+          designDoc: parsedSpec.design,
+          techSpec: parsedSpec.techSpec,
+          taskList: parsedSpec.taskList,
+          architectureDocs,
+          dependencies,
+          removedFiles: [],
+        }
 
-      return {
-        success: true,
-        output: assembledContext,
-        duration,
+        // Apply context capping if enabled
+        if (context.config.contextCapping?.enabled) {
+          assembledContext = this.applyContextCapping(assembledContext, context)
+        }
+
+        const duration = Date.now() - startTime
+
+        return {
+          success: true,
+          output: assembledContext,
+          duration,
+        }
+      } finally {
+        this.specPath = originalSpecPath
       }
     } catch (error) {
       return {
@@ -228,9 +264,9 @@ export class SpecReaderAgent implements Agent {
   /**
    * Load architecture documentation files
    */
-  private async loadArchitectureDocs(): Promise<
-    Record<string, ParsedMarkdown>
-  > {
+  private async loadArchitectureDocs(
+    projectRoot: string,
+  ): Promise<Record<string, ParsedMarkdown>> {
     const docs: Record<string, ParsedMarkdown> = {}
     const archFiles = [
       'ARCHITECTURE.md',
@@ -240,7 +276,7 @@ export class SpecReaderAgent implements Agent {
 
     for (const file of archFiles) {
       try {
-        const fullPath = resolve(this.specPath, '..', file)
+        const fullPath = join(projectRoot, file)
         const content = await fs.readFile(fullPath, 'utf-8')
         docs[file] = parseMarkdown(content)
       } catch (error) {
@@ -255,9 +291,10 @@ export class SpecReaderAgent implements Agent {
   /**
    * Load steering files from .kiro/rules/ and .kiro/hooks/
    */
-  private async loadSteeringFiles(): Promise<SteeringFiles> {
-    const rulesDir = join(this.specPath, 'rules')
-    const hooksDir = join(this.specPath, 'hooks')
+  private async loadSteeringFiles(projectRoot: string): Promise<SteeringFiles> {
+    const kiroDir = join(projectRoot, '.kiro')
+    const rulesDir = join(kiroDir, 'rules')
+    const hooksDir = join(kiroDir, 'hooks')
     const steering: SteeringFiles = {
       hooks: {},
     }
@@ -311,11 +348,13 @@ export class SpecReaderAgent implements Agent {
   /**
    * Extract dependencies from package.json
    */
-  private async extractDependencies(): Promise<Record<string, string>> {
+  private async extractDependencies(
+    projectRoot: string,
+  ): Promise<Record<string, string>> {
     const dependencies: Record<string, string> = {}
 
     try {
-      const packageJsonPath = resolve(this.specPath, '..', 'package.json')
+      const packageJsonPath = join(projectRoot, 'package.json')
       const content = await fs.readFile(packageJsonPath, 'utf-8')
       const packageJson: Record<string, Record<string, string> | undefined> =
         JSON.parse(content) as Record<
