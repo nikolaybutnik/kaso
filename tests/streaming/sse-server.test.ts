@@ -352,7 +352,12 @@ describe('SSEServer', () => {
       it('should broadcast to multiple clients simultaneously', async () => {
         const collect1 = collectSSEEvents(port, '/events', { minEvents: 2 })
         const collect2 = collectSSEEvents(port, '/events', { minEvents: 2 })
-        await tick()
+
+        // Poll until both clients are registered — tick() alone is a race
+        const deadline = Date.now() + 2000
+        while (server.getClientCount() < 2 && Date.now() < deadline) {
+          await tick(10)
+        }
 
         eventBus.emit(
           createMockEvent({ type: 'run:completed', runId: 'broadcast-test' }),

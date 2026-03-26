@@ -62,7 +62,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Return `HarnessContext` with `app`, `projectDir`, `specPath`, `backends`, `eventCollector`, `phaseValidator`
     - _Requirements: 1.1–1.6, 2.1–2.7_
 
-- [ ] 4. Checkpoint — Ensure test infrastructure compiles and harness can initialize/teardown
+- [x] 4. Checkpoint — Ensure test infrastructure compiles and harness can initialize/teardown
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Implement Tier 1 tests — Core Pipeline
@@ -81,7 +81,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Test: `getInterruptedRuns()` returns only non-terminal runs
     - _Requirements: 1.1–1.6, 2.1–2.7, 3.1–3.7, 4.1–4.8, 19.1–19.6_
 
-  - [ ]* 5.2 Write unit tests for mock-backend helper
+  - [ ] 5.2 Write unit tests for mock-backend helper
     - Test `execute()` returns configured responses
     - Test progress events emitted (≥2 per call)
     - Test delay behavior
@@ -89,7 +89,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Test execution log tracking
     - _Requirements: 2.1–2.7_
 
-  - [ ]* 5.3 Write unit tests for mock-project helper
+  - [ ] 5.3 Write unit tests for mock-project helper
     - Test generated config passes `validateConfig()`
     - Test directory structure contains expected files
     - Test cleanup removes temp directory
