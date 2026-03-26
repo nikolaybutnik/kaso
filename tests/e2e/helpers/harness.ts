@@ -22,7 +22,7 @@ import { createDefaultPhaseResponses } from './phase-outputs'
 import type { PhaseName } from '@/core/types'
 import { WebhookReceiver } from './webhook-receiver'
 import { execSync } from 'child_process'
-import { existsSync, rmSync, readdirSync } from 'fs'
+import { existsSync, rmSync } from 'fs'
 
 /**
  * Options for harness setup
@@ -85,6 +85,9 @@ export async function setupHarness(
   options: HarnessOptions = {},
 ): Promise<HarnessContext> {
   const featureName = options.featureName ?? 'e2e-test-feature'
+
+  // Track this feature name so cleanupAllTestArtifacts can remove its spec dir
+  trackTestFeature(featureName)
 
   // Create mock project with spec files in proper .kiro/specs/ structure
   const mockProject = await createMockProject({
@@ -315,16 +318,24 @@ function cleanupGitArtifacts(featureName: string): void {
   }
 }
 
+/** Feature names used by e2e tests — only these spec dirs get cleaned up */
+const TEST_FEATURE_NAMES = new Set<string>()
+
 /**
- * Nuclear cleanup: remove ALL kaso/* worktrees and branches.
- * Call this to clean up stale artifacts from previous test runs.
+ * Register a feature name as a test artifact so cleanupAllTestArtifacts knows to remove it.
+ * Called automatically by setupHarness.
+ */
+function trackTestFeature(featureName: string): void {
+  TEST_FEATURE_NAMES.add(featureName)
+}
+
+/**
+ * Nuclear cleanup: remove ALL kaso/* worktrees and branches,
+ * plus spec directories created by tracked test runs.
  *
  * Usage in a test file:
  *   import { cleanupAllTestArtifacts } from './helpers/harness'
  *   beforeAll(() => cleanupAllTestArtifacts())
- *
- * Or from CLI:
- *   npx tsx -e "import('./tests/e2e/helpers/harness').then(m => m.cleanupAllTestArtifacts())"
  */
 export function cleanupAllTestArtifacts(): void {
   // 1. Remove all worktrees under .kaso/worktrees/
@@ -372,20 +383,10 @@ export function cleanupAllTestArtifacts(): void {
     // best effort
   }
 
-  // 3. Remove spec directories created by SpecWriter during test runs.
-  //    These contain status.json (written by SpecWriter) — real spec dirs don't.
-  const specsDir = '.kiro/specs'
-  if (existsSync(specsDir)) {
-    try {
-      const entries = readdirSync(specsDir)
-      for (const entry of entries) {
-        const statusFile = `${specsDir}/${entry}/status.json`
-        if (existsSync(statusFile)) {
-          rmSync(`${specsDir}/${entry}`, { recursive: true, force: true })
-        }
-      }
-    } catch {
-      // best effort
-    }
+  // 3. Remove spec directories created by tracked test runs only.
+  //    Never touches spec dirs that weren't created by setupHarness.
+  for (const featureName of TEST_FEATURE_NAMES) {
+    cleanupSpecDirectory(featureName)
   }
+  TEST_FEATURE_NAMES.clear()
 }
