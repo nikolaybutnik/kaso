@@ -1,207 +1,223 @@
 /**
  * SSE Client for E2E Testing
  *
- * Test HTTP client that connects to the SSE endpoint and collects events.
+ * Test HTTP client that connects to the SSEServer endpoint and
+ * collects streamed events for assertion.
  *
  * Requirements: 9.2, 9.5, 9.6, 9.7, 9.8
  */
 
-import http from 'http'
+import {
+  request as httpRequest,
+  type ClientRequest,
+  type IncomingMessage,
+} from 'http'
+import type { SSEMessage } from '@/streaming/sse-server'
 import type { EventType } from '@/core/types'
 
-/**
- * SSE message structure
- */
+/** A single SSE event received by the client */
 export interface SSEReceivedEvent {
-  /** Event ID for replay */
   id?: string
-  /** Event type */
   type?: string
-  /** Raw event data */
   data: string
-  /** Parsed JSON data */
-  parsed?: unknown
+  parsed?: SSEMessage
 }
 
-/**
- * Options for SSE connection
- */
+/** Options for connecting to the SSE endpoint */
 export interface SSEConnectOptions {
-  /** Filter events by run ID */
   runId?: string
-  /** Last event ID for replay */
   lastEventId?: string
-  /** Authentication token */
   authToken?: string
 }
 
+const DEFAULT_WAIT_TIMEOUT_MS = 5000
+const EVENT_POLL_INTERVAL_MS = 10
+
 /**
- * Test HTTP client that connects to the SSE endpoint
+ * Test HTTP client that connects to an SSE endpoint and accumulates events.
+ * Supports runId filtering, Last-Event-ID reconnection, and Bearer auth.
  */
 export class SSEClient {
   private receivedEvents: SSEReceivedEvent[] = []
-  private request: http.ClientRequest | null = null
-  private baseUrl: string
-  private isConnected = false
+  private clientRequest: ClientRequest | null = null
+  private response: IncomingMessage | null = null
+  private buffer = ''
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl
-  }
+  constructor(private readonly baseUrl: string) {}
 
-  /**
-   * Connect to the SSE endpoint with optional filters
-   * @param options - Connection options
-   */
+  /** Connect to the SSE endpoint with optional filters */
   async connect(options: SSEConnectOptions = {}): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Build URL with query params
-      const url = new URL('/events', this.baseUrl)
-      if (options.runId) {
-        url.searchParams.set('runId', options.runId)
+    if (this.clientRequest) {
+      throw new Error('SSEClient is already connected')
+    }
+
+    const url = new URL(this.baseUrl)
+    url.pathname = '/events'
+
+    if (options.runId) {
+      url.searchParams.set('runId', options.runId)
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const headers: Record<string, string> = {
+        Accept: 'text/event-stream',
+        'Cache-Control': 'no-cache',
       }
 
-      const headers: Record<string, string> = {}
-      if (options.lastEventId) {
-        headers['Last-Event-ID'] = options.lastEventId
-      }
       if (options.authToken) {
         headers['Authorization'] = `Bearer ${options.authToken}`
       }
 
-      this.request = http.get(
+      if (options.lastEventId) {
+        headers['Last-Event-ID'] = options.lastEventId
+      }
+
+      this.clientRequest = httpRequest(
         url.toString(),
-        { headers },
+        { method: 'GET', headers },
         (res) => {
-          if (res.statusCode === 401) {
-            reject(new Error('Unauthorized'))
-            return
-          }
+          this.response = res
+
+          // Non-200 means auth failure or other error
           if (res.statusCode !== 200) {
-            reject(new Error(`Unexpected status code: ${res.statusCode}`))
+            const error = new Error(
+              `SSE connection failed with status ${res.statusCode}`,
+            )
+            this.cleanup()
+            reject(error)
             return
           }
 
-          this.isConnected = true
+          res.setEncoding('utf-8')
 
-          let buffer = ''
-          res.on('data', (chunk: Buffer) => {
-            buffer += chunk.toString()
-
-            // Parse SSE format (event lines separated by double newline)
-            const lines = buffer.split('\n')
-            let currentEvent: Partial<SSEReceivedEvent> = {}
-
-            for (let i = 0; i < lines.length; i++) {
-              const line = lines[i]
-              if (line === undefined) continue
-
-              if (line.startsWith('id:')) {
-                currentEvent.id = line.slice(3).trim()
-              } else if (line.startsWith('event:')) {
-                currentEvent.type = line.slice(6).trim()
-              } else if (line.startsWith('data:')) {
-                currentEvent.data = line.slice(5).trim()
-              } else if (line === '' && currentEvent.data) {
-                // End of event
-                try {
-                  currentEvent.parsed = JSON.parse(currentEvent.data)
-                } catch {
-                  // Data is not JSON, keep as string
-                }
-                this.receivedEvents.push(currentEvent as SSEReceivedEvent)
-                currentEvent = {}
-              }
-            }
-
-            // Keep incomplete line in buffer
-            const lastNewline = buffer.lastIndexOf('\n')
-            if (lastNewline >= 0) {
-              buffer = buffer.slice(lastNewline + 1)
-            }
+          res.on('data', (chunk: string) => {
+            this.buffer += chunk
+            this.processBuffer()
           })
 
           res.on('end', () => {
-            this.isConnected = false
+            this.processBuffer()
+            this.cleanup()
           })
 
-          res.on('error', (err) => {
-            this.isConnected = false
-            reject(err)
+          res.on('error', () => {
+            this.cleanup()
           })
 
-          // Give time for connection to establish
-          setTimeout(resolve, 100)
+          // Resolve once we get the response headers (connection established)
+          resolve()
         },
       )
 
-      this.request.on('error', reject)
+      this.clientRequest.on('error', (err) => {
+        this.cleanup()
+        reject(err)
+      })
+
+      this.clientRequest.end()
     })
   }
 
-  /**
-   * Disconnect from the SSE endpoint
-   */
+  /** Disconnect from the SSE endpoint */
   disconnect(): void {
-    if (this.request) {
-      this.request.destroy()
-      this.request = null
+    if (this.response) {
+      this.response.destroy()
     }
-    this.isConnected = false
+    if (this.clientRequest) {
+      this.clientRequest.destroy()
+    }
+    this.cleanup()
   }
 
-  /**
-   * Get all received events
-   * @returns Array of received events
-   */
+  /** Get all received events */
   getEvents(): SSEReceivedEvent[] {
     return [...this.receivedEvents]
   }
 
   /**
-   * Wait for a specific event type (with timeout)
-   * @param type - Event type to wait for
-   * @param timeoutMs - Timeout in milliseconds
-   * @returns Promise resolving to the event
+   * Wait for a specific event type, resolving immediately if already collected
+   * @throws Error on timeout
    */
-  async waitForEvent(type: EventType, timeoutMs = 5000): Promise<SSEReceivedEvent> {
-    return new Promise((resolve, reject) => {
-      // Check if already have the event
-      const existing = this.receivedEvents.find((e) => e.type === type)
-      if (existing) {
-        resolve(existing)
-        return
-      }
+  async waitForEvent(
+    type: EventType,
+    timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
+  ): Promise<SSEReceivedEvent> {
+    const existing = this.receivedEvents.find((e) => e.type === type)
+    if (existing) return existing
 
-      // Poll for event
-      const checkInterval = setInterval(() => {
-        const event = this.receivedEvents.find((e) => e.type === type)
-        if (event) {
-          clearInterval(checkInterval)
-          clearTimeout(timeout)
-          resolve(event)
-        }
-      }, 50)
-
-      // Timeout
-      const timeout = setTimeout(() => {
-        clearInterval(checkInterval)
-        reject(new Error(`Timeout waiting for event type '${type}' after ${timeoutMs}ms`))
+    return new Promise<SSEReceivedEvent>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        clearInterval(poller)
+        reject(
+          new Error(
+            `Timeout waiting for SSE event '${type}' after ${timeoutMs}ms`,
+          ),
+        )
       }, timeoutMs)
+
+      const poller = setInterval(() => {
+        const found = this.receivedEvents.find((e) => e.type === type)
+        if (found) {
+          clearTimeout(timer)
+          clearInterval(poller)
+          resolve(found)
+        }
+      }, EVENT_POLL_INTERVAL_MS)
     })
   }
 
-  /**
-   * Clear received events
-   */
+  /** Clear all received events */
   clear(): void {
     this.receivedEvents = []
   }
 
   /**
-   * Check if client is connected
-   * @returns True if connected
+   * Parse the SSE text stream buffer into discrete events.
+   * SSE spec: events are separated by blank lines, fields are "field: value\n".
    */
-  isConnectedToServer(): boolean {
-    return this.isConnected
+  private processBuffer(): void {
+    const blocks = this.buffer.split('\n\n')
+
+    // Last element is either empty or an incomplete block — keep it in the buffer
+    this.buffer = blocks.pop() ?? ''
+
+    for (const block of blocks) {
+      if (!block.trim()) continue
+
+      let id: string | undefined
+      let eventType: string | undefined
+      const dataLines: string[] = []
+
+      for (const line of block.split('\n')) {
+        if (line.startsWith('id: ')) {
+          id = line.slice(4)
+        } else if (line.startsWith('event: ')) {
+          eventType = line.slice(7)
+        } else if (line.startsWith('data: ')) {
+          dataLines.push(line.slice(6))
+        } else if (line === 'data:') {
+          dataLines.push('')
+        }
+      }
+
+      if (dataLines.length === 0) continue
+
+      const data = dataLines.join('\n')
+      let parsed: SSEMessage | undefined
+
+      try {
+        parsed = JSON.parse(data) as SSEMessage
+      } catch {
+        // Not all data payloads are JSON (e.g. connected message)
+      }
+
+      this.receivedEvents.push({ id, type: eventType, data, parsed })
+    }
+  }
+
+  private cleanup(): void {
+    this.clientRequest = null
+    this.response = null
+    this.buffer = ''
   }
 }

@@ -120,14 +120,14 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
 - [x] 8. Checkpoint — Ensure Tier 2 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Create advanced helpers
-  - [ ] 9.1 Create `tests/e2e/helpers/webhook-receiver.ts`
+- [x] 9. Create advanced helpers
+  - [x] 9.1 Create `tests/e2e/helpers/webhook-receiver.ts`
     - Implement `WebhookReceiver` class — local HTTP server on port 0 (OS-assigned)
     - Methods: `start()`, `stop()`, `getUrl()`, `getPayloads()`, `getByEvent(event)`, `setResponseCode(code)`, `clear()`
     - Capture `WebhookReceivedPayload` with `body`, `headers`, `receivedAt`
     - _Requirements: 10.1–10.8_
 
-  - [ ] 9.2 Create `tests/e2e/helpers/sse-client.ts`
+  - [x] 9.2 Create `tests/e2e/helpers/sse-client.ts`
     - Implement `SSEClient` class — test HTTP client connecting to SSE endpoint
     - Methods: `connect(options?)`, `disconnect()`, `getEvents()`, `waitForEvent(type, timeoutMs?)`, `clear()`
     - Support `runId` filtering, `lastEventId` reconnection, `authToken` auth

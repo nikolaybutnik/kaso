@@ -62,3 +62,6 @@ playwright/.cache/
 
 # Local configuration overrides
 kaso.config.local.json
+
+# macOS temp path leak from e2e tests
+var/

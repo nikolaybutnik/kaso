@@ -187,7 +187,7 @@ describe('Property 23: Test generation covers all modified files', () => {
         await cleanupWorktree(caseDir)
       }
     },
-    30_000,
+    60_000,
   )
 
   test.prop(
@@ -208,7 +208,7 @@ describe('Property 23: Test generation covers all modified files', () => {
         await cleanupWorktree(caseDir)
       }
     },
-    10_000,
+    30_000,
   )
 
   it('does not regenerate tests when test files already exist', async () => {

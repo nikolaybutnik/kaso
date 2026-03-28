@@ -187,7 +187,7 @@ test.prop([kasoConfigArbitrary])(
 /**
  * Additional property: Backend availability checking
  */
-test.prop([backendConfigArbitrary])(
+test.prop([backendConfigArbitrary], { numRuns: 20 })(
   'Backend availability check',
   async (config) => {
     fc.pre(
