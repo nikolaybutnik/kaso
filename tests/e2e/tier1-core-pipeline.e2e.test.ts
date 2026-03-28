@@ -12,6 +12,7 @@ import {
   setupHarness,
   teardownHarness,
   cleanupAllTestArtifacts,
+  startRunWithRetry,
 } from './helpers/harness'
 import type { HarnessContext } from './helpers/harness'
 import type { PhaseName } from '@/core/types'
@@ -76,9 +77,7 @@ describe('Tier 1: Core Pipeline', () => {
       ],
     })
 
-    const result = await ctx.app.orchestrator.startRun({
-      specPath: ctx.specPath,
-    })
+    const result = await startRunWithRetry(ctx)
     runId = result.runId
   }, 60000)
 

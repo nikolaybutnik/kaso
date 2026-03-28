@@ -188,15 +188,38 @@ describe('KASO Integration Tests', () => {
 
     it('should have worktree manager ready', async () => {
       const uniqueName = `test-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-      const worktreeInfo = await context!.worktreeManager.create(
-        uniqueName,
-        'main',
-      )
-      expect(worktreeInfo).toBeDefined()
-      expect(worktreeInfo.path).toBeDefined()
-      expect(worktreeInfo.branch).toMatch(/^kaso\//)
+      let worktreeInfo: Awaited<
+        ReturnType<typeof context.worktreeManager.create>
+      > | null = null
 
-      await context!.worktreeManager.cleanup(worktreeInfo.runId)
+      // Retry with backoff to handle git lock contention in parallel test runs
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          worktreeInfo = await context!.worktreeManager.create(
+            uniqueName,
+            'main',
+          )
+          break
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error)
+          if (
+            (msg.includes('lock') || msg.includes('File exists')) &&
+            attempt < 4
+          ) {
+            await new Promise((r) =>
+              setTimeout(r, 500 * Math.pow(2, attempt) + Math.random() * 300),
+            )
+            continue
+          }
+          throw error
+        }
+      }
+
+      expect(worktreeInfo).toBeDefined()
+      expect(worktreeInfo!.path).toBeDefined()
+      expect(worktreeInfo!.branch).toMatch(/^kaso\//)
+
+      await context!.worktreeManager.cleanup(worktreeInfo!.runId)
     })
 
     it('should share event bus across components', () => {

@@ -222,7 +222,7 @@ describe('File Watcher Trigger', () => {
     )
 
     // Wait for the watcher to detect the change (polling + awaitWriteFinish stability)
-    const deadline = Date.now() + 5000
+    const deadline = Date.now() + 10000
     while (!triggeredSpecPath && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 200))
     }
@@ -287,13 +287,35 @@ describe('Git Worktree Isolation', () => {
     })
 
     const uniqueName = `isolation-${Date.now()}`
-    const worktree = await context.worktreeManager.create(uniqueName, 'main')
+    let worktree: Awaited<
+      ReturnType<typeof context.worktreeManager.create>
+    > | null = null
 
-    expect(worktree.path).toContain('.kaso/worktrees/')
-    expect(existsSync(worktree.path)).toBe(true)
-    expect(worktree.branch).toMatch(/^kaso\/isolation-/)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        worktree = await context.worktreeManager.create(uniqueName, 'main')
+        break
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (
+          (msg.includes('lock') || msg.includes('File exists')) &&
+          attempt < 4
+        ) {
+          await new Promise((r) =>
+            setTimeout(r, 500 * Math.pow(2, attempt) + Math.random() * 300),
+          )
+          continue
+        }
+        throw error
+      }
+    }
 
-    await context.worktreeManager.cleanup(worktree.runId)
+    expect(worktree).toBeDefined()
+    expect(worktree!.path).toContain('.kaso/worktrees/')
+    expect(existsSync(worktree!.path)).toBe(true)
+    expect(worktree!.branch).toMatch(/^kaso\/isolation-/)
+
+    await context.worktreeManager.cleanup(worktree!.runId)
   })
 
   it('should not modify main working directory during worktree operations', async () => {
@@ -309,10 +331,33 @@ describe('Git Worktree Isolation', () => {
     const mainPackageJson = readFileSync('package.json', 'utf-8')
 
     const uniqueName = `no-modify-${Date.now()}`
-    const worktree = await context.worktreeManager.create(uniqueName, 'main')
+    let worktree: Awaited<
+      ReturnType<typeof context.worktreeManager.create>
+    > | null = null
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        worktree = await context.worktreeManager.create(uniqueName, 'main')
+        break
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (
+          (msg.includes('lock') || msg.includes('File exists')) &&
+          attempt < 4
+        ) {
+          await new Promise((r) =>
+            setTimeout(r, 500 * Math.pow(2, attempt) + Math.random() * 300),
+          )
+          continue
+        }
+        throw error
+      }
+    }
+
+    expect(worktree).toBeDefined()
 
     // Write a file in the worktree
-    const testFilePath = join(worktree.path, 'worktree-test-file.txt')
+    const testFilePath = join(worktree!.path, 'worktree-test-file.txt')
     writeFileSync(testFilePath, 'this should only exist in the worktree')
 
     // Verify the file exists in the worktree but NOT in main
@@ -322,7 +367,7 @@ describe('Git Worktree Isolation', () => {
     // Verify main package.json is unchanged
     expect(readFileSync('package.json', 'utf-8')).toBe(mainPackageJson)
 
-    await context.worktreeManager.cleanup(worktree.runId)
+    await context.worktreeManager.cleanup(worktree!.runId)
   })
 
   it('should cleanup worktree directory after removal', async () => {

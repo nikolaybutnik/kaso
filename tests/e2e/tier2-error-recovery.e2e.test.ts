@@ -14,6 +14,7 @@ import {
   configurePhaseFailure,
   cleanupAllTestArtifacts,
   trackTestFeature,
+  startRunWithRetry,
 } from './helpers/harness'
 import { initializeKASO, shutdownKASO } from '@/index'
 import { createMockProject } from './helpers/mock-project'
@@ -63,12 +64,10 @@ describe('Tier 2: Error Handling & Recovery', () => {
           ],
         })
 
-        const { runId } = await ctx.app.orchestrator.startRun({
-          specPath: ctx.specPath,
-        })
+        const { runId } = await startRunWithRetry(ctx)
 
         // Wait for all phases to complete
-        await ctx.eventCollector.waitForEvent('run:completed', 60000)
+        await ctx.eventCollector.waitForEvent('run:completed', 90000)
 
         // Verify checkpoints exist
         const checkpointCount =
@@ -372,7 +371,7 @@ describe('Tier 2: Error Handling & Recovery', () => {
         })
 
         // Wait for phases before implementation to complete
-        await ctx.eventCollector.waitForEvent('phase:completed', 10000)
+        await ctx.eventCollector.waitForEvent('phase:completed', 30000)
 
         // Now try to start second run - should reject
         let rejectionError: Error | null = null

@@ -26,8 +26,39 @@ export class WorktreeManager {
   /**
    * Create a new git worktree for a run
    * Branch name format: kaso/[specName]-[YYYYMMDDTHHmmss]
+   *
+   * Retries automatically on transient git lock errors that occur when
+   * multiple worktree operations run concurrently.
    */
   async create(specName: string, baseBranch: string): Promise<WorktreeInfo> {
+    const MAX_LOCK_RETRIES = 4
+    const BASE_DELAY_MS = 300
+
+    for (let attempt = 0; attempt <= MAX_LOCK_RETRIES; attempt++) {
+      try {
+        return await this.createWorktree(specName, baseBranch)
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        const isGitLock =
+          msg.includes('could not lock') || msg.includes('File exists')
+        if (!isGitLock || attempt === MAX_LOCK_RETRIES) {
+          throw error
+        }
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt) + Math.random() * 200
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+    // Unreachable — the loop always throws or returns
+    throw new Error('WorktreeManager.create: unreachable')
+  }
+
+  /**
+   * Internal: single-attempt worktree creation
+   */
+  private async createWorktree(
+    specName: string,
+    baseBranch: string,
+  ): Promise<WorktreeInfo> {
     const timestamp = new Date()
       .toISOString()
       .replace(/[:\-]/g, '')

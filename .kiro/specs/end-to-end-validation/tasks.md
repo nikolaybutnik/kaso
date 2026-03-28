@@ -134,7 +134,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - _Requirements: 9.2, 9.5, 9.6, 9.7, 9.8_
 
 - [ ] 10. Implement Tier 3 tests — Integration Features
-  - [ ] 10.1 Create `tests/e2e/tier3-integration.e2e.test.ts`
+  - [x] 10.1 Create `tests/e2e/tier3-integration.e2e.test.ts`
     - Test: worktree lifecycle — created under `.kaso/worktrees/`, branch matches `kaso/{specName}-{timestamp}`, exists during run, cleaned up after
     - Test: worktree isolation — files in worktree don't appear in main dir
     - Test: cancelled run preserves worktree

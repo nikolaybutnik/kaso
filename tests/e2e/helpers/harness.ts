@@ -220,6 +220,34 @@ export function configurePhaseResponse(
 }
 
 /**
+ * Retry startRun with exponential backoff to handle git lock contention
+ * when multiple test files run in parallel and create worktrees simultaneously.
+ */
+export async function startRunWithRetry(
+  ctx: {
+    app: { orchestrator: HarnessContext['app']['orchestrator'] }
+    specPath: string
+  },
+  maxRetries = 5,
+): Promise<{ runId: string; status: string }> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await ctx.app.orchestrator.startRun({ specPath: ctx.specPath })
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      const isGitLock =
+        msg.includes('lock') ||
+        msg.includes('File exists') ||
+        msg.includes('could not lock')
+      if (!isGitLock || attempt === maxRetries - 1) throw error
+      const delay = 500 * Math.pow(2, attempt) + Math.random() * 300
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+  throw new Error('startRunWithRetry: unreachable')
+}
+
+/**
  * Helper to configure a backend for failure
  */
 export function configurePhaseFailure(

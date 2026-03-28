@@ -155,8 +155,11 @@ describe('Property 18: ADRs are loaded when present', () => {
       { minLength: 0, maxLength: 10 },
     ),
   ])('should load all ADRs from docs/adr directory', async (adrs) => {
-    // Deduplicate by filename — writing two files with the same name overwrites on disk
-    const uniqueAdrs = [...new Map(adrs.map((a) => [a.filename, a])).values()]
+    // Deduplicate by filename — writing two files with the same name overwrites on disk.
+    // Use lowercase key because macOS has a case-insensitive filesystem.
+    const uniqueAdrs = [
+      ...new Map(adrs.map((a) => [a.filename.toLowerCase(), a])).values(),
+    ]
     const tempDir = await createTempDir('kaso-adr-test')
     try {
       // Create ADR directory
@@ -415,8 +418,15 @@ describe('Property 22: Architecture review covers all modified files', () => {
       // Create files with potential violations
       await fs.mkdir(join(tempDir, 'src'), { recursive: true })
 
-      // Filter out files with empty paths
-      const validFiles = files.filter((f) => f.path && f.path.length > 0)
+      // Filter out files with empty paths and deduplicate by lowercase path
+      // (macOS has a case-insensitive filesystem)
+      const validFiles = [
+        ...new Map(
+          files
+            .filter((f) => f.path && f.path.length > 0)
+            .map((f) => [f.path.toLowerCase(), f]),
+        ).values(),
+      ]
 
       for (const file of validFiles) {
         const fullPath = join(tempDir, file.path)

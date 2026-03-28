@@ -110,12 +110,34 @@ describe('KASO Smoke Test', () => {
 
   it('should be able to create and cleanup worktrees', async () => {
     const uniqueName = `smoke-test-${Date.now()}`
-    const worktree = await context.worktreeManager.create(uniqueName, 'main')
-    expect(worktree).toBeDefined()
-    expect(worktree.path).toBeDefined()
-    expect(worktree.branch).toMatch(/^kaso\/smoke-test-/)
+    let worktree: Awaited<
+      ReturnType<typeof context.worktreeManager.create>
+    > | null = null
 
-    await context.worktreeManager.cleanup(worktree.runId)
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        worktree = await context.worktreeManager.create(uniqueName, 'main')
+        break
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (
+          (msg.includes('lock') || msg.includes('File exists')) &&
+          attempt < 4
+        ) {
+          await new Promise((r) =>
+            setTimeout(r, 500 * Math.pow(2, attempt) + Math.random() * 300),
+          )
+          continue
+        }
+        throw error
+      }
+    }
+
+    expect(worktree).toBeDefined()
+    expect(worktree!.path).toBeDefined()
+    expect(worktree!.branch).toMatch(/^kaso\/smoke-test-/)
+
+    await context.worktreeManager.cleanup(worktree!.runId)
   })
 
   it('should have healthy status', () => {
