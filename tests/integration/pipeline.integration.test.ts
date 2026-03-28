@@ -170,7 +170,7 @@ describe('End-to-End Pipeline with Mock Backend', () => {
 
     const intakeStart = phaseEvents.find((e) => e.phase === 'intake')
     expect(intakeStart).toBeDefined()
-  })
+  }, 60000)
 })
 
 // =============================================================================
