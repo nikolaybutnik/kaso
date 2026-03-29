@@ -380,8 +380,12 @@ export class WorktreeManager {
     for (const entry of entries) {
       const worktreePath = join(this.worktreesDir, entry)
 
-      // Skip if not a directory
-      if (!statSync(worktreePath).isDirectory()) {
+      // Skip if not a directory (entry may have been removed by concurrent cleanup)
+      try {
+        if (!statSync(worktreePath).isDirectory()) {
+          continue
+        }
+      } catch {
         continue
       }
 

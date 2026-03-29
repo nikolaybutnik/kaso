@@ -167,11 +167,11 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Test: file watcher debounce — rapid writes trigger single callback
     - _Requirements: 8.1–8.8, 9.1–9.8, 10.1–10.8, 11.1–11.6, 12.1–12.4, 13.1–13.5, 14.1–14.4_
 
-- [ ] 11. Checkpoint — Ensure Tier 3 tests pass
+- [x] 11. Checkpoint — Ensure Tier 3 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Implement Tier 4 tests — Advanced Scenarios
-  - [ ] 12.1 Create `tests/e2e/tier4-advanced.e2e.test.ts`
+- [x] 12. Implement Tier 4 tests — Advanced Scenarios
+  - [x] 12.1 Create `tests/e2e/tier4-advanced.e2e.test.ts`
     - Test: `context-aware` backend selection picks cheapest fitting backend
     - Test: unavailable preferred backend falls back to next cheapest
     - Test: exact-fit boundary — context size equals `maxContextWindow`, backend selected
@@ -205,7 +205,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Test: cost attribution per backend — `backendCosts[name]` matches sum of that backend's invocations
     - _Requirements: 20.1–20.10, 20.11, 20.12, 21.1–21.3, 22.1–22.4, 23.1–23.3, 24.1–24.2, 25.1–25.8, 15.1–15.11, 16.1–16.5_
 
-- [ ] 13. Checkpoint — Ensure Tier 4 tests pass
+- [x] 13. Checkpoint — Ensure Tier 4 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 14. Implement property-based tests

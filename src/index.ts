@@ -312,6 +312,16 @@ export async function shutdownKASO(context: ApplicationContext): Promise<void> {
     }
   }
 
+  // Close execution store (SQLite connection) to release memory and file locks
+  context.executionStore.close()
+
+  // Clear event bus history and listeners to release accumulated events
+  context.eventBus.clearHistory()
+  context.eventBus.removeAllListeners()
+
+  // Clear concurrency manager queue to release any pending callbacks
+  context.concurrencyManager.clearQueue()
+
   console.log('KASO shutdown complete')
 }
 

@@ -189,7 +189,8 @@ describe('SSEServer', () => {
         timeoutMs: 5000,
         minEvents: 999,
       }).catch(() => {})
-      await tick()
+      // Allow time for the HTTP connection to fully establish
+      await new Promise((resolve) => setTimeout(resolve, 300))
       expect(server.getClientCount()).toBe(1)
 
       await server.stop()

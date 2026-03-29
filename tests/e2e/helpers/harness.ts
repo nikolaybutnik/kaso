@@ -89,11 +89,42 @@ export async function setupHarness(
   // Track this feature name so cleanupAllTestArtifacts can remove its spec dir
   trackTestFeature(featureName)
 
+  // Build config overrides with extra backend entries so Zod cross-field
+  // validation passes when phaseBackends or reviewers reference them.
+  const backendCount = options.backendCount ?? 1
+  const configOverrides = { ...options.configOverrides }
+
+  if (backendCount > 1) {
+    const extraBackends = []
+    for (let i = 1; i < backendCount; i++) {
+      const backendName = `mock-backend-${i + 1}`
+      extraBackends.push({
+        name: backendName,
+        command: 'echo',
+        args: [] as string[],
+        protocol: 'cli-json' as const,
+        maxContextWindow: 128000 - i * 32000,
+        costPer1000Tokens: 0.01 + i * 0.005,
+        enabled: true,
+      })
+    }
+    const baseBackend = {
+      name: 'mock-backend',
+      command: 'echo',
+      args: [] as string[],
+      protocol: 'cli-json' as const,
+      maxContextWindow: 128000,
+      costPer1000Tokens: 0.01,
+      enabled: true,
+    }
+    configOverrides.executorBackends = [baseBackend, ...extraBackends]
+  }
+
   // Create mock project with spec files in proper .kiro/specs/ structure
   const mockProject = await createMockProject({
     featureName,
     specContent: options.specContent,
-    configOverrides: options.configOverrides,
+    configOverrides,
   })
 
   try {
@@ -186,6 +217,13 @@ export async function teardownHarness(ctx: HarnessContext): Promise<void> {
   }
 
   ctx.eventCollector.dispose()
+
+  // Clear mock backend execution logs to release request objects
+  for (const backend of ctx.backends.values()) {
+    backend.resetLog()
+  }
+  ctx.backends.clear()
+
   await shutdownKASO(ctx.app)
   await ctx.mockProject.cleanup()
 

@@ -92,10 +92,6 @@ export class EventCollector {
     }
 
     return new Promise<ExecutionEvent>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`Timeout waiting for '${type}' after ${timeoutMs}ms`))
-      }, timeoutMs)
-
       const checkInterval = setInterval(() => {
         const found = this.events.find((e) => e.type === type)
         if (found) {
@@ -104,6 +100,11 @@ export class EventCollector {
           resolve(found)
         }
       }, 10)
+
+      const timer = setTimeout(() => {
+        clearInterval(checkInterval)
+        reject(new Error(`Timeout waiting for '${type}' after ${timeoutMs}ms`))
+      }, timeoutMs)
     })
   }
 
@@ -112,8 +113,9 @@ export class EventCollector {
     this.events = []
   }
 
-  /** Unsubscribe from EventBus — stops collecting new events */
+  /** Unsubscribe from EventBus and release collected events */
   dispose(): void {
     this.unsubscribe()
+    this.events = []
   }
 }
