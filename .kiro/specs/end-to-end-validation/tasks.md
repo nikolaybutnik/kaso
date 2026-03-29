@@ -208,18 +208,18 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
 - [x] 13. Checkpoint — Ensure Tier 4 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Implement property-based tests
-  - [ ]* 14.1 Create `tests/property/e2e-validation.property.test.ts` — scaffolding and config properties
+- [-] 14. Implement property-based tests
+  - [x] 14.1 Create `tests/property/e2e-validation.property.test.ts` — scaffolding and config properties
     - **Property 1: Scaffolded config always passes schema validation**
     - **Validates: Requirements 1.1**
 
-  - [ ]* 14.2 Write property tests for mock backend contract
+  - [ ] 14.2 Write property tests for mock backend contract
     - **Property 2: Mock backend contract — execute() returns configured values, ≥2 progress events**
     - **Validates: Requirements 2.2, 2.3**
     - **Property 3: Mock backend delay is respected**
     - **Validates: Requirements 2.7**
 
-  - [ ]* 14.3 Write property tests for pipeline event invariants
+  - [ ] 14.3 Write property tests for pipeline event invariants
     - **Property 4: Phase events are paired for every phase**
     - **Validates: Requirements 3.4, 9.1**
     - **Property 5: Phase result timing invariants**
@@ -229,13 +229,13 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 13: All events have valid structure**
     - **Validates: Requirements 9.4**
 
-  - [ ]* 14.4 Write property tests for phase output shapes
+  - [ ] 14.4 Write property tests for phase output shapes
     - **Property 7: Phase output shapes match their interfaces**
     - **Validates: Requirements 4.1–4.8**
     - **Property 8: UI diff threshold controls approval**
     - **Validates: Requirements 4.11**
 
-  - [ ]* 14.5 Write property tests for checkpoint and cost tracking
+  - [ ] 14.5 Write property tests for checkpoint and cost tracking
     - **Property 9: Checkpoint exists after each phase**
     - **Validates: Requirements 5.5**
     - **Property 10: Cost accumulation formula**
@@ -243,13 +243,13 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 35: Cost attribution per backend**
     - **Validates: Requirements 25.8**
 
-  - [ ]* 14.6 Write property tests for worktree behavior
+  - [ ] 14.6 Write property tests for worktree behavior
     - **Property 11: Worktree branch naming convention**
     - **Validates: Requirements 8.1**
     - **Property 12: Worktree filesystem isolation**
     - **Validates: Requirements 8.5**
 
-  - [ ]* 14.7 Write property tests for SSE and webhook behavior
+  - [ ] 14.7 Write property tests for SSE and webhook behavior
     - **Property 14: SSE runId filtering**
     - **Validates: Requirements 9.6**
     - **Property 15: Webhook payload structure**
@@ -257,7 +257,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 16: Webhook signature round-trip**
     - **Validates: Requirements 10.3, 10.4**
 
-  - [ ]* 14.8 Write property tests for plugins and MCP
+  - [ ] 14.8 Write property tests for plugins and MCP
     - **Property 17: Custom phase injection position**
     - **Validates: Requirements 12.2**
     - **Property 18: MCP tools scoped to implementation phase only**
@@ -265,7 +265,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 19: FileWatcher debounce**
     - **Validates: Requirements 14.4**
 
-  - [ ]* 14.9 Write property tests for review council and delivery
+  - [ ] 14.9 Write property tests for review council and delivery
     - **Property 20: Review council votes match configured reviewers**
     - **Validates: Requirements 15.4, 15.6**
     - **Property 21: Delivery branch naming convention**
@@ -273,11 +273,11 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 33: Per-reviewer backend assignment**
     - **Validates: Requirements 25.1**
 
-  - [ ]* 14.10 Write property tests for error handling and retries
+  - [ ] 14.10 Write property tests for error handling and retries
     - **Property 22: Retry count bounded by maxPhaseRetries**
     - **Validates: Requirements 18.1**
 
-  - [ ]* 14.11 Write property tests for execution store
+  - [ ] 14.11 Write property tests for execution store
     - **Property 23: Execution store run and phase records persist**
     - **Validates: Requirements 19.1, 19.2**
     - **Property 24: Execution store ordering**
@@ -287,7 +287,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 26: getInterruptedRuns returns only non-terminal runs**
     - **Validates: Requirements 19.5**
 
-  - [ ]* 14.12 Write property tests for backend selection
+  - [ ] 14.12 Write property tests for backend selection
     - **Property 27: Context-aware selection picks cheapest fitting backend**
     - **Validates: Requirements 20.1, 20.3, 20.4, 20.5**
     - **Property 28: Backend selection event reason is valid**
@@ -295,13 +295,13 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 34: Backend-selected events match expected backends per phase**
     - **Validates: Requirements 25.7**
 
-  - [ ]* 14.13 Write property tests for context capping
+  - [ ] 14.13 Write property tests for context capping
     - **Property 29: Context capping removes files in reverse relevance order**
     - **Validates: Requirements 21.1, 21.3**
     - **Property 30: charsPerToken affects token estimation**
     - **Validates: Requirements 21.2**
 
-  - [ ]* 14.14 Write property tests for spec writer
+  - [ ] 14.14 Write property tests for spec writer
     - **Property 31: SpecWriter phase transition entries**
     - **Validates: Requirements 23.2**
     - **Property 32: SpecWriter status.json fields**
