@@ -16,6 +16,8 @@ import type { KASOConfig } from '@/config/schema'
 import { createMockProject } from '../e2e/helpers/mock-project'
 import type { MockProjectResult } from '../e2e/helpers/mock-project'
 import { readFileSync } from 'fs'
+import { MockBackend } from '../e2e/helpers/mock-backend'
+import type { PhaseName } from '@/core/types'
 
 /** Track mock projects for cleanup */
 const projectsToCleanup: MockProjectResult[] = []
@@ -137,6 +139,224 @@ describe('E2E Validation Properties', () => {
         // Execution store should always be in-memory for E2E tests
         expect(validated.executionStore.type).toBe('sqlite')
         expect(validated.executionStore.path).toBe(':memory:')
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 2 & 3: Mock backend contract
+  // Validates: Requirements 2.2, 2.3, 2.7
+  describe('Property 2 & 3: Mock backend contract', () => {
+    /**
+     * Arbitrary for valid backend names
+     */
+    const backendNameArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z][a-z0-9-]{0,29}$/)
+      .filter((s) => s.length > 0)
+
+    /**
+     * Arbitrary for valid phase names
+     */
+    const phaseNameArbitrary: fc.Arbitrary<PhaseName> = fc.constantFrom(
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    )
+
+    test.prop([
+      backendNameArbitrary,
+      phaseNameArbitrary,
+      fc.boolean(),
+      fc.string(),
+      fc.integer({ min: 1, max: 100000 }),
+    ])(
+      'execute() returns configured values with correct success status and output',
+      async (backendName, phase, success, errorMessage, tokensUsed) => {
+        const backend = new MockBackend({
+          name: backendName,
+          maxContextWindow: 128000,
+          costPer1000Tokens: 0.01,
+        })
+
+        const expectedOutput = {
+          modifiedFiles: ['src/test.ts'],
+          addedTests: [],
+          duration: 100,
+          backend: backendName,
+          selfCorrectionAttempts: 0,
+        }
+
+        backend.setPhaseResponse(phase, {
+          success,
+          output: expectedOutput,
+          error: success ? undefined : errorMessage,
+          tokensUsed,
+        })
+
+        const response = await backend.execute({
+          id: 'test-request',
+          phase,
+          streamProgress: false,
+          context: {
+            runId: 'test-run',
+            spec: {
+              specPath: '/test/spec',
+              featureName: 'test-feature',
+              design: {
+                rawContent: '',
+                sections: [],
+                codeBlocks: [],
+                metadata: {},
+              },
+              techSpec: {
+                rawContent: '',
+                sections: [],
+                codeBlocks: [],
+                metadata: {},
+              },
+              taskList: [],
+              missingFiles: [],
+            },
+            steering: {
+              codingPractices: '',
+              personality: '',
+              commitConventions: '',
+              hooks: {},
+            },
+            phaseOutputs: {},
+            backends: {},
+            config: {} as KASOConfig,
+          },
+        })
+
+        expect(response.success).toBe(success)
+        if (success) {
+          expect(response.output).toEqual(expectedOutput)
+        } else {
+          expect(response.error).toBe(errorMessage)
+        }
+        expect(response.tokensUsed).toBe(tokensUsed)
+
+        // Verify execution log tracking (Req 2.5)
+        const log = backend.getExecutionLog()
+        expect(log).toHaveLength(1)
+        expect(log[0]!.phase).toBe(phase)
+      },
+    )
+
+    test.prop([backendNameArbitrary, phaseNameArbitrary])(
+      'execute() emits at least 2 progress events',
+      async (backendName, phase) => {
+        const backend = new MockBackend({
+          name: backendName,
+          maxContextWindow: 128000,
+          costPer1000Tokens: 0.01,
+        })
+
+        const progressEvents: unknown[] = []
+        backend.onProgress((event) => {
+          progressEvents.push(event)
+        })
+
+        await backend.execute({
+          id: 'test-request',
+          phase,
+          streamProgress: false,
+          context: {
+            runId: 'test-run',
+            spec: {
+              specPath: '/test/spec',
+              featureName: 'test-feature',
+              design: {
+                rawContent: '',
+                sections: [],
+                codeBlocks: [],
+                metadata: {},
+              },
+              techSpec: {
+                rawContent: '',
+                sections: [],
+                codeBlocks: [],
+                metadata: {},
+              },
+              taskList: [],
+              missingFiles: [],
+            },
+            steering: {
+              codingPractices: '',
+              personality: '',
+              commitConventions: '',
+              hooks: {},
+            },
+            phaseOutputs: {},
+            backends: {},
+            config: {} as KASOConfig,
+          },
+        })
+
+        expect(progressEvents.length).toBeGreaterThanOrEqual(2)
+      },
+    )
+
+    test.prop([
+      backendNameArbitrary,
+      phaseNameArbitrary,
+      fc.integer({ min: 10, max: 200 }),
+    ])(
+      'setDelay() causes execute() to take at least the configured delay',
+      async (backendName, phase, delayMs) => {
+        const backend = new MockBackend({
+          name: backendName,
+          maxContextWindow: 128000,
+          costPer1000Tokens: 0.01,
+        })
+
+        backend.setDelay(delayMs)
+
+        const startTime = Date.now()
+        await backend.execute({
+          id: 'test-request',
+          phase,
+          streamProgress: false,
+          context: {
+            runId: 'test-run',
+            spec: {
+              specPath: '/test/spec',
+              featureName: 'test-feature',
+              design: {
+                rawContent: '',
+                sections: [],
+                codeBlocks: [],
+                metadata: {},
+              },
+              techSpec: {
+                rawContent: '',
+                sections: [],
+                codeBlocks: [],
+                metadata: {},
+              },
+              taskList: [],
+              missingFiles: [],
+            },
+            steering: {
+              codingPractices: '',
+              personality: '',
+              commitConventions: '',
+              hooks: {},
+            },
+            phaseOutputs: {},
+            backends: {},
+            config: {} as KASOConfig,
+          },
+        })
+        const endTime = Date.now()
+
+        // Execution should take at least the configured delay (with small tolerance)
+        expect(endTime - startTime).toBeGreaterThanOrEqual(delayMs - 5)
       },
     )
   })

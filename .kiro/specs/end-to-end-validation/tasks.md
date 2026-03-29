@@ -213,7 +213,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 1: Scaffolded config always passes schema validation**
     - **Validates: Requirements 1.1**
 
-  - [ ] 14.2 Write property tests for mock backend contract
+  - [x] 14.2 Write property tests for mock backend contract
     - **Property 2: Mock backend contract — execute() returns configured values, ≥2 progress events**
     - **Validates: Requirements 2.2, 2.3**
     - **Property 3: Mock backend delay is respected**
