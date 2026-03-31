@@ -249,7 +249,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 12: Worktree filesystem isolation**
     - **Validates: Requirements 8.5**
 
-  - [ ] 14.7 Write property tests for SSE and webhook behavior
+  - [x] 14.7 Write property tests for SSE and webhook behavior
     - **Property 14: SSE runId filtering**
     - **Validates: Requirements 9.6**
     - **Property 15: Webhook payload structure**

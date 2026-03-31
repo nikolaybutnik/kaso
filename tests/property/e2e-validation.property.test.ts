@@ -24,6 +24,7 @@ import { EventCollector } from '../e2e/helpers/event-collector'
 import { ExecutionStore } from '@/infrastructure/execution-store'
 import { CheckpointManager } from '@/infrastructure/checkpoint-manager'
 import { CostTracker } from '@/infrastructure/cost-tracker'
+import { WebhookDispatcher } from '@/infrastructure/webhook-dispatcher'
 import {
   createIntakeOutput,
   createValidationOutput,
@@ -1107,6 +1108,170 @@ describe('E2E Validation Properties', () => {
           rmSync(mainDir, { recursive: true, force: true })
           rmSync(worktreeDir, { recursive: true, force: true })
         }
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 14, 15, 16: SSE and webhook behavior
+  // Validates: Requirements 9.6, 10.2, 10.3, 10.4
+  describe('Property 14, 15, 16: SSE and webhook behavior', () => {
+    const VALID_EVENT_TYPES: EventType[] = [
+      'run:started',
+      'run:completed',
+      'run:failed',
+      'phase:started',
+      'phase:completed',
+      'phase:failed',
+    ]
+
+    const eventTypeArbitrary: fc.Arbitrary<EventType> = fc.constantFrom(
+      ...VALID_EVENT_TYPES,
+    )
+
+    const runIdArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z0-9-]{1,36}$/)
+      .filter((s) => s.length > 0)
+
+    const phaseNameArbitrary: fc.Arbitrary<PhaseName> = fc.constantFrom(
+      'intake' as PhaseName,
+      'validation' as PhaseName,
+      'implementation' as PhaseName,
+      'review-delivery' as PhaseName,
+    )
+
+    // Property 14: SSE runId filtering
+    // For any SSE client connected with ?runId=X, only events whose runId
+    // equals X should be forwarded. We test this via EventBus + EventCollector
+    // filtering, which mirrors the SSEServer broadcastEvent logic.
+    test.prop([
+      runIdArbitrary,
+      runIdArbitrary,
+      fc.array(eventTypeArbitrary, { minLength: 1, maxLength: 10 }),
+    ])(
+      'Property 14: runId filtering only forwards matching events',
+      (targetRunId, otherRunId, eventTypes) => {
+        // Ensure we have a distinct "other" runId
+        const distinctOther =
+          otherRunId === targetRunId ? `${otherRunId}-other` : otherRunId
+
+        const eventBus = new EventBus()
+        const collector = new EventCollector(eventBus)
+
+        try {
+          // Emit events for both runIds
+          for (const type of eventTypes) {
+            eventBus.emit({
+              type,
+              runId: targetRunId,
+              timestamp: new Date().toISOString(),
+            })
+            eventBus.emit({
+              type,
+              runId: distinctOther,
+              timestamp: new Date().toISOString(),
+            })
+          }
+
+          // Filter by targetRunId (mirrors SSEServer's filterRunId logic)
+          const filtered = collector.getByRunId(targetRunId)
+
+          // Every filtered event must have the target runId
+          for (const event of filtered) {
+            expect(event.runId).toBe(targetRunId)
+          }
+
+          // No events for the other runId should appear
+          const otherEvents = filtered.filter((e) => e.runId === distinctOther)
+          expect(otherEvents).toHaveLength(0)
+
+          // Count should match the number of event types emitted for target
+          expect(filtered).toHaveLength(eventTypes.length)
+        } finally {
+          collector.dispose()
+          eventBus.removeAllListeners()
+        }
+      },
+    )
+
+    // Property 15: Webhook payload structure
+    // For any webhook delivery, the payload must contain event, runId,
+    // timestamp, and data fields matching the WebhookPayload interface.
+    // We use the real WebhookDispatcher.buildPayload() method.
+    test.prop([
+      eventTypeArbitrary,
+      runIdArbitrary,
+      fc.option(phaseNameArbitrary),
+      fc.record({
+        detail: fc.string(),
+        count: fc.integer({ min: 0, max: 1000 }),
+      }),
+    ])(
+      'Property 15: buildPayload produces valid WebhookPayload structure',
+      (type, runId, phase, data) => {
+        const dispatcher = new WebhookDispatcher()
+
+        const event: ExecutionEvent = {
+          type,
+          runId,
+          timestamp: new Date().toISOString(),
+          ...(phase !== null ? { phase } : {}),
+          data,
+        }
+
+        const payload = dispatcher.buildPayload(event)
+
+        // Required fields per WebhookPayload interface
+        expect(payload.event).toBe(type)
+        expect(payload.runId).toBe(runId)
+        expect(payload.timestamp).toBeDefined()
+        expect(typeof payload.timestamp).toBe('string')
+
+        // Timestamp must be valid ISO 8601
+        const parsedTs = Date.parse(payload.timestamp)
+        expect(isNaN(parsedTs)).toBe(false)
+
+        // Phase should be present if provided
+        if (phase !== null) {
+          expect(payload.phase).toBe(phase)
+        }
+
+        // Data should be present (sanitized copy)
+        expect(payload.data).toBeDefined()
+      },
+    )
+
+    // Property 16: Webhook signature round-trip
+    // For any payload and secret, signPayload then verifySignature must
+    // return true. Uses the real WebhookDispatcher methods.
+    test.prop([
+      fc.string({ minLength: 1, maxLength: 500 }),
+      fc.string({ minLength: 1, maxLength: 64 }),
+    ])(
+      'Property 16: signPayload + verifySignature round-trip returns true',
+      (payload, secret) => {
+        const dispatcher = new WebhookDispatcher()
+
+        const signature = dispatcher.signPayload(payload, secret)
+
+        // Signature must start with sha256= prefix
+        expect(signature).toMatch(/^sha256=[0-9a-f]{64}$/)
+
+        // Round-trip verification must succeed
+        expect(dispatcher.verifySignature(payload, secret, signature)).toBe(
+          true,
+        )
+
+        // Tampered payload must fail verification
+        const tampered = payload + 'x'
+        expect(dispatcher.verifySignature(tampered, secret, signature)).toBe(
+          false,
+        )
+
+        // Wrong secret must fail verification
+        const wrongSecret = secret + 'wrong'
+        expect(
+          dispatcher.verifySignature(payload, wrongSecret, signature),
+        ).toBe(false)
       },
     )
   })
