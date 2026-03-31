@@ -235,7 +235,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 8: UI diff threshold controls approval**
     - **Validates: Requirements 4.11**
 
-  - [ ] 14.5 Write property tests for checkpoint and cost tracking
+  - [x] 14.5 Write property tests for checkpoint and cost tracking
     - **Property 9: Checkpoint exists after each phase**
     - **Validates: Requirements 5.5**
     - **Property 10: Cost accumulation formula**

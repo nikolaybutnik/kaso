@@ -19,6 +19,9 @@ import { readFileSync } from 'fs'
 import { MockBackend } from '../e2e/helpers/mock-backend'
 import { EventBus } from '@/core/event-bus'
 import { EventCollector } from '../e2e/helpers/event-collector'
+import { ExecutionStore } from '@/infrastructure/execution-store'
+import { CheckpointManager } from '@/infrastructure/checkpoint-manager'
+import { CostTracker } from '@/infrastructure/cost-tracker'
 import {
   createIntakeOutput,
   createValidationOutput,
@@ -813,6 +816,191 @@ describe('E2E Validation Properties', () => {
         for (const s of atThreshold) {
           expect(s.diffPercentage).not.toBeGreaterThan(thresholdPercent)
         }
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 9, 10, 35: Checkpoint and cost tracking
+  // Validates: Requirements 5.5, 6.5, 25.8
+  describe('Property 9, 10, 35: Checkpoint and cost tracking', () => {
+    const ALL_PHASES: PhaseName[] = [
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    ]
+
+    const phaseNameArbitrary: fc.Arbitrary<PhaseName> = fc.constantFrom(
+      ...ALL_PHASES,
+    )
+
+    const runIdArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z0-9-]{1,36}$/)
+      .filter((s) => s.length > 0)
+
+    /** Arbitrary for backend names */
+    const backendNameArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z][a-z0-9-]{0,19}$/)
+      .filter((s) => s.length > 0)
+
+    // Property 9: Checkpoint exists after each phase
+    // For any run that has completed at least one phase, the CheckpointManager
+    // should have a checkpoint record containing runId, phase, and serialized data.
+    test.prop([
+      runIdArbitrary,
+      fc.uniqueArray(phaseNameArbitrary, { minLength: 1, maxLength: 8 }),
+    ])(
+      'Property 9: checkpoint persists after each phase with correct runId and phase',
+      (runId, phases) => {
+        const store = new ExecutionStore({ type: 'sqlite', path: ':memory:' })
+        const checkpointMgr = new CheckpointManager(store)
+
+        try {
+          // Must create a run record first (FK constraint)
+          store.saveRun({
+            runId,
+            specPath: '/test/spec',
+            status: 'running',
+            phases: ALL_PHASES,
+            startedAt: new Date().toISOString(),
+            cost: 0,
+            phaseResults: [],
+            logs: [],
+          })
+
+          // Save a checkpoint after each phase
+          for (const phase of phases) {
+            const phaseOutputs = { [phase]: { completed: true } }
+            checkpointMgr.saveCheckpoint(runId, phase, {
+              runId,
+              phase,
+              phaseOutputs,
+            })
+
+            // Verify checkpoint exists immediately after save
+            const latest = checkpointMgr.getLatestCheckpoint(runId)
+            expect(latest).not.toBeNull()
+            expect(latest!.runId).toBe(runId)
+            expect(latest!.phase).toBe(phase)
+            expect(latest!.isLatest).toBe(true)
+
+            // Data should contain the serialized phase outputs
+            const data = latest!.data as Record<string, unknown>
+            expect(data.runId).toBe(runId)
+            expect(data.phase).toBe(phase)
+            expect(data.phaseOutputs).toBeDefined()
+          }
+
+          // After all phases, only the last checkpoint should be "latest"
+          const allCheckpoints = checkpointMgr.listCheckpoints(runId)
+          expect(allCheckpoints).toHaveLength(phases.length)
+
+          const latestOnes = allCheckpoints.filter((c) => c.isLatest)
+          expect(latestOnes).toHaveLength(1)
+          expect(latestOnes[0]!.phase).toBe(phases[phases.length - 1])
+        } finally {
+          store.close()
+        }
+      },
+    )
+
+    // Property 10: Cost accumulation formula
+    // For any sequence of invocations, total cost = sum of (tokensUsed / 1000) * costPer1000Tokens
+    test.prop([
+      runIdArbitrary,
+      fc.array(
+        fc.record({
+          tokensUsed: fc.integer({ min: 0, max: 100000 }),
+          costPer1000Tokens: fc.double({
+            min: 0.001,
+            max: 1.0,
+            noNaN: true,
+          }),
+        }),
+        { minLength: 1, maxLength: 8 },
+      ),
+    ])(
+      'Property 10: CostTracker accumulates costs matching the formula exactly',
+      (runId, invocations) => {
+        const tracker = new CostTracker()
+
+        let expectedTotal = 0
+        for (const inv of invocations) {
+          const returned = tracker.recordInvocation(
+            runId,
+            'mock-backend',
+            inv.tokensUsed,
+            inv.costPer1000Tokens,
+          )
+
+          const expected = (inv.tokensUsed / 1000) * inv.costPer1000Tokens
+          expect(returned).toBeCloseTo(expected, 10)
+          expectedTotal += expected
+        }
+
+        const runCost = tracker.getRunCost(runId)
+        expect(runCost).toBeDefined()
+        expect(runCost!.totalCost).toBeCloseTo(expectedTotal, 10)
+        expect(runCost!.invocations).toHaveLength(invocations.length)
+      },
+    )
+
+    // Property 35: Cost attribution per backend
+    // For any run with multiple backends, backendCosts[name] = sum of that backend's invocations
+    test.prop([
+      runIdArbitrary,
+      fc.array(
+        fc.record({
+          backendName: backendNameArbitrary,
+          tokensUsed: fc.integer({ min: 1, max: 50000 }),
+          costPer1000Tokens: fc.double({
+            min: 0.001,
+            max: 0.5,
+            noNaN: true,
+          }),
+        }),
+        { minLength: 1, maxLength: 12 },
+      ),
+    ])(
+      'Property 35: per-backend cost attribution matches sum of that backend invocations',
+      (runId, invocations) => {
+        const tracker = new CostTracker()
+
+        // Track expected costs per backend manually
+        const expectedByBackend = new Map<string, number>()
+
+        for (const inv of invocations) {
+          tracker.recordInvocation(
+            runId,
+            inv.backendName,
+            inv.tokensUsed,
+            inv.costPer1000Tokens,
+          )
+
+          const cost = (inv.tokensUsed / 1000) * inv.costPer1000Tokens
+          const current = expectedByBackend.get(inv.backendName) ?? 0
+          expectedByBackend.set(inv.backendName, current + cost)
+        }
+
+        const runCost = tracker.getRunCost(runId)
+        expect(runCost).toBeDefined()
+
+        // Every backend in our expected map must appear in backendCosts
+        for (const [backend, expectedCost] of expectedByBackend) {
+          expect(runCost!.backendCosts[backend]).toBeDefined()
+          expect(runCost!.backendCosts[backend]).toBeCloseTo(expectedCost, 10)
+        }
+
+        // Sum of per-backend costs must equal totalCost
+        const sumOfBackends = Object.values(runCost!.backendCosts).reduce(
+          (sum, c) => sum + c,
+          0,
+        )
+        expect(sumOfBackends).toBeCloseTo(runCost!.totalCost, 10)
       },
     )
   })
