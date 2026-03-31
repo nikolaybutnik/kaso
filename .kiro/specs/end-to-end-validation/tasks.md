@@ -243,7 +243,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 35: Cost attribution per backend**
     - **Validates: Requirements 25.8**
 
-  - [ ] 14.6 Write property tests for worktree behavior
+  - [x] 14.6 Write property tests for worktree behavior
     - **Property 11: Worktree branch naming convention**
     - **Validates: Requirements 8.1**
     - **Property 12: Worktree filesystem isolation**

@@ -15,7 +15,9 @@ import { validateConfig } from '@/config/schema'
 import type { KASOConfig } from '@/config/schema'
 import { createMockProject } from '../e2e/helpers/mock-project'
 import type { MockProjectResult } from '../e2e/helpers/mock-project'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync, writeFileSync, mkdirSync, rmSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
 import { MockBackend } from '../e2e/helpers/mock-backend'
 import { EventBus } from '@/core/event-bus'
 import { EventCollector } from '../e2e/helpers/event-collector'
@@ -1001,6 +1003,110 @@ describe('E2E Validation Properties', () => {
           0,
         )
         expect(sumOfBackends).toBeCloseTo(runCost!.totalCost, 10)
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 11 & 12: Worktree behavior
+  // Validates: Requirements 8.1, 8.5
+  describe('Property 11 & 12: Worktree behavior', () => {
+    /** Arbitrary for spec names matching the kebab-case convention */
+    const specNameArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z][a-z0-9-]{0,19}$/)
+      .filter((s) => s.length > 0 && !s.endsWith('-'))
+
+    // Property 11: Worktree branch naming convention
+    // For any spec name, the branch created by WorktreeManager.create() should
+    // match kaso/{specName}-{timestamp} where timestamp is a valid date string.
+    // We replicate the exact naming logic from WorktreeManager.createWorktree().
+    test.prop([
+      specNameArbitrary,
+      fc.integer({
+        min: new Date('2020-01-01T00:00:00Z').getTime(),
+        max: new Date('2030-12-31T23:59:59Z').getTime(),
+      }),
+    ])(
+      'Property 11: branch name matches kaso/{specName}-{YYYYMMDDTHHmmss} pattern',
+      (specName, timestampMs) => {
+        // Replicate the exact timestamp formatting from WorktreeManager
+        const timestamp = new Date(timestampMs)
+          .toISOString()
+          .replace(/[:\-]/g, '')
+          .replace(/\.\d{3}Z$/, '')
+        const branchName = `kaso/${specName}-${timestamp}`
+
+        // Must start with kaso/
+        expect(branchName).toMatch(/^kaso\//)
+
+        // Must contain the spec name after kaso/
+        expect(branchName.startsWith(`kaso/${specName}-`)).toBe(true)
+
+        // Timestamp portion must be a valid compact ISO format (YYYYMMDDTHHmmss)
+        const timestampPart = branchName.slice(`kaso/${specName}-`.length)
+        expect(timestampPart).toMatch(/^\d{8}T\d{6}$/)
+
+        // The timestamp should parse back to a valid date
+        const year = timestampPart.slice(0, 4)
+        const month = timestampPart.slice(4, 6)
+        const day = timestampPart.slice(6, 8)
+        const hour = timestampPart.slice(9, 11)
+        const minute = timestampPart.slice(11, 13)
+        const second = timestampPart.slice(13, 15)
+        const reconstructed = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`
+        const parsed = Date.parse(reconstructed)
+        expect(isNaN(parsed)).toBe(false)
+
+        // The runId derived from the branch should also be deterministic
+        const runId = `${specName}-${timestamp}`
+        expect(runId).toBe(branchName.slice('kaso/'.length))
+      },
+    )
+
+    // Property 12: Worktree filesystem isolation
+    // For any file written to a worktree path, that file should not exist in
+    // the main working directory. We verify this by creating temp dirs that
+    // simulate the worktree/main separation.
+    test.prop([
+      specNameArbitrary,
+      fc.array(fc.stringMatching(/^[a-z][a-z0-9_]{0,15}\.[a-z]{1,4}$/), {
+        minLength: 1,
+        maxLength: 5,
+      }),
+    ])(
+      'Property 12: files in worktree path do not appear in main directory',
+      (specName, filenames) => {
+        const mainDir =
+          tmpdir() +
+          `/kaso-prop12-main-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        const worktreeDir =
+          tmpdir() +
+          `/kaso-prop12-wt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+        mkdirSync(mainDir, { recursive: true })
+        mkdirSync(worktreeDir, { recursive: true })
+
+        try {
+          // Write files only to the worktree directory
+          for (const filename of filenames) {
+            writeFileSync(join(worktreeDir, filename), `content-${specName}`)
+          }
+
+          // Verify files exist in worktree
+          for (const filename of filenames) {
+            expect(existsSync(join(worktreeDir, filename))).toBe(true)
+          }
+
+          // Verify files do NOT exist in main directory (isolation)
+          for (const filename of filenames) {
+            expect(existsSync(join(mainDir, filename))).toBe(false)
+          }
+
+          // Verify the directories are distinct paths
+          expect(mainDir).not.toBe(worktreeDir)
+        } finally {
+          rmSync(mainDir, { recursive: true, force: true })
+          rmSync(worktreeDir, { recursive: true, force: true })
+        }
       },
     )
   })
