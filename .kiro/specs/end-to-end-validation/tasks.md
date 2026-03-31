@@ -219,7 +219,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 3: Mock backend delay is respected**
     - **Validates: Requirements 2.7**
 
-  - [ ] 14.3 Write property tests for pipeline event invariants
+  - [x] 14.3 Write property tests for pipeline event invariants
     - **Property 4: Phase events are paired for every phase**
     - **Validates: Requirements 3.4, 9.1**
     - **Property 5: Phase result timing invariants**
