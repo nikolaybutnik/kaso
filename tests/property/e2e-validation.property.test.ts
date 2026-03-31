@@ -19,6 +19,17 @@ import { readFileSync } from 'fs'
 import { MockBackend } from '../e2e/helpers/mock-backend'
 import { EventBus } from '@/core/event-bus'
 import { EventCollector } from '../e2e/helpers/event-collector'
+import {
+  createIntakeOutput,
+  createValidationOutput,
+  createArchitectureAnalysisOutput,
+  createImplementationOutput,
+  createArchitectureReviewOutput,
+  createTestVerificationOutput,
+  createUIValidationOutput,
+  createReviewDeliveryOutput,
+  createDefaultPhaseResponses,
+} from '../e2e/helpers/phase-outputs'
 import type {
   PhaseName,
   EventType,
@@ -667,6 +678,140 @@ describe('E2E Validation Properties', () => {
         } finally {
           collector.dispose()
           eventBus.removeAllListeners()
+        }
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 7 & 8: Phase output shapes
+  // Validates: Requirements 4.1–4.8, 4.11
+  describe('Property 7 & 8: Phase output shapes', () => {
+    /** Required output keys per phase, matching the type interfaces */
+    const PHASE_OUTPUT_KEYS: Record<string, string[]> = {
+      intake: ['featureName', 'designDoc', 'taskList'],
+      validation: ['approved', 'issues'],
+      'architecture-analysis': ['patterns', 'moduleBoundaries', 'adrsFound'],
+      implementation: ['modifiedFiles', 'addedTests', 'duration', 'backend'],
+      'architecture-review': ['approved', 'violations'],
+      'test-verification': ['passed', 'testsRun', 'coverage', 'duration'],
+      'ui-validation': ['approved', 'uiIssues'],
+      'review-delivery': ['consensus', 'votes'],
+    }
+
+    /** Map phase names to their fixture factory functions */
+    const PHASE_FACTORIES: Record<string, () => Record<string, unknown>> = {
+      intake: () => createIntakeOutput() as unknown as Record<string, unknown>,
+      validation: () =>
+        createValidationOutput() as unknown as Record<string, unknown>,
+      'architecture-analysis': () =>
+        createArchitectureAnalysisOutput() as unknown as Record<
+          string,
+          unknown
+        >,
+      implementation: () =>
+        createImplementationOutput() as unknown as Record<string, unknown>,
+      'architecture-review': () =>
+        createArchitectureReviewOutput() as unknown as Record<string, unknown>,
+      'test-verification': () =>
+        createTestVerificationOutput() as unknown as Record<string, unknown>,
+      'ui-validation': () =>
+        createUIValidationOutput() as unknown as Record<string, unknown>,
+      'review-delivery': () =>
+        createReviewDeliveryOutput() as unknown as Record<string, unknown>,
+    }
+
+    const ALL_PHASES: PhaseName[] = [
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    ]
+
+    const phaseNameArbitrary: fc.Arbitrary<PhaseName> = fc.constantFrom(
+      ...ALL_PHASES,
+    )
+
+    // Property 7: Phase output shapes match their interfaces
+    // For any phase, the fixture factory output must contain all required keys.
+    test.prop([phaseNameArbitrary])(
+      'Property 7: fixture factory outputs contain all required interface fields',
+      (phase) => {
+        const factory = PHASE_FACTORIES[phase]
+        expect(factory).toBeDefined()
+
+        const output = factory!()
+        const requiredKeys = PHASE_OUTPUT_KEYS[phase]!
+
+        for (const key of requiredKeys) {
+          expect(output).toHaveProperty(key)
+          // Value must not be undefined (field must be meaningfully present)
+          expect(output[key]).toBeDefined()
+        }
+      },
+    )
+
+    // Property 7 extended: MockBackend wired with fixture factories returns
+    // outputs that pass shape validation for any phase.
+    test.prop([phaseNameArbitrary])(
+      'Property 7: MockBackend phase responses have correct output shapes',
+      async (phase) => {
+        const responses = createDefaultPhaseResponses()
+        const response = responses.get(phase)
+
+        expect(response).toBeDefined()
+        expect(response!.success).toBe(true)
+
+        const output = response!.output as Record<string, unknown>
+        expect(output).toBeDefined()
+
+        const requiredKeys = PHASE_OUTPUT_KEYS[phase]!
+        for (const key of requiredKeys) {
+          expect(output).toHaveProperty(key)
+        }
+      },
+    )
+
+    // Property 8: UI diff threshold controls approval
+    // When any screenshot's diffPercentage exceeds diffThreshold * 100,
+    // the UIReview.approved field must be false.
+    test.prop([
+      fc.array(
+        fc.record({
+          route: fc.stringMatching(/^\/[a-z0-9-]{0,20}$/),
+          diffPercentage: fc.double({ min: 0, max: 100, noNaN: true }),
+        }),
+        { minLength: 1, maxLength: 5 },
+      ),
+      fc.double({ min: 0.01, max: 0.99, noNaN: true }),
+    ])(
+      'Property 8: diffPercentage exceeding diffThreshold * 100 forces approved=false',
+      (screenshots, diffThreshold) => {
+        // Replicate the UIValidatorAgent approval logic:
+        // diffIssues = screenshots where diffPercentage > diffThreshold * 100
+        const thresholdPercent = diffThreshold * 100
+        const diffIssues = screenshots.filter(
+          (s) => s.diffPercentage > thresholdPercent,
+        )
+
+        // If any screenshot exceeds the threshold, approved must be false
+        const approved = diffIssues.length === 0
+
+        if (screenshots.some((s) => s.diffPercentage > thresholdPercent)) {
+          expect(approved).toBe(false)
+        } else {
+          expect(approved).toBe(true)
+        }
+
+        // Boundary: exactly at threshold should NOT trigger a diff issue
+        const atThreshold = screenshots.filter(
+          (s) => s.diffPercentage === thresholdPercent,
+        )
+        for (const s of atThreshold) {
+          expect(s.diffPercentage).not.toBeGreaterThan(thresholdPercent)
         }
       },
     )

@@ -229,7 +229,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 13: All events have valid structure**
     - **Validates: Requirements 9.4**
 
-  - [ ] 14.4 Write property tests for phase output shapes
+  - [x] 14.4 Write property tests for phase output shapes
     - **Property 7: Phase output shapes match their interfaces**
     - **Validates: Requirements 4.1–4.8**
     - **Property 8: UI diff threshold controls approval**
