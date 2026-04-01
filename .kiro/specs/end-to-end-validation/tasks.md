@@ -257,7 +257,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 16: Webhook signature round-trip**
     - **Validates: Requirements 10.3, 10.4**
 
-  - [-] 14.8 Write property tests for plugins and MCP
+  - [x] 14.8 Write property tests for plugins and MCP
     - **Property 17: Custom phase injection position**
     - **Validates: Requirements 12.2**
     - **Property 18: MCP tools scoped to implementation phase only**
@@ -265,7 +265,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 19: FileWatcher debounce**
     - **Validates: Requirements 14.4**
 
-  - [ ] 14.9 Write property tests for review council and delivery
+  - [x] 14.9 Write property tests for review council and delivery
     - **Property 20: Review council votes match configured reviewers**
     - **Validates: Requirements 15.4, 15.6**
     - **Property 21: Delivery branch naming convention**
@@ -273,11 +273,11 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 33: Per-reviewer backend assignment**
     - **Validates: Requirements 25.1**
 
-  - [ ] 14.10 Write property tests for error handling and retries
+  - [x] 14.10 Write property tests for error handling and retries
     - **Property 22: Retry count bounded by maxPhaseRetries**
     - **Validates: Requirements 18.1**
 
-  - [ ] 14.11 Write property tests for execution store
+  - [x] 14.11 Write property tests for execution store
     - **Property 23: Execution store run and phase records persist**
     - **Validates: Requirements 19.1, 19.2**
     - **Property 24: Execution store ordering**

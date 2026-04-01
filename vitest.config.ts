@@ -13,6 +13,11 @@ export default defineConfig({
       exclude: ['src/**/*.test.ts', 'src/**/*.d.ts'],
     },
     testTimeout: 30000,
+    poolMatchGlobs: [
+      // Run property tests that use better-sqlite3 in forks to avoid
+      // native handle segfaults during process teardown on macOS
+      ['**/e2e-validation.property.test.ts', 'forks'],
+    ],
   },
   resolve: {
     alias: {

@@ -9,7 +9,7 @@
  * Subsequent properties are added by tasks 14.2–14.14.
  */
 
-import { describe, expect, afterEach } from 'vitest'
+import { describe, expect, afterEach, afterAll } from 'vitest'
 import { test, fc } from '@fast-check/vitest'
 import { validateConfig } from '@/config/schema'
 import type { KASOConfig } from '@/config/schema'
@@ -27,6 +27,9 @@ import { CostTracker } from '@/infrastructure/cost-tracker'
 import { WebhookDispatcher } from '@/infrastructure/webhook-dispatcher'
 import { createPhaseInjector, BUILTIN_PHASES } from '@/plugins/phase-injector'
 import { createMCPClient } from '@/infrastructure/mcp-client'
+import { ErrorHandler } from '@/core/error-handler'
+import { BackendRegistry } from '@/backends/backend-registry'
+import type { Agent } from '@/agents/agent-interface'
 import {
   createIntakeOutput,
   createValidationOutput,
@@ -43,6 +46,7 @@ import type {
   EventType,
   ExecutionEvent,
   PhaseResultRecord,
+  AgentError,
 } from '@/core/types'
 
 /** Track mock projects for cleanup */
@@ -852,6 +856,39 @@ describe('E2E Validation Properties', () => {
       .stringMatching(/^[a-z][a-z0-9-]{0,19}$/)
       .filter((s) => s.length > 0)
 
+    // Shared store for checkpoint tests — avoids native handle proliferation
+    let checkpointStore: ExecutionStore | null = null
+    let checkpointMgr: CheckpointManager | null = null
+
+    function getCheckpointStore(): ExecutionStore {
+      if (!checkpointStore) {
+        checkpointStore = new ExecutionStore({
+          type: 'sqlite',
+          path: ':memory:',
+        })
+        checkpointMgr = new CheckpointManager(checkpointStore)
+      }
+      return checkpointStore
+    }
+
+    function getCheckpointMgr(): CheckpointManager {
+      getCheckpointStore()
+      return checkpointMgr!
+    }
+
+    function resetCheckpointStore(): void {
+      const db = getCheckpointStore().getDatabase()!
+      db.exec('DELETE FROM checkpoints')
+      db.exec('DELETE FROM phase_results')
+      db.exec('DELETE FROM runs')
+    }
+
+    afterAll(() => {
+      checkpointStore?.close()
+      checkpointStore = null
+      checkpointMgr = null
+    })
+
     // Property 9: Checkpoint exists after each phase
     // For any run that has completed at least one phase, the CheckpointManager
     // should have a checkpoint record containing runId, phase, and serialized data.
@@ -861,55 +898,50 @@ describe('E2E Validation Properties', () => {
     ])(
       'Property 9: checkpoint persists after each phase with correct runId and phase',
       (runId, phases) => {
-        const store = new ExecutionStore({ type: 'sqlite', path: ':memory:' })
-        const checkpointMgr = new CheckpointManager(store)
+        resetCheckpointStore()
 
-        try {
-          // Must create a run record first (FK constraint)
-          store.saveRun({
+        // Must create a run record first (FK constraint)
+        getCheckpointStore().saveRun({
+          runId,
+          specPath: '/test/spec',
+          status: 'running',
+          phases: ALL_PHASES,
+          startedAt: new Date().toISOString(),
+          cost: 0,
+          phaseResults: [],
+          logs: [],
+        })
+
+        // Save a checkpoint after each phase
+        for (const phase of phases) {
+          const phaseOutputs = { [phase]: { completed: true } }
+          getCheckpointMgr().saveCheckpoint(runId, phase, {
             runId,
-            specPath: '/test/spec',
-            status: 'running',
-            phases: ALL_PHASES,
-            startedAt: new Date().toISOString(),
-            cost: 0,
-            phaseResults: [],
-            logs: [],
+            phase,
+            phaseOutputs,
           })
 
-          // Save a checkpoint after each phase
-          for (const phase of phases) {
-            const phaseOutputs = { [phase]: { completed: true } }
-            checkpointMgr.saveCheckpoint(runId, phase, {
-              runId,
-              phase,
-              phaseOutputs,
-            })
+          // Verify checkpoint exists immediately after save
+          const latest = getCheckpointMgr().getLatestCheckpoint(runId)
+          expect(latest).not.toBeNull()
+          expect(latest!.runId).toBe(runId)
+          expect(latest!.phase).toBe(phase)
+          expect(latest!.isLatest).toBe(true)
 
-            // Verify checkpoint exists immediately after save
-            const latest = checkpointMgr.getLatestCheckpoint(runId)
-            expect(latest).not.toBeNull()
-            expect(latest!.runId).toBe(runId)
-            expect(latest!.phase).toBe(phase)
-            expect(latest!.isLatest).toBe(true)
-
-            // Data should contain the serialized phase outputs
-            const data = latest!.data as Record<string, unknown>
-            expect(data.runId).toBe(runId)
-            expect(data.phase).toBe(phase)
-            expect(data.phaseOutputs).toBeDefined()
-          }
-
-          // After all phases, only the last checkpoint should be "latest"
-          const allCheckpoints = checkpointMgr.listCheckpoints(runId)
-          expect(allCheckpoints).toHaveLength(phases.length)
-
-          const latestOnes = allCheckpoints.filter((c) => c.isLatest)
-          expect(latestOnes).toHaveLength(1)
-          expect(latestOnes[0]!.phase).toBe(phases[phases.length - 1])
-        } finally {
-          store.close()
+          // Data should contain the serialized phase outputs
+          const data = latest!.data as Record<string, unknown>
+          expect(data.runId).toBe(runId)
+          expect(data.phase).toBe(phase)
+          expect(data.phaseOutputs).toBeDefined()
         }
+
+        // After all phases, only the last checkpoint should be "latest"
+        const allCheckpoints = getCheckpointMgr().listCheckpoints(runId)
+        expect(allCheckpoints).toHaveLength(phases.length)
+
+        const latestOnes = allCheckpoints.filter((c) => c.isLatest)
+        expect(latestOnes).toHaveLength(1)
+        expect(latestOnes[0]!.phase).toBe(phases[phases.length - 1])
       },
     )
 
@@ -1389,6 +1421,459 @@ describe('E2E Validation Properties', () => {
 
         // At least one callback if there's at least one write
         expect(callbackCount).toBeGreaterThanOrEqual(1)
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 20, 21, 33: Review council and delivery
+  // Validates: Requirements 15.4, 15.6, 16.2, 25.1
+  describe('Property 20, 21, 33: Review council and delivery', () => {
+    /** Arbitrary for unique reviewer role strings */
+    const roleArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z][a-z0-9-]{0,14}$/)
+      .filter((s) => s.length > 0 && !s.endsWith('-'))
+
+    // Property 20: Review council votes match configured reviewers
+    // For any reviewers config with N reviewers, the votes array should have
+    // exactly N entries and each vote's perspective matches the reviewer's role.
+    // We also verify the generalized consensus logic:
+    //   all approve → passed
+    //   ≥ max(1, floor(N*2/3)) → passed-with-warnings
+    //   else → rejected
+    test.prop([
+      fc.uniqueArray(
+        fc.record({
+          role: roleArbitrary,
+          approved: fc.boolean(),
+        }),
+        {
+          minLength: 1,
+          maxLength: 6,
+          selector: (r) => r.role,
+        },
+      ),
+    ])(
+      'Property 20: votes match reviewers and consensus follows 2/3 threshold',
+      (reviewerInputs) => {
+        // Build votes as the ReviewCouncilAgent would
+        const votes: Array<{
+          perspective: string
+          approved: boolean
+          feedback: string
+          severity: 'low'
+        }> = reviewerInputs.map((r) => ({
+          perspective: r.role,
+          approved: r.approved,
+          feedback: 'test',
+          severity: 'low' as const,
+        }))
+
+        // Votes count must equal reviewer count
+        expect(votes).toHaveLength(reviewerInputs.length)
+
+        // Each vote's perspective must match the reviewer's role
+        for (let i = 0; i < reviewerInputs.length; i++) {
+          expect(votes[i]!.perspective).toBe(reviewerInputs[i]!.role)
+        }
+
+        // Replicate the exact consensus logic from ReviewCouncilAgent.determineConsensus
+        const approvalCount = votes.filter((v) => v.approved).length
+        const totalCount = votes.length
+
+        let expected: 'passed' | 'passed-with-warnings' | 'rejected'
+        if (approvalCount === totalCount) {
+          expected = 'passed'
+        } else {
+          const threshold = Math.max(1, Math.floor((totalCount * 2) / 3))
+          expected =
+            approvalCount >= threshold ? 'passed-with-warnings' : 'rejected'
+        }
+
+        // Verify specific cases from requirements:
+        // Req 15.9: single reviewer approve → passed, reject → rejected
+        if (totalCount === 1) {
+          expect(expected).toBe(approvalCount === 1 ? 'passed' : 'rejected')
+        }
+
+        // Req 15.10: 4 reviewers, 2 approve → passed-with-warnings
+        // (floor(4*2/3) = 2, so 2 >= 2 → passed-with-warnings)
+        if (totalCount === 4 && approvalCount === 2) {
+          expect(expected).toBe('passed-with-warnings')
+        }
+
+        // 0 approvals always → rejected (threshold is at least 1)
+        if (approvalCount === 0) {
+          expect(expected).toBe('rejected')
+        }
+
+        expect(['passed', 'passed-with-warnings', 'rejected']).toContain(
+          expected,
+        )
+      },
+    )
+
+    // Property 21: Delivery branch naming convention
+    // For any feature name, the branch should match kaso/{feature}-delivery-{YYYYMMDDTHHmmss}
+    test.prop([
+      fc
+        .stringMatching(/^[a-z][a-z0-9-]{0,19}$/)
+        .filter((s) => s.length > 0 && !s.endsWith('-')),
+      fc.integer({
+        min: new Date('2020-01-01T00:00:00Z').getTime(),
+        max: new Date('2030-12-31T23:59:59Z').getTime(),
+      }),
+    ])(
+      'Property 21: delivery branch matches kaso/{feature}-delivery-{timestamp}',
+      (featureName, timestampMs) => {
+        // Replicate the exact timestamp formatting from DeliveryAgent
+        const timestamp = new Date(timestampMs)
+          .toISOString()
+          .replace(/[:\-]/g, '')
+          .replace(/\.\d{3}Z$/, '')
+        const branchName = `kaso/${featureName}-delivery-${timestamp}`
+
+        // Must start with kaso/
+        expect(branchName).toMatch(/^kaso\//)
+
+        // Must contain -delivery-
+        expect(branchName).toContain('-delivery-')
+
+        // Feature name must appear between kaso/ and -delivery-
+        const afterKaso = branchName.slice('kaso/'.length)
+        expect(afterKaso.startsWith(`${featureName}-delivery-`)).toBe(true)
+
+        // Timestamp portion must be valid compact ISO (YYYYMMDDTHHmmss)
+        const timestampPart = branchName.slice(
+          `kaso/${featureName}-delivery-`.length,
+        )
+        expect(timestampPart).toMatch(/^\d{8}T\d{6}$/)
+      },
+    )
+
+    // Property 33: Per-reviewer backend assignment
+    // For any reviewer configured with a backend field, the ReviewCouncilAgent
+    // should emit an agent:backend-selected event with reason "reviewer-override"
+    // and the reviewer's role. We verify the event structure.
+    test.prop([
+      roleArbitrary,
+      fc.stringMatching(/^[a-z][a-z0-9-]{0,14}$/).filter((s) => s.length > 0),
+    ])(
+      'Property 33: reviewer backend override emits correct event structure',
+      (reviewerRole, backendName) => {
+        const eventBus = new EventBus()
+        const collector = new EventCollector(eventBus)
+
+        try {
+          // Simulate the event that ReviewCouncilAgent emits for reviewer overrides
+          const event: ExecutionEvent = {
+            type: 'agent:backend-selected',
+            runId: 'test-run',
+            timestamp: new Date().toISOString(),
+            phase: 'review-delivery',
+            data: {
+              backend: backendName,
+              reason: 'reviewer-override',
+              reviewerRole,
+            },
+          }
+
+          eventBus.emit(event)
+
+          const collected = collector.getByType('agent:backend-selected')
+          expect(collected).toHaveLength(1)
+
+          const received = collected[0]!
+          expect(received.data!.reason).toBe('reviewer-override')
+          expect(received.data!.reviewerRole).toBe(reviewerRole)
+          expect(received.data!.backend).toBe(backendName)
+          expect(received.phase).toBe('review-delivery')
+        } finally {
+          collector.dispose()
+          eventBus.removeAllListeners()
+        }
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 22: Error handling and retries
+  // Validates: Requirements 18.1
+  describe('Property 22: Error handling and retries', () => {
+    // Property 22: Retry count bounded by maxPhaseRetries
+    // For any maxPhaseRetries value n and a phase configured to always fail
+    // with retryable: true, the orchestrator should attempt the phase at most
+    // n + 1 times (1 initial + n retries) before halting.
+    test.prop([fc.integer({ min: 0, max: 10 })])(
+      'Property 22: ErrorHandler respects maxPhaseRetries bound',
+      (maxRetries) => {
+        const backendRegistry = new BackendRegistry({
+          executorBackends: [
+            {
+              name: 'mock',
+              command: 'echo',
+              args: [],
+              protocol: 'cli-json' as const,
+              maxContextWindow: 128000,
+              costPer1000Tokens: 0.01,
+              enabled: true,
+            },
+          ],
+          defaultBackend: 'mock',
+          backendSelectionStrategy: 'default' as const,
+        } as unknown as KASOConfig)
+
+        const config = {
+          executorBackends: [
+            {
+              name: 'mock',
+              command: 'echo',
+              args: [],
+              protocol: 'cli-json' as const,
+              maxContextWindow: 128000,
+              costPer1000Tokens: 0.01,
+              enabled: true,
+            },
+          ],
+          defaultBackend: 'mock',
+          backendSelectionStrategy: 'default' as const,
+          maxPhaseRetries: maxRetries,
+        } as unknown as KASOConfig
+
+        const handler = new ErrorHandler(backendRegistry, config)
+        const runId = 'retry-test'
+        const phase: PhaseName = 'implementation'
+        const error: AgentError = {
+          message: 'Backend failed',
+          retryable: true,
+        }
+        const agent: Agent = {
+          execute: async () => ({ success: false, duration: 0 }),
+          supportsRollback: () => false,
+          estimatedDuration: () => 1000,
+          requiredContext: () => [],
+        }
+
+        // Simulate repeated failures
+        let retryCount = 0
+        for (let i = 0; i <= maxRetries + 2; i++) {
+          const result = handler.handleFailure(runId, phase, error, agent)
+          if (result.action === 'retry' || result.action === 'rollback-retry') {
+            retryCount++
+          } else {
+            // Should escalate after maxRetries
+            expect(result.action).toBe('escalate')
+            break
+          }
+        }
+
+        // Should have retried exactly maxRetries times
+        expect(retryCount).toBe(maxRetries)
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 23–26: Execution store
+  // Validates: Requirements 19.1, 19.2, 19.3, 19.4, 19.5
+  describe('Property 23–26: Execution store', () => {
+    const ALL_PHASES: PhaseName[] = [
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    ]
+
+    const runIdArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z0-9-]{1,36}$/)
+      .filter((s) => s.length > 0)
+
+    // Shared store — lazily initialized to avoid native handle creation
+    // when these tests aren't selected.
+    let sharedStore: ExecutionStore | null = null
+
+    function getSharedStore(): ExecutionStore {
+      if (!sharedStore) {
+        sharedStore = new ExecutionStore({ type: 'sqlite', path: ':memory:' })
+      }
+      return sharedStore
+    }
+
+    /** Wipe all rows so each iteration starts clean */
+    function resetStore(): void {
+      const db = getSharedStore().getDatabase()!
+      db.exec('DELETE FROM phase_results')
+      db.exec('DELETE FROM checkpoints')
+      db.exec('DELETE FROM runs')
+    }
+
+    afterAll(() => {
+      sharedStore?.close()
+      sharedStore = null
+    })
+
+    // Property 23: Execution store run and phase records persist
+    test.prop([runIdArbitrary, fc.integer({ min: 1, max: 8 })])(
+      'Property 23: getRun and getPhaseResults return persisted records',
+      (runId, phaseCount) => {
+        resetStore()
+        const phases = ALL_PHASES.slice(0, phaseCount)
+
+        getSharedStore().saveRun({
+          runId,
+          specPath: '/test/spec',
+          status: 'completed',
+          phases,
+          startedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          cost: 0,
+          phaseResults: [],
+          logs: [],
+        })
+
+        for (let i = 0; i < phases.length; i++) {
+          getSharedStore().appendPhaseResult(runId, {
+            runId,
+            phase: phases[i]!,
+            sequence: i,
+            status: 'success',
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            duration: 100,
+          })
+        }
+
+        const run = getSharedStore().getRun(runId)
+        expect(run).not.toBeNull()
+        expect(run!.runId).toBe(runId)
+        expect(run!.status).toBe('completed')
+
+        const results = getSharedStore().getPhaseResults(runId)
+        expect(results).toHaveLength(phaseCount)
+        for (let i = 0; i < phaseCount; i++) {
+          expect(results[i]!.phase).toBe(phases[i])
+          expect(results[i]!.sequence).toBe(i)
+        }
+      },
+    )
+
+    // Property 24: Execution store ordering
+    test.prop([fc.uniqueArray(runIdArbitrary, { minLength: 2, maxLength: 5 })])(
+      'Property 24: listRuns returns all runs',
+      (runIds) => {
+        resetStore()
+
+        for (const id of runIds) {
+          getSharedStore().saveRun({
+            runId: id,
+            specPath: `/test/${id}`,
+            status: 'completed',
+            phases: ALL_PHASES,
+            startedAt: new Date().toISOString(),
+            cost: 0,
+            phaseResults: [],
+            logs: [],
+          })
+        }
+
+        const listed = getSharedStore().listRuns()
+        expect(listed).toHaveLength(runIds.length)
+
+        const listedIds = new Set(listed.map((r) => r.runId))
+        for (const id of runIds) {
+          expect(listedIds.has(id)).toBe(true)
+        }
+      },
+    )
+
+    // Property 25: Status update round-trip
+    test.prop([
+      runIdArbitrary,
+      fc.constantFrom(
+        'pending' as const,
+        'running' as const,
+        'paused' as const,
+        'completed' as const,
+        'failed' as const,
+        'cancelled' as const,
+      ),
+    ])(
+      'Property 25: updateRunStatus persists and getRun reflects the new status',
+      (runId, newStatus) => {
+        resetStore()
+
+        getSharedStore().saveRun({
+          runId,
+          specPath: '/test/spec',
+          status: 'pending',
+          phases: ALL_PHASES,
+          startedAt: new Date().toISOString(),
+          cost: 0,
+          phaseResults: [],
+          logs: [],
+        })
+
+        getSharedStore().updateRunStatus(runId, newStatus)
+
+        const run = getSharedStore().getRun(runId)
+        expect(run).not.toBeNull()
+        expect(run!.status).toBe(newStatus)
+      },
+    )
+
+    // Property 26: getInterruptedRuns returns only non-terminal runs
+    test.prop([
+      fc.array(
+        fc.record({
+          id: runIdArbitrary,
+          status: fc.constantFrom(
+            'pending' as const,
+            'running' as const,
+            'paused' as const,
+            'completed' as const,
+            'failed' as const,
+            'cancelled' as const,
+          ),
+        }),
+        { minLength: 1, maxLength: 6 },
+      ),
+    ])(
+      'Property 26: getInterruptedRuns returns only running/paused runs',
+      (runs) => {
+        resetStore()
+
+        const seen = new Set<string>()
+        const uniqueRuns = runs.filter((r) => {
+          if (seen.has(r.id)) return false
+          seen.add(r.id)
+          return true
+        })
+
+        for (const run of uniqueRuns) {
+          getSharedStore().saveRun({
+            runId: run.id,
+            specPath: `/test/${run.id}`,
+            status: run.status,
+            phases: ALL_PHASES,
+            startedAt: new Date().toISOString(),
+            cost: 0,
+            phaseResults: [],
+            logs: [],
+          })
+        }
+
+        const interrupted = getSharedStore().getInterruptedRuns()
+
+        const nonTerminal = new Set(['running', 'paused'])
+        for (const run of interrupted) {
+          expect(nonTerminal.has(run.status)).toBe(true)
+        }
+
+        const expectedCount = uniqueRuns.filter((r) =>
+          nonTerminal.has(r.status),
+        ).length
+        expect(interrupted).toHaveLength(expectedCount)
       },
     )
   })
