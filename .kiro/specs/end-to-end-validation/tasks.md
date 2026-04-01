@@ -257,7 +257,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 16: Webhook signature round-trip**
     - **Validates: Requirements 10.3, 10.4**
 
-  - [ ] 14.8 Write property tests for plugins and MCP
+  - [-] 14.8 Write property tests for plugins and MCP
     - **Property 17: Custom phase injection position**
     - **Validates: Requirements 12.2**
     - **Property 18: MCP tools scoped to implementation phase only**

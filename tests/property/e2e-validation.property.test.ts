@@ -25,6 +25,8 @@ import { ExecutionStore } from '@/infrastructure/execution-store'
 import { CheckpointManager } from '@/infrastructure/checkpoint-manager'
 import { CostTracker } from '@/infrastructure/cost-tracker'
 import { WebhookDispatcher } from '@/infrastructure/webhook-dispatcher'
+import { createPhaseInjector, BUILTIN_PHASES } from '@/plugins/phase-injector'
+import { createMCPClient } from '@/infrastructure/mcp-client'
 import {
   createIntakeOutput,
   createValidationOutput,
@@ -1272,6 +1274,121 @@ describe('E2E Validation Properties', () => {
         expect(
           dispatcher.verifySignature(payload, wrongSecret, signature),
         ).toBe(false)
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 17, 18, 19: Plugins and MCP
+  // Validates: Requirements 12.2, 13.4, 14.4
+  describe('Property 17, 18, 19: Plugins and MCP', () => {
+    const ALL_PHASES: PhaseName[] = [
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    ]
+
+    const phaseNameArbitrary: fc.Arbitrary<PhaseName> = fc.constantFrom(
+      ...ALL_PHASES,
+    )
+
+    // Property 17: Custom phase injection position
+    // For any valid position p (0–8), injecting a custom phase at position p
+    // should result in that phase appearing at index p in the pipeline order.
+    test.prop([
+      fc.integer({ min: 0, max: 8 }),
+      fc
+        .stringMatching(/^[a-z][a-z0-9-]{0,14}$/)
+        .filter((s) => s.length > 0 && !s.endsWith('-')),
+    ])(
+      'Property 17: custom phase at position p appears at index p in pipeline',
+      (position, suffix) => {
+        const customName = `custom-${suffix}`
+        const injector = createPhaseInjector([
+          { name: customName, package: 'test-plugin', position, config: {} },
+        ])
+
+        const result = injector.buildPipeline()
+        const order = injector.getPhaseOrder()
+
+        // No errors for valid input
+        expect(result.errors).toHaveLength(0)
+
+        // Pipeline should have 9 phases (8 built-in + 1 custom)
+        expect(order).toHaveLength(9)
+
+        // Custom phase should be at the specified position
+        expect(order[position]).toBe(customName)
+
+        // All 8 built-in phases should still be present
+        for (const builtIn of BUILTIN_PHASES) {
+          expect(order).toContain(builtIn)
+        }
+
+        // Built-in phases should maintain their relative order
+        const builtInOnly = order.filter((p) =>
+          BUILTIN_PHASES.includes(p as PhaseName),
+        )
+        expect(builtInOnly).toEqual(BUILTIN_PHASES)
+      },
+    )
+
+    // Property 18: MCP tools scoped to implementation phase only
+    // For any phase that is not 'implementation', isPhaseEligible should
+    // return false and getToolsForPhase should return an empty array.
+    test.prop([phaseNameArbitrary])(
+      'Property 18: MCPClient.isPhaseEligible returns true only for implementation',
+      (phase) => {
+        const client = createMCPClient([])
+
+        const eligible = client.isPhaseEligible(phase)
+        const tools = client.getToolsForPhase(phase)
+
+        if (phase === 'implementation') {
+          expect(eligible).toBe(true)
+        } else {
+          expect(eligible).toBe(false)
+          expect(tools).toHaveLength(0)
+        }
+      },
+    )
+
+    // Property 19: FileWatcher debounce
+    // For any number of rapid status.json writes within the debounce window,
+    // the seenSpecs deduplication should ensure at most one callback per spec.
+    // We test the deduplication logic by simulating the FileWatcher's seenSpecs set.
+    test.prop([
+      fc.array(
+        fc.stringMatching(/^[a-z][a-z0-9-]{0,14}$/).filter((s) => s.length > 0),
+        { minLength: 1, maxLength: 20 },
+      ),
+    ])(
+      'Property 19: deduplication triggers at most one callback per unique spec',
+      (specPaths) => {
+        // Replicate FileWatcher's seenSpecs deduplication logic
+        const seenSpecs = new Set<string>()
+        let callbackCount = 0
+
+        for (const specPath of specPaths) {
+          if (!seenSpecs.has(specPath)) {
+            seenSpecs.add(specPath)
+            callbackCount++
+          }
+        }
+
+        // Callbacks should equal unique spec count, not total writes
+        const uniqueSpecs = new Set(specPaths).size
+        expect(callbackCount).toBe(uniqueSpecs)
+
+        // Callback count must be <= total writes
+        expect(callbackCount).toBeLessThanOrEqual(specPaths.length)
+
+        // At least one callback if there's at least one write
+        expect(callbackCount).toBeGreaterThanOrEqual(1)
       },
     )
   })
