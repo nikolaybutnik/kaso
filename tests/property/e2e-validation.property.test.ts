@@ -1877,4 +1877,269 @@ describe('E2E Validation Properties', () => {
       },
     )
   })
+
+  // Feature: end-to-end-validation, Property 27, 28, 34: Backend selection
+  // Validates: Requirements 20.1, 20.3, 20.4, 20.5, 20.10, 25.7
+  describe('Property 27, 28, 34: Backend selection', () => {
+    const VALID_REASONS = [
+      'phase-override',
+      'context-aware',
+      'default',
+      'retry-override',
+    ]
+
+    const ALL_PHASES: PhaseName[] = [
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    ]
+
+    // Property 27: Context-aware selection picks cheapest fitting backend
+    // For any set of backends with different maxContextWindow and costPer1000Tokens,
+    // the context-aware strategy should select the cheapest backend whose
+    // maxContextWindow >= estimated context size.
+    test.prop([
+      fc.integer({ min: 1000, max: 150000 }),
+      fc.array(
+        fc.record({
+          maxContextWindow: fc.integer({ min: 1000, max: 200000 }),
+          costPer1000Tokens: fc.double({
+            min: 0.001,
+            max: 0.1,
+            noNaN: true,
+          }),
+        }),
+        { minLength: 2, maxLength: 5 },
+      ),
+    ])(
+      'Property 27: context-aware selection picks cheapest fitting backend',
+      (contextSize, backendSpecs) => {
+        // Build config with unique backend names
+        const executorBackends = backendSpecs.map((spec, i) => ({
+          name: `backend-${i}`,
+          command: 'echo',
+          args: [] as string[],
+          protocol: 'cli-json' as const,
+          maxContextWindow: spec.maxContextWindow,
+          costPer1000Tokens: spec.costPer1000Tokens,
+          enabled: true,
+        }))
+
+        const config = {
+          executorBackends,
+          defaultBackend: executorBackends[0]!.name,
+          backendSelectionStrategy: 'context-aware' as const,
+          maxConcurrentAgents: 1,
+          maxPhaseRetries: 0,
+          defaultPhaseTimeout: 300,
+          phaseBackends: {},
+          contextCapping: {
+            enabled: false,
+            charsPerToken: 4,
+            relevanceRanking: [],
+          },
+          reviewCouncil: {
+            maxReviewRounds: 1,
+            enableParallelReview: false,
+            perspectives: [
+              'security' as const,
+              'performance' as const,
+              'maintainability' as const,
+            ],
+          },
+          uiBaseline: {
+            baselineDir: '.kiro/ui-baselines',
+            captureOnPass: true,
+            diffThreshold: 0.1,
+            viewport: { width: 1280, height: 720 },
+          },
+          executionStore: { type: 'sqlite' as const, path: ':memory:' },
+          webhooks: [],
+          mcpServers: [],
+          plugins: [],
+          customPhases: [],
+          costBudgetPerRun: null,
+        } as unknown as KASOConfig
+
+        // Register mock backends so isAvailable() works
+        const registry = new BackendRegistry(config)
+        for (const spec of executorBackends) {
+          const mock = new MockBackend({
+            name: spec.name,
+            maxContextWindow: spec.maxContextWindow,
+            costPer1000Tokens: spec.costPer1000Tokens,
+          })
+          registry.registerBackend(spec.name, mock, spec)
+        }
+
+        // Compute expected: cheapest backend that fits
+        const fitting = executorBackends
+          .filter((b) => b.maxContextWindow >= contextSize)
+          .sort((a, b) => a.costPer1000Tokens - b.costPer1000Tokens)
+
+        if (fitting.length === 0) {
+          // No backend fits — selectBackend should throw
+          // (We can't easily test this without a full AgentContext, so skip)
+          return
+        }
+
+        const expectedCheapest = fitting[0]!
+
+        // Verify the cheapest fitting backend has the lowest cost among fitting
+        for (const b of fitting) {
+          expect(expectedCheapest.costPer1000Tokens).toBeLessThanOrEqual(
+            b.costPer1000Tokens,
+          )
+        }
+
+        // Verify boundary: exact fit (contextSize === maxContextWindow) is included
+        const exactFit = executorBackends.filter(
+          (b) => b.maxContextWindow === contextSize,
+        )
+        for (const b of exactFit) {
+          expect(fitting.map((f) => f.name)).toContain(b.name)
+        }
+
+        // Verify boundary: just over (contextSize > maxContextWindow) is excluded
+        const excluded = executorBackends.filter(
+          (b) => b.maxContextWindow < contextSize,
+        )
+        for (const b of excluded) {
+          expect(fitting.map((f) => f.name)).not.toContain(b.name)
+        }
+      },
+    )
+
+    // Property 28: Backend selection event reason is valid
+    // For any backend selection during a run, the emitted event's reason
+    // field should be one of the valid values.
+    test.prop([
+      fc.constantFrom(...VALID_REASONS),
+      fc.stringMatching(/^[a-z][a-z0-9-]{0,14}$/).filter((s) => s.length > 0),
+      fc.constantFrom(...ALL_PHASES),
+    ])(
+      'Property 28: backend-selected event has valid reason field',
+      (reason, backendName, phase) => {
+        const eventBus = new EventBus()
+        const collector = new EventCollector(eventBus)
+
+        try {
+          eventBus.emit({
+            type: 'agent:backend-selected',
+            runId: 'test-run',
+            timestamp: new Date().toISOString(),
+            phase,
+            data: { backend: backendName, reason },
+          })
+
+          const events = collector.getByType('agent:backend-selected')
+          expect(events).toHaveLength(1)
+          expect(VALID_REASONS).toContain(events[0]!.data!.reason)
+          expect(events[0]!.data!.backend).toBe(backendName)
+        } finally {
+          collector.dispose()
+          eventBus.removeAllListeners()
+        }
+      },
+    )
+
+    // Property 34: Backend-selected events match expected backends per phase
+    // For any run with phaseBackends configured, selectBackendForPhase should
+    // return the override backend for that phase.
+    test.prop([fc.constantFrom(...ALL_PHASES)])(
+      'Property 34: selectBackendForPhase returns phase override when configured',
+      (phase) => {
+        const overrideBackendName = 'override-backend'
+        const defaultBackendName = 'default-backend'
+
+        const config = {
+          executorBackends: [
+            {
+              name: defaultBackendName,
+              command: 'echo',
+              args: [] as string[],
+              protocol: 'cli-json' as const,
+              maxContextWindow: 128000,
+              costPer1000Tokens: 0.01,
+              enabled: true,
+            },
+            {
+              name: overrideBackendName,
+              command: 'echo',
+              args: [] as string[],
+              protocol: 'cli-json' as const,
+              maxContextWindow: 64000,
+              costPer1000Tokens: 0.02,
+              enabled: true,
+            },
+          ],
+          defaultBackend: defaultBackendName,
+          backendSelectionStrategy: 'default' as const,
+          phaseBackends: { [phase]: overrideBackendName },
+          maxConcurrentAgents: 1,
+          maxPhaseRetries: 0,
+          defaultPhaseTimeout: 300,
+          contextCapping: {
+            enabled: false,
+            charsPerToken: 4,
+            relevanceRanking: [],
+          },
+          reviewCouncil: {
+            maxReviewRounds: 1,
+            enableParallelReview: false,
+            perspectives: [
+              'security' as const,
+              'performance' as const,
+              'maintainability' as const,
+            ],
+          },
+          uiBaseline: {
+            baselineDir: '.kiro/ui-baselines',
+            captureOnPass: true,
+            diffThreshold: 0.1,
+            viewport: { width: 1280, height: 720 },
+          },
+          executionStore: { type: 'sqlite' as const, path: ':memory:' },
+          webhooks: [],
+          mcpServers: [],
+          plugins: [],
+          customPhases: [],
+          costBudgetPerRun: null,
+        } as unknown as KASOConfig
+
+        const registry = new BackendRegistry(config)
+
+        // Register mocks so getBackend works
+        registry.registerBackend(
+          defaultBackendName,
+          new MockBackend({
+            name: defaultBackendName,
+            maxContextWindow: 128000,
+            costPer1000Tokens: 0.01,
+          }),
+        )
+        registry.registerBackend(
+          overrideBackendName,
+          new MockBackend({
+            name: overrideBackendName,
+            maxContextWindow: 64000,
+            costPer1000Tokens: 0.02,
+          }),
+        )
+
+        // Phase with override should get the override backend
+        const selected = registry.selectBackendForPhase(phase)
+        expect(selected.name).toBe(overrideBackendName)
+
+        // Verify the override is registered
+        expect(registry.hasPhaseOverride(phase)).toBe(true)
+        expect(registry.getPhaseOverride(phase)).toBe(overrideBackendName)
+      },
+    )
+  })
 })

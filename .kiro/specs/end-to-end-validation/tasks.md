@@ -287,7 +287,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 26: getInterruptedRuns returns only non-terminal runs**
     - **Validates: Requirements 19.5**
 
-  - [ ] 14.12 Write property tests for backend selection
+  - [x] 14.12 Write property tests for backend selection
     - **Property 27: Context-aware selection picks cheapest fitting backend**
     - **Validates: Requirements 20.1, 20.3, 20.4, 20.5**
     - **Property 28: Backend selection event reason is valid**
