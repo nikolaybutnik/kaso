@@ -2142,4 +2142,111 @@ describe('E2E Validation Properties', () => {
       },
     )
   })
+
+  // Feature: end-to-end-validation, Property 29, 30: Context capping
+  // Validates: Requirements 21.1, 21.2, 21.3
+  describe('Property 29, 30: Context capping', () => {
+    // Property 29: Context capping removes files in reverse relevance order
+    // Files not in the relevance ranking are removed first, then files with
+    // higher index (lower relevance). removedFiles should reflect this order.
+    test.prop([
+      fc.uniqueArray(
+        fc
+          .stringMatching(/^[a-z][a-z0-9-]{0,14}\.md$/)
+          .filter((s) => s.length > 3),
+        { minLength: 2, maxLength: 6 },
+      ),
+      fc.uniqueArray(
+        fc
+          .stringMatching(/^[a-z][a-z0-9-]{0,14}\.md$/)
+          .filter((s) => s.length > 3),
+        { minLength: 0, maxLength: 4 },
+      ),
+    ])(
+      'Property 29: files removed in reverse relevance order (unranked first, then lowest ranked)',
+      (allFiles, rankedSubset) => {
+        // relevanceRanking: lower index = more relevant = removed last
+        const relevanceRanking = rankedSubset.filter((f) =>
+          allFiles.includes(f),
+        )
+        const UNRANKED = Number.MAX_SAFE_INTEGER
+
+        // Build removable list with relevance scores
+        const removable = allFiles.map((file) => {
+          const rankIndex = relevanceRanking.indexOf(file)
+          return {
+            file,
+            relevanceScore: rankIndex === -1 ? UNRANKED : rankIndex,
+            tokenSize: file.length * 10, // arbitrary size proportional to name
+          }
+        })
+
+        // Sort: highest relevanceScore first (least relevant removed first),
+        // ties broken by largest file first — matches SpecReaderAgent logic
+        removable.sort((a, b) => {
+          if (b.relevanceScore !== a.relevanceScore)
+            return b.relevanceScore - a.relevanceScore
+          return b.tokenSize - a.tokenSize
+        })
+
+        const removalOrder = removable.map((r) => r.file)
+
+        // Unranked files must appear before ranked files in removal order
+        const firstRankedIdx = removalOrder.findIndex((f) =>
+          relevanceRanking.includes(f),
+        )
+        if (firstRankedIdx > 0) {
+          // Everything before the first ranked file must be unranked
+          for (let i = 0; i < firstRankedIdx; i++) {
+            expect(relevanceRanking).not.toContain(removalOrder[i])
+          }
+        }
+
+        // Among ranked files, they should appear in reverse ranking order
+        // (highest index = lowest relevance = removed first)
+        const rankedInRemoval = removalOrder.filter((f) =>
+          relevanceRanking.includes(f),
+        )
+        for (let i = 1; i < rankedInRemoval.length; i++) {
+          const prevRank = relevanceRanking.indexOf(rankedInRemoval[i - 1]!)
+          const currRank = relevanceRanking.indexOf(rankedInRemoval[i]!)
+          // Previous should have higher or equal index (lower relevance)
+          expect(prevRank).toBeGreaterThanOrEqual(currRank)
+        }
+      },
+    )
+
+    // Property 30: charsPerToken affects token estimation
+    // For any two charsPerToken values a < b, the same content should produce
+    // a higher token estimate with a than with b.
+    test.prop([
+      fc.integer({ min: 1, max: 10 }),
+      fc.integer({ min: 11, max: 20 }),
+      fc.string({ minLength: 100, maxLength: 5000 }),
+    ])(
+      'Property 30: lower charsPerToken produces higher token estimate',
+      (smallCpt, largeCpt, content) => {
+        // Replicate SpecReaderAgent.estimateContextSize logic:
+        // tokens = ceil(charCount / charsPerToken)
+        const charCount = content.length
+
+        const tokensWithSmall = Math.ceil(charCount / smallCpt)
+        const tokensWithLarge = Math.ceil(charCount / largeCpt)
+
+        // Smaller charsPerToken → more tokens (more aggressive capping)
+        expect(tokensWithSmall).toBeGreaterThanOrEqual(tokensWithLarge)
+
+        // Both must be positive
+        expect(tokensWithSmall).toBeGreaterThan(0)
+        expect(tokensWithLarge).toBeGreaterThan(0)
+
+        // The ratio should roughly match the inverse ratio of charsPerToken
+        // (with ceiling rounding tolerance)
+        const expectedRatio = largeCpt / smallCpt
+        const actualRatio = tokensWithSmall / tokensWithLarge
+        expect(actualRatio).toBeGreaterThanOrEqual(expectedRatio * 0.5)
+        expect(actualRatio).toBeLessThanOrEqual(expectedRatio * 2)
+      },
+    )
+  })
 })

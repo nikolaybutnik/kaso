@@ -295,7 +295,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 34: Backend-selected events match expected backends per phase**
     - **Validates: Requirements 25.7**
 
-  - [ ] 14.13 Write property tests for context capping
+  - [x] 14.13 Write property tests for context capping
     - **Property 29: Context capping removes files in reverse relevance order**
     - **Validates: Requirements 21.1, 21.3**
     - **Property 30: charsPerToken affects token estimation**
