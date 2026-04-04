@@ -208,7 +208,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
 - [x] 13. Checkpoint — Ensure Tier 4 tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 14. Implement property-based tests
+- [x] 14. Implement property-based tests
   - [x] 14.1 Create `tests/property/e2e-validation.property.test.ts` — scaffolding and config properties
     - **Property 1: Scaffolded config always passes schema validation**
     - **Validates: Requirements 1.1**
@@ -301,7 +301,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 30: charsPerToken affects token estimation**
     - **Validates: Requirements 21.2**
 
-  - [ ] 14.14 Write property tests for spec writer
+  - [x] 14.14 Write property tests for spec writer
     - **Property 31: SpecWriter phase transition entries**
     - **Validates: Requirements 23.2**
     - **Property 32: SpecWriter status.json fields**

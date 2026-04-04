@@ -25,6 +25,7 @@ import { ExecutionStore } from '@/infrastructure/execution-store'
 import { CheckpointManager } from '@/infrastructure/checkpoint-manager'
 import { CostTracker } from '@/infrastructure/cost-tracker'
 import { WebhookDispatcher } from '@/infrastructure/webhook-dispatcher'
+import { SpecWriter } from '@/infrastructure/spec-writer'
 import { createPhaseInjector, BUILTIN_PHASES } from '@/plugins/phase-injector'
 import { createMCPClient } from '@/infrastructure/mcp-client'
 import { ErrorHandler } from '@/core/error-handler'
@@ -47,6 +48,7 @@ import type {
   ExecutionEvent,
   PhaseResultRecord,
   AgentError,
+  RunStatus,
 } from '@/core/types'
 
 /** Track mock projects for cleanup */
@@ -2246,6 +2248,152 @@ describe('E2E Validation Properties', () => {
         const actualRatio = tokensWithSmall / tokensWithLarge
         expect(actualRatio).toBeGreaterThanOrEqual(expectedRatio * 0.5)
         expect(actualRatio).toBeLessThanOrEqual(expectedRatio * 2)
+      },
+    )
+  })
+
+  // Feature: end-to-end-validation, Property 31, 32: Spec writer
+  // Validates: Requirements 23.2, 23.3
+  describe('Property 31, 32: Spec writer', () => {
+    const ALL_PHASES: PhaseName[] = [
+      'intake',
+      'validation',
+      'architecture-analysis',
+      'implementation',
+      'architecture-review',
+      'test-verification',
+      'ui-validation',
+      'review-delivery',
+    ]
+
+    const phaseNameArbitrary: fc.Arbitrary<PhaseName> = fc.constantFrom(
+      ...ALL_PHASES,
+    )
+
+    const runIdArbitrary: fc.Arbitrary<string> = fc
+      .stringMatching(/^[a-z0-9-]{1,36}$/)
+      .filter((s) => s.length > 0)
+
+    const transitionResultArbitrary: fc.Arbitrary<
+      'started' | 'completed' | 'failed'
+    > = fc.constantFrom('started', 'completed', 'failed')
+
+    // Property 31: SpecWriter phase transition entries
+    // For any phase transition, execution-log.md should contain a timestamped
+    // entry with the phase name and transition result.
+    test.prop([
+      runIdArbitrary,
+      phaseNameArbitrary,
+      transitionResultArbitrary,
+      fc.option(fc.integer({ min: 1, max: 300000 })),
+    ])(
+      'Property 31: writePhaseTransition produces valid log entry',
+      async (runId, phase, result, durationMs) => {
+        const specDir = join(
+          tmpdir(),
+          `kaso-prop31-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        )
+
+        try {
+          const writer = new SpecWriter()
+          await writer.writePhaseTransition(
+            specDir,
+            runId,
+            phase,
+            result,
+            durationMs ?? undefined,
+          )
+
+          // execution-log.md must exist and contain the phase transition
+          const logPath = join(specDir, 'execution-log.md')
+          const logContent = readFileSync(logPath, 'utf-8')
+
+          // Must contain the phase name
+          expect(logContent).toContain(phase)
+
+          // Must contain the transition result
+          expect(logContent).toContain(result)
+
+          // Must contain a timestamp in ISO 8601 format
+          expect(logContent).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+
+          // Must contain the run ID
+          expect(logContent).toContain(runId)
+
+          // Failed transitions should be logged at error level
+          if (result === 'failed') {
+            expect(logContent).toContain('[error]')
+          } else {
+            expect(logContent).toContain('[info]')
+          }
+
+          // status.json must also be updated
+          const statusPath = join(specDir, 'status.json')
+          const statusContent = JSON.parse(
+            readFileSync(statusPath, 'utf-8'),
+          ) as Record<string, unknown>
+          expect(statusContent.runId).toBe(runId)
+          expect(statusContent.currentPhase).toBe(phase)
+          expect(statusContent.runStatus).toBe('running')
+        } finally {
+          rmSync(specDir, { recursive: true, force: true })
+        }
+      },
+    )
+
+    // Property 32: SpecWriter status.json fields
+    // For any active run, status.json must contain currentPhase, runStatus,
+    // lastUpdated, and runId fields matching the SpecStatus interface.
+    test.prop([
+      runIdArbitrary,
+      phaseNameArbitrary,
+      fc.constantFrom(
+        'running' as RunStatus,
+        'completed' as RunStatus,
+        'failed' as RunStatus,
+        'cancelled' as RunStatus,
+      ),
+    ])(
+      'Property 32: updateSpecStatus writes all required SpecStatus fields',
+      async (runId, phase, runStatus) => {
+        const specDir = join(
+          tmpdir(),
+          `kaso-prop32-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        )
+
+        try {
+          const writer = new SpecWriter()
+          const lastUpdated = new Date().toISOString()
+
+          await writer.updateSpecStatus(specDir, {
+            currentPhase: phase,
+            runStatus,
+            lastUpdated,
+            runId,
+          })
+
+          const statusPath = join(specDir, 'status.json')
+          const status = JSON.parse(
+            readFileSync(statusPath, 'utf-8'),
+          ) as Record<string, unknown>
+
+          // All four required fields must be present
+          expect(status).toHaveProperty('currentPhase')
+          expect(status).toHaveProperty('runStatus')
+          expect(status).toHaveProperty('lastUpdated')
+          expect(status).toHaveProperty('runId')
+
+          // Values must match what was written
+          expect(status.currentPhase).toBe(phase)
+          expect(status.runStatus).toBe(runStatus)
+          expect(status.lastUpdated).toBe(lastUpdated)
+          expect(status.runId).toBe(runId)
+
+          // lastUpdated must be valid ISO 8601
+          expect(isNaN(Date.parse(status.lastUpdated as string))).toBe(false)
+        } finally {
+          rmSync(specDir, { recursive: true, force: true })
+        }
       },
     )
   })
