@@ -307,11 +307,11 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - **Property 32: SpecWriter status.json fields**
     - **Validates: Requirements 23.3**
 
-- [ ] 15. Checkpoint — Ensure property tests pass
+- [x] 15. Checkpoint — Ensure property tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 16. Add CI configuration and npm scripts
-  - [ ] 16.1 Add E2E npm scripts to `package.json`
+  - [x] 16.1 Add E2E npm scripts to `package.json`
     - Add `test:e2e` script running all E2E tiers
     - Add `test:e2e:tier1` script: `vitest run tests/e2e/tier1-*.e2e.test.ts`
     - Add `test:e2e:tier2` script: `vitest run tests/e2e/tier2-*.e2e.test.ts`
@@ -320,7 +320,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
     - Configure appropriate timeouts per tier (60s/120s/180s/300s)
     - _Requirements: Tier strategy from design_
 
-  - [ ]* 16.2 Write a smoke test verifying each npm script glob matches expected files
+  - [ ] 16.2 Write a smoke test verifying each npm script glob matches expected files
     - _Requirements: CI execution strategy_
 
 - [ ] 17. Final checkpoint — Ensure all E2E tests, property tests, and existing tests pass

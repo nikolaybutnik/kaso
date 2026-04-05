@@ -13,7 +13,12 @@
     "test:watch": "vitest",
     "test:property": "vitest run --reporter=verbose tests/**/*property*.test.ts",
     "test:integration": "vitest run tests/**/*integration*.test.ts",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "vitest run tests/e2e/tier1-*.e2e.test.ts tests/e2e/tier2-*.e2e.test.ts tests/e2e/tier3-*.e2e.test.ts tests/e2e/tier4-*.e2e.test.ts",
+    "test:e2e:tier1": "vitest run --testTimeout=60000 tests/e2e/tier1-*.e2e.test.ts",
+    "test:e2e:tier2": "vitest run --testTimeout=120000 tests/e2e/tier2-*.e2e.test.ts",
+    "test:e2e:tier3": "vitest run --testTimeout=180000 tests/e2e/tier3-*.e2e.test.ts",
+    "test:e2e:tier4": "vitest run --testTimeout=300000 tests/e2e/tier4-*.e2e.test.ts"
   },
   "keywords": [
     "ai",
