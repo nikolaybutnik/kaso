@@ -323,7 +323,7 @@ Build a comprehensive E2E test suite that exercises KASO's full 8-phase pipeline
   - [x] 16.2 Write a smoke test verifying each npm script glob matches expected files
     - _Requirements: CI execution strategy_
 
-- [ ] 17. Final checkpoint — Ensure all E2E tests, property tests, and existing tests pass
+- [x] 17. Final checkpoint — Ensure all E2E tests, property tests, and existing tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
