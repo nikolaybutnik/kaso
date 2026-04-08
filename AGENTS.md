@@ -16,7 +16,7 @@ KASO is a TypeScript-based, locally-run modular orchestration system that reads 
 
 ### Current Status
 
-The project has 38 source files across 72 test files with 1120 passing tests including comprehensive property-based tests.
+The project has 38 source files across 73 test files with 1120 passing tests including comprehensive property-based tests.
 
 - **Phase 1 (Infrastructure & Configuration)**: ✅ Complete
 - **Phase 2 (Core Orchestration)**: ✅ Complete
@@ -119,7 +119,7 @@ tests/
 ├── cli/                 # 1 test file
 ├── config/              # 1 test file
 ├── core/                # 3 test files
-├── e2e/                 # 12 test files (tier1–tier4 + helper unit tests)
+├── e2e/                 # 13 test files (tier1–tier4 + helper unit tests)
 │   └── helpers/         # Shared test utilities (harness, mock-backend, mock-project, etc.)
 ├── infrastructure/      # 10 test files
 ├── integration/         # 5 test files
